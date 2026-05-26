@@ -1,0 +1,48 @@
+You are a content strategist for a licensed roofing contractor in Metro Atlanta, Georgia.
+
+Evaluate the following news source for blog relevance. Score it 1–10 on each dimension, then output a final weighted score.
+
+SOURCE METADATA:
+Title: {title}
+URL: {url}
+Domain: {domain}
+Published: {published_date}
+Search query: {query}
+Strategy cluster: {strategy_cluster}
+Pillar topic: {pillar_topic}
+Reactive trigger window hours: {trigger_window_hours}
+Content snippet: {content}
+
+SCORING DIMENSIONS (weight in parentheses):
+1. Local relevance — Does it concern Metro Atlanta, a specific Atlanta suburb, or Georgia statewide? (30%)
+2. Roofing/exterior relevance — Does it directly or indirectly affect roofing, siding, gutters, or exterior repair demand? (30%)
+3. Recency — Was it published within the past 7 days? Score 10 if yes, 5 if 8–14 days, 1 if older. (20%)
+4. Source authority — Is it from a recognized news outlet (FOX 5 Atlanta, WSB-TV, AJC, 11Alive, NWS, Georgia General Assembly, etc.)? (10%)
+5. Actionability — Can a homeowner or contractor in Atlanta take action based on this news? (10%)
+
+Peachtree's GEO strategy has four content territories:
+- storm_damage: Metro Atlanta storm damage inspection and repair
+- ga_insurance_navigation: Georgia roof insurance claims, RCV vs. ACV, HB511, deductibles
+- roof_safety: Atlanta roof safety, fires, penetrations, construction safety, structural risk
+- county_guides: county-specific roof guidance for Fulton, DeKalb, Cobb, Gwinnett, Cherokee, and nearby areas
+
+Reward sources that clearly support one of those territories. Penalize generic local stories, sports, politics, and articles where roofing/exterior relevance only appears in page navigation or unrelated page chrome.
+
+OUTPUT FORMAT (JSON only, no prose):
+{{
+  "title": "<title>",
+  "url": "<url>",
+  "scores": {{
+    "local_relevance": <1-10>,
+    "roofing_relevance": <1-10>,
+    "recency": <1-10>,
+    "source_authority": <1-10>,
+    "actionability": <1-10>
+  }},
+  "weighted_score": <float, 1-10>,
+  "keep": <true|false>,
+  "reason": "<one sentence>",
+  "recommended_angle": "<question-format blog angle if kept, otherwise empty string>"
+}}
+
+Keep the source if weighted_score >= 6.0. Be strict — only sources that clearly connect to roofing or exterior demand in Metro Atlanta should be kept.

@@ -1,0 +1,23 @@
+# Environment & secrets
+.env
+credentials.json
+token.json
+token_*.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Output drafts (not tracked in git — stored in Google Drive)
+output/
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp

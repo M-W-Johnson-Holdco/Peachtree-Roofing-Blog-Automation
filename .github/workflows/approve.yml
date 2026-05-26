@@ -1,0 +1,28 @@
+name: Approval Webhook
+
+on:
+  workflow_dispatch:
+    inputs:
+      draft_path:
+        description: "Path or ID for the approved draft"
+        required: true
+      decision:
+        description: "approve or revise"
+        required: true
+
+jobs:
+  approval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Handle approval
+        env:
+          PSAI_API_KEY: ${{ secrets.PSAI_API_KEY }}
+          PSAI_API_URL: ${{ secrets.PSAI_API_URL }}
+          PSAI_SITE_ID: ${{ secrets.PSAI_SITE_ID }}
+        run: python post.py
