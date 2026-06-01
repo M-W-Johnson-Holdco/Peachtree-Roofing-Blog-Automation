@@ -21,8 +21,9 @@ Required environment:
 PROJECT_ROOT = Path(__file__).resolve().parent
 DEFAULT_DAYS_BACK = 7
 DEFAULT_MAX_RESULTS_PER_QUERY = 5
-DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "output" / "drafts" / "search_results.json"
+DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "output" / "sources" / "search_results.json"
 DEFAULT_TARGET_RESULTS = 5
+RECENT_TOPIC_LOOKBACK_DAYS = 30
 
 # Results from these outlets should receive a source-authority bonus in evaluate.py.
 PRIORITY_SOURCES = [
@@ -269,6 +270,146 @@ CLUSTER_TERMS = {
     ],
 }
 
+TERRITORY_SIGNAL_TERMS = {
+    "storm_damage": [
+        "storm",
+        "hail",
+        "wind",
+        "thunderstorm",
+        "tornado",
+        "weather",
+        "tree",
+        "damage",
+        "inspection",
+    ],
+    "ga_insurance_navigation": [
+        "insurance",
+        "claim",
+        "deductible",
+        "policy",
+        "premium",
+        "rcv",
+        "acv",
+        "hb511",
+        "house bill 511",
+    ],
+    "roof_safety": [
+        "fire",
+        "safety",
+        "unsafe",
+        "structural",
+        "inspection",
+        "hvac",
+        "attic",
+        "ventilation",
+        "construction",
+    ],
+    "county_guides": [
+        "fulton",
+        "dekalb",
+        "cobb",
+        "gwinnett",
+        "cherokee",
+        "county",
+        "permit",
+        "hoa",
+    ],
+}
+
+SEMANTIC_RELEVANCE_RULES = {
+    "direct_roofing": [
+        ["roof", "roofing", "shingle", "flashing", "gutter", "siding", "exterior"],
+        ["repair", "replace", "replacement", "inspection", "damage", "leak", "claim", "permit"],
+    ],
+    "storm_property_risk": [
+        ["storm", "hail", "wind", "thunderstorm", "tornado", "tree", "weather"],
+        ["home", "house", "property", "roof", "damage", "inspection", "insurance"],
+    ],
+    "insurance_roof_claim": [
+        ["insurance", "claim", "deductible", "policy", "premium", "rcv", "acv", "hb511", "house bill 511"],
+        ["home", "homeowner", "roof", "storm", "property", "replacement", "repair"],
+    ],
+    "safety_structure": [
+        ["fire", "unsafe", "safety", "structural", "inspection", "construction", "hvac"],
+        ["roof", "attic", "building", "home", "house", "structure", "ventilation"],
+    ],
+    "county_homeowner_guidance": [
+        ["fulton", "dekalb", "cobb", "gwinnett", "cherokee", "county"],
+        ["roof", "permit", "storm", "insurance", "repair", "replacement", "inspection"],
+    ],
+}
+
+OFF_TOPIC_PENALTY_TERMS = {
+    "sports": {
+        "penalty": 7,
+        "terms": [
+            "sports",
+            "fantasy",
+            "football",
+            "basketball",
+            "baseball",
+            "soccer",
+            "panthers",
+            "falcons",
+            "braves",
+            "hawks",
+            "atlanta united",
+            "quarterback",
+            "recruiting",
+            "draft pick",
+            "locked-on",
+            "locked on",
+        ],
+    },
+    "politics": {
+        "penalty": 5,
+        "terms": [
+            "election",
+            "campaign",
+            "commissioner race",
+            "runoff",
+            "candidate",
+            "poll",
+            "vote",
+            "primary",
+        ],
+    },
+    "generic_or_unrelated_insurance": {
+        "penalty": 5,
+        "terms": [
+            "car insurance",
+            "auto insurance",
+            "liability policy",
+            "general liability",
+            "health insurance",
+            "life insurance",
+        ],
+    },
+    "crime_or_accident": {
+        "penalty": 4,
+        "terms": [
+            "shooting",
+            "shot in downtown",
+            "injured biker",
+            "crash",
+            "arrested",
+            "murder",
+            "cruise fight",
+        ],
+    },
+    "generic_local_news": {
+        "penalty": 2,
+        "terms": [
+            "restaurant",
+            "concert",
+            "festival",
+            "traffic",
+            "school board",
+            "celebrity",
+        ],
+    },
+}
+
 DISQUALIFYING_TERMS = [
     "sports",
     "fantasy",
@@ -340,6 +481,29 @@ def _matched_terms(text: str, terms: list[str]) -> list[str]:
     return [term for term in terms if _term_matches(text, term)]
 
 
+def _tokenize_topic(text: str) -> set[str]:
+    stopwords = {
+        "about",
+        "after",
+        "and",
+        "are",
+        "before",
+        "from",
+        "how",
+        "into",
+        "that",
+        "the",
+        "this",
+        "what",
+        "when",
+        "where",
+        "with",
+        "your",
+    }
+    tokens = set(re.findall(r"[a-z0-9]+", text.lower()))
+    return {token for token in tokens if len(token) >= 4 and token not in stopwords}
+
+
 def _parse_published_date(value: str) -> datetime | None:
     if not value:
         return None
@@ -396,8 +560,165 @@ def _article_evidence(result: dict) -> dict[str, str]:
 
 
 def _is_disqualified(result: dict) -> bool:
+    penalty = result.get("off_topic_penalty")
+    if penalty is None:
+        penalty, _ = _off_topic_penalty(result)
+    return penalty >= 7
+
+
+def _territory_alignment(result: dict) -> dict:
     evidence = _article_evidence(result)
-    return bool(_matched_terms(evidence["title_url"], DISQUALIFYING_TERMS))
+    title_url = evidence["title_url"]
+    early_content = evidence["early_content"]
+    matched_territories = {}
+
+    for territory, terms in TERRITORY_SIGNAL_TERMS.items():
+        title_matches = _matched_terms(title_url, terms)
+        content_matches = _matched_terms(early_content, terms)
+        matches = sorted(set(title_matches + content_matches))
+        if matches:
+            matched_territories[territory] = matches
+
+    primary = result.get("strategy_cluster", "")
+    primary_matches = matched_territories.get(primary, [])
+    score = 0
+    if primary_matches:
+        score += 3
+    if len(primary_matches) >= 3:
+        score += 2
+    secondary_count = max(0, len(matched_territories) - (1 if primary_matches else 0))
+    score += min(secondary_count * 2, 4)
+
+    return {
+        "score": min(score, 9),
+        "matched_territories": matched_territories,
+        "multi_territory_bonus": min(secondary_count * 2, 4),
+    }
+
+
+def _semantic_relevance(result: dict) -> dict:
+    evidence = _article_evidence(result)
+    title_url = evidence["title_url"]
+    early_content = evidence["early_content"]
+    matched_rules = {}
+
+    for rule_name, term_groups in SEMANTIC_RELEVANCE_RULES.items():
+        group_matches = []
+        for group in term_groups:
+            matches = sorted(set(_matched_terms(early_content, group) + _matched_terms(title_url, group)))
+            group_matches.append(matches)
+        if all(group_matches):
+            matched_rules[rule_name] = group_matches
+
+    score = min(10, len(matched_rules) * 3)
+    if _matched_terms(title_url, ["roof", "roofing", "storm", "insurance", "fire", "safety", "permit"]):
+        score = min(10, score + 2)
+
+    return {
+        "score": score,
+        "matched_rules": matched_rules,
+        "passes": score >= 4,
+    }
+
+
+def _off_topic_penalty(result: dict) -> tuple[int, dict[str, list[str]]]:
+    evidence = _article_evidence(result)
+    matched_categories = {}
+    total_penalty = 0
+
+    for category, config in OFF_TOPIC_PENALTY_TERMS.items():
+        title_matches = _matched_terms(evidence["title_url"], config["terms"])
+        content_matches = _matched_terms(evidence["early_content"], config["terms"])
+        matches = sorted(set(title_matches + content_matches))
+        if not matches:
+            continue
+
+        # A title match is stronger evidence that the whole source is off-topic.
+        penalty = int(config["penalty"]) + (2 if title_matches else 0)
+        matched_categories[category] = matches
+        total_penalty += penalty
+
+    return min(total_penalty, 10), matched_categories
+
+
+def _recent_draft_topics(lookback_days: int = RECENT_TOPIC_LOOKBACK_DAYS) -> list[dict]:
+    draft_dir = PROJECT_ROOT / "output" / "drafts"
+    if not draft_dir.exists():
+        return []
+
+    now = datetime.now(timezone.utc)
+    topics = []
+    for path in draft_dir.glob("*.md"):
+        try:
+            modified_at = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+        except OSError:
+            continue
+
+        age_days = (now - modified_at).days
+        if age_days > lookback_days:
+            continue
+
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+
+        title = ""
+        for line in text.splitlines():
+            if line.startswith("# "):
+                title = line[2:].strip()
+                break
+        topic_text = " ".join([title, path.stem])
+        topics.append(
+            {
+                "path": str(path.relative_to(PROJECT_ROOT)),
+                "title": title or path.stem,
+                "tokens": _tokenize_topic(topic_text),
+                "age_days": age_days,
+            }
+        )
+
+    return topics
+
+
+def _duplicate_topic_penalty(result: dict, recent_topics: list[dict] | None = None) -> dict:
+    recent_topics = recent_topics or []
+    candidate_tokens = _tokenize_topic(
+        " ".join(
+            [
+                result.get("title", ""),
+                result.get("recommended_angle", ""),
+                result.get("strategy_cluster", ""),
+                result.get("pillar_topic", ""),
+            ]
+        )
+    )
+    if not candidate_tokens or not recent_topics:
+        return {"penalty": 0, "matched_recent_topic": None, "overlap_ratio": 0.0}
+
+    best_match = None
+    best_overlap = 0.0
+    for topic in recent_topics:
+        tokens = topic.get("tokens") or set()
+        if not tokens:
+            continue
+        overlap = len(candidate_tokens & tokens) / max(1, min(len(candidate_tokens), len(tokens)))
+        if overlap > best_overlap:
+            best_overlap = overlap
+            best_match = topic
+
+    if best_overlap >= 0.55:
+        penalty = 4
+    elif best_overlap >= 0.40:
+        penalty = 2
+    else:
+        penalty = 0
+
+    return {
+        "penalty": penalty,
+        "matched_recent_topic": best_match if penalty else None,
+        "overlap_ratio": round(best_overlap, 2),
+    }
 
 
 def _passes_cluster_gate(result: dict) -> bool:
@@ -432,7 +753,7 @@ def _passes_cluster_gate(result: dict) -> bool:
     return False
 
 
-def _quality_score(result: dict) -> tuple[int, dict[str, list[str]]]:
+def _quality_score(result: dict, recent_topics: list[dict] | None = None) -> tuple[float, dict[str, object]]:
     evidence = _article_evidence(result)
     cluster = result.get("strategy_cluster", "")
     cluster_terms = CLUSTER_TERMS.get(cluster, TOPIC_TERMS)
@@ -443,22 +764,47 @@ def _quality_score(result: dict) -> tuple[int, dict[str, list[str]]]:
     topic_early = _matched_terms(evidence["early_content"], TOPIC_TERMS)
     cluster_title = _matched_terms(evidence["title_url"], cluster_terms)
     cluster_early = _matched_terms(evidence["early_content"], cluster_terms)
+    territory = _territory_alignment(result)
+    semantic = _semantic_relevance(result)
+    off_topic_penalty, off_topic_matches = _off_topic_penalty(result)
+    duplicate = _duplicate_topic_penalty(result, recent_topics)
 
     local_score = 3 if local_title else 2 if local_early else 0
     topic_score = 4 if topic_title else 2 if topic_early else 0
     cluster_score = 3 if cluster_title else 2 if cluster_early else 0
     source_score = 2 if result.get("priority_source") else 0
     tavily_score = 1 if float(result.get("tavily_score") or 0) >= 0.2 else 0
+    territory_score = float(territory["score"]) * 0.45
+    semantic_score = float(semantic["score"]) * 0.35
+    duplicate_penalty = int(duplicate["penalty"])
 
     matched = {
         "local_terms": sorted(set(local_title + local_early)),
         "topic_terms": sorted(set(topic_title + topic_early)),
         "cluster_terms": sorted(set(cluster_title + cluster_early)),
+        "territory_alignment": territory,
+        "semantic_relevance": semantic,
+        "off_topic": {
+            "penalty": off_topic_penalty,
+            "matched_categories": off_topic_matches,
+        },
+        "duplicate_topic": duplicate,
     }
-    return local_score + topic_score + cluster_score + source_score + tavily_score, matched
+    score = (
+        local_score
+        + topic_score
+        + cluster_score
+        + source_score
+        + tavily_score
+        + territory_score
+        + semantic_score
+        - off_topic_penalty
+        - duplicate_penalty
+    )
+    return round(score, 2), matched
 
 
-def _is_relevant_candidate(result: dict) -> bool:
+def _is_relevant_candidate(result: dict, recent_topics: list[dict] | None = None) -> bool:
     if _is_disqualified(result):
         return False
 
@@ -468,8 +814,15 @@ def _is_relevant_candidate(result: dict) -> bool:
     if not _passes_cluster_gate(result):
         return False
 
-    quality_score, matched = _quality_score(result)
-    return bool(matched["local_terms"] and matched["topic_terms"] and matched["cluster_terms"] and quality_score >= 6)
+    quality_score, matched = _quality_score(result, recent_topics)
+    semantic = matched["semantic_relevance"]
+    territory = matched["territory_alignment"]
+    return bool(
+        matched["local_terms"]
+        and (matched["cluster_terms"] or territory["matched_territories"])
+        and semantic["passes"]
+        and quality_score >= 6
+    )
 
 
 def _normalize_result(item: dict, search_item: dict, stage: dict) -> dict:
@@ -509,6 +862,9 @@ def search_roofing_news(
     """
     load_dotenv(PROJECT_ROOT / ".env")
     client = _load_client()
+    recent_topics = _recent_draft_topics()
+    if recent_topics:
+        print(f"[search] Loaded {len(recent_topics)} recent draft topics for duplicate penalties")
 
     results_by_url: dict[str, dict] = {}
     stages = [
@@ -547,11 +903,21 @@ def search_roofing_news(
                     continue
 
                 result = _normalize_result(item, search_item, stage)
-                quality_score, matched = _quality_score(result)
+                quality_score, matched = _quality_score(result, recent_topics)
                 result["search_quality_score"] = quality_score
                 result["matched_terms"] = matched
+                result["territory_alignment_score"] = matched["territory_alignment"]["score"]
+                result["matched_territories"] = matched["territory_alignment"]["matched_territories"]
+                result["multi_territory_bonus"] = matched["territory_alignment"]["multi_territory_bonus"]
+                result["semantic_relevance_score"] = matched["semantic_relevance"]["score"]
+                result["semantic_relevance_rules"] = sorted(matched["semantic_relevance"]["matched_rules"].keys())
+                result["off_topic_penalty"] = matched["off_topic"]["penalty"]
+                result["off_topic_matches"] = matched["off_topic"]["matched_categories"]
+                result["duplicate_topic_penalty"] = matched["duplicate_topic"]["penalty"]
+                result["duplicate_topic_match"] = matched["duplicate_topic"]["matched_recent_topic"]
+                result["duplicate_topic_overlap"] = matched["duplicate_topic"]["overlap_ratio"]
 
-                if not _is_relevant_candidate(result):
+                if not _is_relevant_candidate(result, recent_topics):
                     continue
 
                 existing = results_by_url.get(url)

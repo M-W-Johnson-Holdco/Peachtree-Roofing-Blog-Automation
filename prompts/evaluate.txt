@@ -11,14 +11,25 @@ Search query: {query}
 Strategy cluster: {strategy_cluster}
 Pillar topic: {pillar_topic}
 Reactive trigger window hours: {trigger_window_hours}
+Territory alignment score from search: {territory_alignment_score}
+Matched territories from search: {matched_territories}
+Multi-territory bonus from search: {multi_territory_bonus}
+Semantic relevance score from search: {semantic_relevance_score}
+Semantic relevance rules from search: {semantic_relevance_rules}
+Off-topic penalty from search: {off_topic_penalty}
+Off-topic matches from search: {off_topic_matches}
+Duplicate topic penalty from past 30 days: {duplicate_topic_penalty}
+Duplicate topic match: {duplicate_topic_match}
 Content snippet: {content}
 
 SCORING DIMENSIONS (weight in parentheses):
-1. Local relevance — Does it concern Metro Atlanta, a specific Atlanta suburb, or Georgia statewide? (30%)
-2. Roofing/exterior relevance — Does it directly or indirectly affect roofing, siding, gutters, or exterior repair demand? (30%)
-3. Recency — Was it published within the past 7 days? Score 10 if yes, 5 if 8–14 days, 1 if older. (20%)
-4. Source authority — Is it from a recognized news outlet (FOX 5 Atlanta, WSB-TV, AJC, 11Alive, NWS, Georgia General Assembly, etc.)? (10%)
+1. Local relevance — Does it concern Metro Atlanta, a specific Atlanta suburb, or Georgia statewide? (24%)
+2. Roofing/exterior relevance — Does it directly or indirectly affect roofing, siding, gutters, or exterior repair demand? (24%)
+3. Recency — Was it published within the past 7 days? Score 10 if yes, 5 if 8–14 days, 1 if older. (14%)
+4. Source authority — Is it from a recognized news outlet (FOX 5 Atlanta, WSB-TV, AJC, 11Alive, NWS, Georgia General Assembly, etc.)? (8%)
 5. Actionability — Can a homeowner or contractor in Atlanta take action based on this news? (10%)
+6. Territory alignment — Does it support one or more Peachtree GEO content territories, especially the assigned strategy cluster? (10%)
+7. Semantic relevance — Does the article meaningfully connect a local event or policy to homeowner roofing/exterior decisions, not just mention matching words? (10%)
 
 Peachtree's GEO strategy has four content territories:
 - storm_damage: Metro Atlanta storm damage inspection and repair
@@ -26,7 +37,7 @@ Peachtree's GEO strategy has four content territories:
 - roof_safety: Atlanta roof safety, fires, penetrations, construction safety, structural risk
 - county_guides: county-specific roof guidance for Fulton, DeKalb, Cobb, Gwinnett, Cherokee, and nearby areas
 
-Reward sources that clearly support one of those territories. Penalize generic local stories, sports, politics, and articles where roofing/exterior relevance only appears in page navigation or unrelated page chrome.
+Reward sources that clearly support one of those territories. Add extra credit when one source bridges multiple territories, such as storm damage plus insurance navigation. Penalize generic local stories, sports, politics, unrelated insurance, crime-only stories, and articles where roofing/exterior relevance only appears in page navigation or unrelated page chrome. Penalize sources that duplicate a topic already drafted in the past 30 days unless the new source adds a materially fresh angle.
 
 OUTPUT FORMAT (JSON only, no prose):
 {{
@@ -37,7 +48,9 @@ OUTPUT FORMAT (JSON only, no prose):
     "roofing_relevance": <1-10>,
     "recency": <1-10>,
     "source_authority": <1-10>,
-    "actionability": <1-10>
+    "actionability": <1-10>,
+    "territory_alignment": <1-10>,
+    "semantic_relevance": <1-10>
   }},
   "weighted_score": <float, 1-10>,
   "keep": <true|false>,

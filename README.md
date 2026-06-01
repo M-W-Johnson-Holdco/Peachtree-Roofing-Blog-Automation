@@ -57,7 +57,7 @@ The search plan is organized around the four topical territories from the strate
 12. Applies cluster-specific gates so storm, insurance, roof-safety, and county-guide results each prove the right kind of relevance.
 13. Blocks common false positives like sports, car insurance, liability-only legal stories, shootings, and election/runoff articles.
 14. Adds strategy metadata to each result, including `strategy_cluster`, `pillar_topic`, `trigger_window_hours`, `search_stage`, `search_quality_score`, and `matched_terms`.
-15. Saves the final result list to `output/drafts/search_results.json`.
+15. Saves the final result list to `output/sources/search_results.json`.
 
 Run it with:
 
@@ -119,6 +119,14 @@ The current filter is intentionally strict. If Tavily finds Atlanta stories that
 
 At the moment, the search stage favors precision over raw volume. A quiet local news week may produce only a few source candidates. That is acceptable because the evaluation stage should receive fewer, cleaner candidates rather than many unrelated articles.
 
+Search scoring now includes:
+
+- Territory alignment scoring for the four GEO territories.
+- A multi-territory bonus when one source bridges more than one useful content territory.
+- Semantic relevance checks that require meaningful combinations, such as storm plus property damage or insurance plus roof/homeowner impact.
+- Negative scoring for sports, politics, unrelated insurance, crime-only stories, and generic local news.
+- Duplicate-topic penalties when a source overlaps a draft topic from the past 30 days.
+
 The next planned improvement is a separate evergreen/reference-source lane for statistics and background citations, so the news-hook search can stay strict while the writing stage still receives enough authoritative supporting data.
 
 ## Source Evaluation
@@ -148,14 +156,14 @@ TOGETHER_EVALUATION_MODEL=Qwen/Qwen2.5-7B-Instruct-Turbo
 
 `evaluate.py` currently:
 
-1. Reads candidates from `output/drafts/search_results.json`.
+1. Reads candidates from `output/sources/search_results.json`.
 2. Loads the evaluation prompt from `prompts/evaluate.txt`.
 3. Sends each source to Together AI for scoring.
 4. Scores five dimensions: local relevance, roofing relevance, recency, source authority, and actionability.
 5. Preserves the strategy metadata from search, including `strategy_cluster`, `pillar_topic`, and `trigger_window_hours`.
 6. Adds a `recommended_angle` for the future blog-writing stage.
-7. Writes all scored sources to `output/drafts/evaluated_sources.json`.
-8. Writes sources with `weighted_score >= 6.0` to `output/drafts/kept_sources.json`.
+7. Writes all scored sources to `output/sources/evaluated_sources.json`.
+8. Writes sources with `weighted_score >= 6.0` to `output/sources/kept_sources.json`.
 
 Run live evaluation with:
 
@@ -182,31 +190,45 @@ The writing stage uses Together AI through the `together` Python package.
 The default writing model is:
 
 ```text
-Qwen/Qwen2.5-72B-Instruct-Turbo
+Qwen/Qwen2.5-7B-Instruct-Turbo
 ```
 
 You can override that model in `.env`:
 
 ```env
-TOGETHER_WRITING_MODEL=Qwen/Qwen2.5-72B-Instruct-Turbo
+TOGETHER_WRITING_MODEL=Qwen/Qwen2.5-7B-Instruct-Turbo
 ```
+
+If Together rejects an overridden model because it requires a dedicated endpoint, `write.py` retries once with the serverless fallback model.
 
 ### How Writing Works
 
 `write.py` currently:
 
-1. Reads kept sources from `output/drafts/kept_sources.json`.
+1. Reads kept sources from `output/sources/kept_sources.json`.
 2. Loads the blog-writing prompt from `prompts/blog.txt`.
 3. Loads editor feedback from `feedback/style_notes.txt`.
 4. Formats source excerpts, evaluation reasons, strategy clusters, and recommended angles into a source block.
 5. Calls Together AI to generate a Markdown draft.
-6. Saves the draft to `output/drafts/YYYY-MM-DD-title-slug.md`.
-7. Saves a validation report to `output/drafts/YYYY-MM-DD-title-slug-validation.json`.
+6. Saves the draft to `output/drafts/YYYY-MM-DD-HHMMSS-title-slug.md`.
+7. Saves a validation report to `output/drafts/YYYY-MM-DD-HHMMSS-title-slug-validation.json`.
 
 Run live writing with:
 
 ```bash
 conda run -n blog-automation python write.py
+```
+
+By default, `write.py` uses `--source-strategy auto`. Auto mode creates one draft by either:
+
+- combining sources when multiple strong sources support the same strategy cluster and blog angle
+- choosing the strongest source when kept sources point to different topics
+
+You can override this behavior:
+
+```bash
+conda run -n blog-automation python write.py --source-strategy best
+conda run -n blog-automation python write.py --source-strategy combine
 ```
 
 Run a no-credit local test with:
@@ -231,3 +253,112 @@ After generation, `write.py` checks the draft for core GEO requirements:
 - Generic openers are absent.
 
 The validator is intentionally strict. A failed validation does not mean the file was not generated; it means the draft needs prompt tuning or revision before approval.
+
+## Slack Approval
+
+The approval stage lives in `approve.py`. It can post the newest generated draft to Slack, save an approval record under `output/approvals/`, and listen for approval reactions and thread feedback.
+
+### Slack App Setup
+
+Create a Slack app and install it into the company workspace. The bot needs these OAuth scopes:
+
+```text
+chat:write
+reactions:read
+channels:history
+groups:history
+im:history
+mpim:history
+```
+
+Use only the history scopes that match where the approval message will be posted. A public channel needs `channels:history`; a private channel needs `groups:history`; a group DM needs `mpim:history`.
+
+For local listening without a public webhook URL, enable Socket Mode and create an app-level token with:
+
+```text
+connections:write
+```
+
+Add the Slack settings to `.env`:
+
+```env
+SLACK_BOT_TOKEN=xoxb-your-bot-token
+SLACK_APP_TOKEN=xapp-your-app-token
+SLACK_APPROVAL_CHANNEL=C1234567890
+```
+
+`SLACK_APPROVAL_CHANNEL` should be a Slack channel-like ID, not a display name. Invite the bot to the approval channel before posting.
+
+### Post A Draft
+
+Post the latest generated draft to Slack:
+
+```bash
+conda run -n blog-automation python approve.py post --latest
+```
+
+Or post a specific draft:
+
+```bash
+conda run -n blog-automation python approve.py post output/drafts/example.md
+```
+
+The message asks reviewers to react with `:white_check_mark:` to approve or `:x:` to request revisions. Posting creates a JSON approval record like:
+
+```text
+output/approvals/YYYY-MM-DD-HHMMSS-title-slug.json
+```
+
+### Listen For Approval
+
+Run the Socket Mode listener:
+
+```bash
+conda run -n blog-automation python approve.py listen
+```
+
+When a reviewer reacts with `:white_check_mark:`, the approval JSON status changes to `approved`.
+
+When a reviewer reacts with `:x:`, the bot asks for feedback in the Slack thread. The next human thread reply is saved into the approval JSON and `write.py` is rerun with:
+
+```bash
+python write.py --feedback-json output/approvals/example.json
+```
+
+The revised draft is then posted back to Slack for another approval round. To collect feedback without automatically rewriting, run:
+
+```bash
+conda run -n blog-automation python approve.py listen --no-auto-rewrite
+```
+
+### Pipeline Posting
+
+To run the normal pipeline and post the created draft to Slack:
+
+```bash
+conda run -n blog-automation python pipeline.py --send-to-slack
+```
+
+For a no-credit pipeline test that posts the mock draft:
+
+```bash
+conda run -n blog-automation python pipeline.py --mock --send-to-slack
+```
+
+## Cleaning Test Output
+
+Generated files under `output/` can be removed before a fresh test run.
+
+Dry run:
+
+```bash
+conda run -n blog-automation python clean_output.py
+```
+
+Actually delete generated output files:
+
+```bash
+conda run -n blog-automation python clean_output.py --yes
+```
+
+The cleanup script only targets files under the project-level `output/` directory.

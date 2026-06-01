@@ -1,10 +1,10 @@
 """Evaluate Tavily search results with Together AI.
 
-This stage reads `output/drafts/search_results.json`, scores each source for
+This stage reads `output/sources/search_results.json`, scores each source for
 Peachtree's GEO blog strategy, and writes:
 
-- `output/drafts/evaluated_sources.json` for all scored sources
-- `output/drafts/kept_sources.json` for sources worth sending to write.py
+- `output/sources/evaluated_sources.json` for all scored sources
+- `output/sources/kept_sources.json` for sources worth sending to write.py
 
 Run live:
     python evaluate.py
@@ -28,9 +28,9 @@ from dotenv import load_dotenv
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-DEFAULT_INPUT_PATH = PROJECT_ROOT / "output" / "drafts" / "search_results.json"
-DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "output" / "drafts" / "evaluated_sources.json"
-DEFAULT_KEPT_PATH = PROJECT_ROOT / "output" / "drafts" / "kept_sources.json"
+DEFAULT_INPUT_PATH = PROJECT_ROOT / "output" / "sources" / "search_results.json"
+DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "output" / "sources" / "evaluated_sources.json"
+DEFAULT_KEPT_PATH = PROJECT_ROOT / "output" / "sources" / "kept_sources.json"
 PROMPT_PATH = PROJECT_ROOT / "prompts" / "evaluate.txt"
 
 DEFAULT_MODEL = "Qwen/Qwen2.5-7B-Instruct-Turbo"
@@ -43,6 +43,8 @@ SCORE_KEYS = [
     "recency",
     "source_authority",
     "actionability",
+    "territory_alignment",
+    "semantic_relevance",
 ]
 
 LOCAL_TERMS = {
@@ -195,6 +197,46 @@ def contains_any(text: str, terms: set[str]) -> bool:
     return False
 
 
+def source_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(round(float(value)))
+    except (TypeError, ValueError):
+        return default
+
+
+def metadata_adjustments(source: dict[str, Any]) -> dict[str, Any]:
+    territory_score = source_int(source.get("territory_alignment_score"))
+    semantic_score = source_int(source.get("semantic_relevance_score"))
+    multi_territory_bonus = source_int(source.get("multi_territory_bonus"))
+    off_topic_penalty = source_int(source.get("off_topic_penalty"))
+    duplicate_topic_penalty = source_int(source.get("duplicate_topic_penalty"))
+
+    adjustment = round(
+        min(multi_territory_bonus, 4) * 0.15
+        - min(off_topic_penalty, 10) * 0.35
+        - min(duplicate_topic_penalty, 4) * 0.25,
+        2,
+    )
+
+    hard_reject_reasons = []
+    if off_topic_penalty >= 7:
+        hard_reject_reasons.append("off-topic penalty is too high")
+    if semantic_score and semantic_score < 4:
+        hard_reject_reasons.append("semantic relevance check did not pass")
+    if duplicate_topic_penalty >= 4:
+        hard_reject_reasons.append("topic overlaps a draft from the past 30 days")
+
+    return {
+        "territory_alignment_score": territory_score,
+        "semantic_relevance_score": semantic_score,
+        "multi_territory_bonus": multi_territory_bonus,
+        "off_topic_penalty": off_topic_penalty,
+        "duplicate_topic_penalty": duplicate_topic_penalty,
+        "weighted_score_adjustment": adjustment,
+        "hard_reject_reasons": hard_reject_reasons,
+    }
+
+
 def mock_evaluate_source(source: dict[str, Any]) -> dict[str, Any]:
     """Local scoring for plumbing tests when no Together key is available."""
     text = source_text(source)
@@ -227,17 +269,26 @@ def mock_evaluate_source(source: dict[str, Any]) -> dict[str, Any]:
         "actionability": 8
         if contains_any(early_article_text, {"inspection", "damage", "claim", "insurance", "permit", "safety"})
         else 3,
+        "territory_alignment": max(1, min(10, source_int(source.get("territory_alignment_score"), 5))),
+        "semantic_relevance": max(1, min(10, source_int(source.get("semantic_relevance_score"), 5))),
     }
     weighted_score = round(
-        scores["local_relevance"] * 0.30
-        + scores["roofing_relevance"] * 0.30
-        + scores["recency"] * 0.20
-        + scores["source_authority"] * 0.10
-        + scores["actionability"] * 0.10,
+        scores["local_relevance"] * 0.24
+        + scores["roofing_relevance"] * 0.24
+        + scores["recency"] * 0.14
+        + scores["source_authority"] * 0.08
+        + scores["actionability"] * 0.10
+        + scores["territory_alignment"] * 0.10
+        + scores["semantic_relevance"] * 0.10,
+        2,
+    )
+    adjustments = metadata_adjustments(source)
+    adjusted_weighted_score = round(
+        max(1.0, min(10.0, weighted_score + adjustments["weighted_score_adjustment"])),
         2,
     )
 
-    keep = weighted_score >= KEEP_THRESHOLD
+    keep = adjusted_weighted_score >= KEEP_THRESHOLD and not adjustments["hard_reject_reasons"]
     reason = (
         "Mock score keeps this source because it is local, recent, authoritative, and strategy-relevant."
         if keep
@@ -269,6 +320,15 @@ def build_prompt(prompt_template: str, source: dict[str, Any]) -> str:
         strategy_cluster=source.get("strategy_cluster", ""),
         pillar_topic=source.get("pillar_topic", ""),
         trigger_window_hours=source.get("trigger_window_hours", ""),
+        territory_alignment_score=source.get("territory_alignment_score", ""),
+        matched_territories=json.dumps(source.get("matched_territories", {}), ensure_ascii=True),
+        multi_territory_bonus=source.get("multi_territory_bonus", ""),
+        semantic_relevance_score=source.get("semantic_relevance_score", ""),
+        semantic_relevance_rules=", ".join(source.get("semantic_relevance_rules", [])),
+        off_topic_penalty=source.get("off_topic_penalty", ""),
+        off_topic_matches=json.dumps(source.get("off_topic_matches", {}), ensure_ascii=True),
+        duplicate_topic_penalty=source.get("duplicate_topic_penalty", ""),
+        duplicate_topic_match=json.dumps(source.get("duplicate_topic_match"), ensure_ascii=True),
     )
 
 
@@ -359,25 +419,46 @@ def build_fallback_angle(source: dict[str, Any]) -> str:
 
 def normalize_evaluation(evaluation: dict[str, Any], source: dict[str, Any]) -> dict[str, Any]:
     scores = evaluation.get("scores") if isinstance(evaluation.get("scores"), dict) else {}
-    normalized_scores = {key: normalize_score(scores.get(key)) for key in SCORE_KEYS}
+    normalized_scores = {}
+    for key in SCORE_KEYS:
+        default = 5 if key in {"territory_alignment", "semantic_relevance"} else 1
+        normalized_scores[key] = normalize_score(scores.get(key, default))
+    adjustments = metadata_adjustments(source)
+    if adjustments["territory_alignment_score"] and not scores.get("territory_alignment"):
+        normalized_scores["territory_alignment"] = normalize_score(adjustments["territory_alignment_score"])
+    if adjustments["semantic_relevance_score"] and not scores.get("semantic_relevance"):
+        normalized_scores["semantic_relevance"] = normalize_score(adjustments["semantic_relevance_score"])
 
     weighted_score = evaluation.get("weighted_score")
     try:
         weighted_score = round(float(weighted_score), 2)
     except (TypeError, ValueError):
         weighted_score = round(
-            normalized_scores["local_relevance"] * 0.30
-            + normalized_scores["roofing_relevance"] * 0.30
-            + normalized_scores["recency"] * 0.20
-            + normalized_scores["source_authority"] * 0.10
-            + normalized_scores["actionability"] * 0.10,
+            normalized_scores["local_relevance"] * 0.24
+            + normalized_scores["roofing_relevance"] * 0.24
+            + normalized_scores["recency"] * 0.14
+            + normalized_scores["source_authority"] * 0.08
+            + normalized_scores["actionability"] * 0.10
+            + normalized_scores["territory_alignment"] * 0.10
+            + normalized_scores["semantic_relevance"] * 0.10,
             2,
         )
 
-    keep = bool(evaluation.get("keep", weighted_score >= KEEP_THRESHOLD))
+    adjusted_weighted_score = round(
+        max(1.0, min(10.0, weighted_score + adjustments["weighted_score_adjustment"])),
+        2,
+    )
+    keep = bool(evaluation.get("keep", adjusted_weighted_score >= KEEP_THRESHOLD))
+    if adjusted_weighted_score < KEEP_THRESHOLD or adjustments["hard_reject_reasons"]:
+        keep = False
+
     recommended_angle = evaluation.get("recommended_angle") or build_fallback_angle(source)
     if not keep:
         recommended_angle = ""
+
+    reason = evaluation.get("reason") or "No reason provided."
+    if adjustments["hard_reject_reasons"]:
+        reason = f"{reason} Rejected because {', '.join(adjustments['hard_reject_reasons'])}."
 
     return {
         "title": evaluation.get("title") or source.get("title", ""),
@@ -386,9 +467,11 @@ def normalize_evaluation(evaluation: dict[str, Any], source: dict[str, Any]) -> 
         "pillar_topic": source.get("pillar_topic", ""),
         "trigger_window_hours": source.get("trigger_window_hours"),
         "scores": normalized_scores,
-        "weighted_score": weighted_score,
+        "model_weighted_score": weighted_score,
+        "weighted_score": adjusted_weighted_score,
+        "scoring_adjustments": adjustments,
         "keep": keep,
-        "reason": evaluation.get("reason") or "No reason provided.",
+        "reason": reason,
         "recommended_angle": recommended_angle,
         "source": source,
     }

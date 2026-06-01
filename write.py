@@ -1,6 +1,6 @@
 """Generate a GEO-optimized blog draft with Together AI.
 
-This stage reads `output/drafts/kept_sources.json`, injects the current
+This stage reads `output/sources/kept_sources.json`, injects the current
 blog prompt plus editor feedback, calls Together AI, and saves a Markdown
 draft plus a lightweight validation report.
 
@@ -25,12 +25,13 @@ from dotenv import load_dotenv
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-DEFAULT_INPUT_PATH = PROJECT_ROOT / "output" / "drafts" / "kept_sources.json"
+DEFAULT_INPUT_PATH = PROJECT_ROOT / "output" / "sources" / "kept_sources.json"
 PROMPT_PATH = PROJECT_ROOT / "prompts" / "blog.txt"
 STYLE_NOTES_PATH = PROJECT_ROOT / "feedback" / "style_notes.txt"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "output" / "drafts"
 
-DEFAULT_MODEL = "Qwen/Qwen2.5-72B-Instruct-Turbo"
+DEFAULT_MODEL = "Qwen/Qwen2.5-7B-Instruct-Turbo"
+SERVERLESS_FALLBACK_MODEL = "Qwen/Qwen2.5-7B-Instruct-Turbo"
 DEFAULT_AUTHOR_NAME = "Jonathan Gil"
 DEFAULT_AUTHOR_CREDENTIALS = "Licensed Roofing Contractor, Metro Atlanta"
 
@@ -64,6 +65,8 @@ GENERIC_OPENERS = [
     "When it comes to",
 ]
 
+SOURCE_STRATEGIES = ("auto", "best", "combine")
+
 
 def load_json(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
@@ -80,6 +83,34 @@ def load_json(path: Path) -> list[dict[str, Any]]:
 
 def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def read_feedback_json(path: Path | None) -> str:
+    if path is None:
+        return ""
+    if not path.exists():
+        raise FileNotFoundError(f"Feedback JSON not found: {path}")
+
+    with path.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    feedback = data.get("feedback", [])
+    if not isinstance(feedback, list) or not feedback:
+        return ""
+
+    lines = []
+    for index, item in enumerate(feedback, start=1):
+        if isinstance(item, dict):
+            text = str(item.get("text", "")).strip()
+            user = str(item.get("user", "unknown")).strip() or "unknown"
+            created_at = str(item.get("created_at", "")).strip()
+            if text:
+                timestamp = f" at {created_at}" if created_at else ""
+                lines.append(f"{index}. Slack feedback from {user}{timestamp}: {text}")
+        elif str(item).strip():
+            lines.append(f"{index}. Slack feedback: {str(item).strip()}")
+
+    return "\n".join(lines)
 
 
 def source_display_name(source: dict[str, Any]) -> str:
@@ -129,15 +160,99 @@ def format_sources_block(evaluated_sources: list[dict[str, Any]]) -> str:
     return "\n\n---\n\n".join(blocks)
 
 
+def source_sort_key(item: dict[str, Any]) -> tuple[float, int, int, int, int]:
+    scores = item.get("scores") if isinstance(item.get("scores"), dict) else {}
+    return (
+        float(item.get("weighted_score") or 0),
+        int(scores.get("roofing_relevance") or 0),
+        int(scores.get("actionability") or 0),
+        int(scores.get("source_authority") or 0),
+        int(scores.get("local_relevance") or 0),
+    )
+
+
+def source_title(item: dict[str, Any]) -> str:
+    return str(item.get("title") or item.get("source", {}).get("title") or "Untitled source")
+
+
+def select_sources_for_draft(
+    sources: list[dict[str, Any]],
+    strategy: str = "auto",
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Pick whether to combine sources or focus one draft on the best source."""
+    if strategy not in SOURCE_STRATEGIES:
+        raise ValueError(f"Unknown source strategy: {strategy}")
+    if not sources:
+        return [], {
+            "strategy": strategy,
+            "mode": "none",
+            "reason": "No kept sources were provided.",
+            "available_source_count": 0,
+            "selected_source_count": 0,
+            "selected_titles": [],
+        }
+
+    ranked = sorted(sources, key=source_sort_key, reverse=True)
+    best = ranked[0]
+
+    if strategy == "best":
+        selected = [best]
+        mode = "best"
+        reason = "Forced best-source mode selected the strongest evaluated source."
+    elif strategy == "combine":
+        selected = ranked
+        mode = "combine"
+        reason = "Forced combine mode included all kept sources in one draft."
+    elif len(ranked) == 1:
+        selected = [best]
+        mode = "best"
+        reason = "Only one kept source was available."
+    else:
+        best_cluster = best.get("strategy_cluster")
+        same_cluster = [source for source in ranked if source.get("strategy_cluster") == best_cluster]
+        second = ranked[1]
+        score_gap = float(best.get("weighted_score") or 0) - float(second.get("weighted_score") or 0)
+
+        if len(same_cluster) >= 2 and score_gap <= 1.5:
+            selected = same_cluster
+            mode = "combine"
+            reason = (
+                "Auto mode combined sources because multiple strong candidates share "
+                f"the {best_cluster} strategy cluster."
+            )
+        else:
+            selected = [best]
+            mode = "best"
+            reason = (
+                "Auto mode selected one source because the kept sources point to "
+                "different blog angles or strategy clusters."
+            )
+
+    decision = {
+        "strategy": strategy,
+        "mode": mode,
+        "reason": reason,
+        "available_source_count": len(sources),
+        "selected_source_count": len(selected),
+        "selected_titles": [source_title(source) for source in selected],
+        "available_titles": [source_title(source) for source in ranked],
+    }
+    return selected, decision
+
+
 def build_prompt(
     prompt_template: str,
     sources: list[dict[str, Any]],
     style_notes: str,
     author_name: str,
     author_credentials: str,
+    approval_feedback: str = "",
 ) -> str:
     sources_block = format_sources_block(sources)
-    style_block = style_notes.strip() or "No editor feedback recorded yet."
+    feedback_parts = [style_notes.strip()]
+    if approval_feedback.strip():
+        feedback_parts.append("Slack approval feedback:\n" + approval_feedback.strip())
+    style_block = "\n\n".join(part for part in feedback_parts if part) or "No editor feedback recorded yet."
 
     base_prompt = prompt_template.format(
         sources_block=sources_block,
@@ -180,21 +295,39 @@ def get_together_client():
 
 def generate_with_together(prompt: str, model: str) -> str:
     client = get_together_client()
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are a senior home-services content strategist. "
-                    "Return only the complete Markdown blog draft."
-                ),
-            },
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.35,
-        max_tokens=3400,
-    )
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are a senior home-services content strategist. "
+                "Return only the complete Markdown blog draft."
+            ),
+        },
+        {"role": "user", "content": prompt},
+    ]
+
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=0.35,
+            max_tokens=3400,
+        )
+    except Exception as exc:
+        if "model_not_available" not in str(exc) or model == SERVERLESS_FALLBACK_MODEL:
+            raise
+
+        print(
+            "[write] Model unavailable on Together serverless. "
+            f"Retrying with {SERVERLESS_FALLBACK_MODEL}."
+        )
+        response = client.chat.completions.create(
+            model=SERVERLESS_FALLBACK_MODEL,
+            messages=messages,
+            temperature=0.35,
+            max_tokens=3400,
+        )
+
     return response.choices[0].message.content.strip()
 
 
@@ -270,10 +403,10 @@ def first_heading(markdown: str) -> str:
 
 
 def output_paths(markdown: str, output_dir: Path) -> tuple[Path, Path]:
-    today = date.today().isoformat()
+    run_stamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
     slug = slugify(first_heading(markdown))
-    draft_path = output_dir / f"{today}-{slug}.md"
-    report_path = output_dir / f"{today}-{slug}-validation.json"
+    draft_path = output_dir / f"{run_stamp}-{slug}.md"
+    report_path = output_dir / f"{run_stamp}-{slug}-validation.json"
     return draft_path, report_path
 
 
@@ -338,7 +471,18 @@ def main() -> None:
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT_PATH)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--model", default=os.getenv("TOGETHER_WRITING_MODEL", DEFAULT_MODEL))
+    parser.add_argument(
+        "--source-strategy",
+        choices=SOURCE_STRATEGIES,
+        default="auto",
+        help="Choose sources for one draft: auto, best, or combine.",
+    )
     parser.add_argument("--mock", action="store_true", help="Write a local mock draft instead of calling Together AI.")
+    parser.add_argument(
+        "--feedback-json",
+        type=Path,
+        help="Optional Slack approval JSON whose feedback should be applied to this rewrite.",
+    )
     args = parser.parse_args()
 
     load_dotenv(PROJECT_ROOT / ".env")
@@ -346,18 +490,27 @@ def main() -> None:
     if not sources:
         raise ValueError(f"No kept sources found in {args.input}. Run search.py and evaluate.py first.")
 
+    selected_sources, source_decision = select_sources_for_draft(sources, args.source_strategy)
+    print(
+        "[write] Source strategy: "
+        f"{source_decision['mode']} "
+        f"({source_decision['selected_source_count']}/{source_decision['available_source_count']} sources)"
+    )
+    print(f"[write] Source decision: {source_decision['reason']}")
+
     author_name = os.getenv("AUTHOR_NAME", DEFAULT_AUTHOR_NAME)
     author_credentials = os.getenv("AUTHOR_CREDENTIALS", DEFAULT_AUTHOR_CREDENTIALS)
 
     if args.mock:
-        draft = generate_mock_draft(sources, author_name, author_credentials)
+        draft = generate_mock_draft(selected_sources, author_name, author_credentials)
     else:
         prompt = build_prompt(
             read_text(PROMPT_PATH),
-            sources,
+            selected_sources,
             read_text(STYLE_NOTES_PATH),
             author_name,
             author_credentials,
+            read_feedback_json(args.feedback_json),
         )
         print(f"[write] Generating draft with {args.model}")
         draft = generate_with_together(prompt, args.model)
@@ -365,7 +518,9 @@ def main() -> None:
     draft_path, report_path = output_paths(draft, args.output_dir)
     report = validate_draft(draft)
     report["generated_at"] = datetime.now().isoformat()
-    report["source_count"] = len(sources)
+    report["source_count"] = len(selected_sources)
+    report["available_source_count"] = len(sources)
+    report["source_selection"] = source_decision
     report["model"] = "mock" if args.mock else args.model
     report["draft_path"] = str(draft_path)
 

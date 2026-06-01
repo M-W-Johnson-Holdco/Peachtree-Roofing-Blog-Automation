@@ -23,6 +23,87 @@ Notes / next step:
 - 
 ```
 
+## 2026-06-01 - Add Slack approval workflow
+
+Changed:
+- Replaced the approval placeholder with `approve.py` commands for Slack draft posting and Socket Mode listening.
+- Added approval JSON records under `output/approvals/`.
+- Added green-check approval and red-X revision handling from Slack reactions.
+- Added Slack thread feedback collection and automatic `write.py --feedback-json` rewrite support.
+- Added `pipeline.py --send-to-slack` to post a draft after writing.
+- Added Slack SDK dependency and Slack env vars to `.env.template`.
+- Documented Slack app setup, posting, listening, and pipeline commands in `README.md`.
+
+Why:
+- Drafts need a practical human approval loop before publishing.
+- Slack reactions and thread replies give reviewers a lightweight way to approve or request revisions.
+
+Files touched:
+- `approve.py`
+- `write.py`
+- `pipeline.py`
+- `requirements.txt`
+- `.env.template`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Ran Python syntax checks for `approve.py`, `write.py`, and `pipeline.py`.
+
+Notes / next step:
+- Install the new `slack_sdk` dependency.
+- Create/install the Slack app, invite it to the approval channel, and add Slack tokens to `.env`.
+- Run `approve.py post --latest` and `approve.py listen` with real Slack credentials.
+
+## 2026-06-01 - Improve search targeting and scoring
+
+Changed:
+- Added territory alignment scoring to `search.py`.
+- Added a multi-territory bonus for sources that bridge multiple GEO content territories.
+- Added semantic relevance rules that score meaningful source intent beyond isolated keyword matches.
+- Added negative scoring for sports, politics, unrelated insurance, crime-only stories, and generic local news.
+- Added a duplicate-topic penalty against drafts from the past 30 days.
+- Passed the new search metadata into `evaluate.py` and `prompts/evaluate.txt`.
+- Expanded evaluation scoring with territory alignment and semantic relevance dimensions.
+
+Why:
+- Search candidates should be ranked by Peachtree content usefulness, not just by local/topic keyword overlap.
+- Evaluation should penalize off-topic and recently repeated ideas before they reach the writing stage.
+
+Files touched:
+- `search.py`
+- `evaluate.py`
+- `prompts/evaluate.txt`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Ran Python syntax checks for `search.py` and `evaluate.py`.
+- Ran `conda run -n blog-automation python evaluate.py --mock`.
+- Ran a local smoke check comparing an off-topic sports source against a Cobb County storm/roof source.
+
+Notes / next step:
+- Run live `search.py` with Tavily to inspect the new scoring metadata on real candidates.
+
+## 2026-06-01 - Add serverless writer model fallback
+
+Changed:
+- Changed the default writing model to `Qwen/Qwen2.5-7B-Instruct-Turbo`.
+- Added an automatic retry when Together rejects an overridden non-serverless model with `model_not_available`.
+- Updated `.env.template` and `README.md` to show the serverless writing model.
+
+Why:
+- Together rejected `Qwen/Qwen2.5-72B-Instruct-Turbo` because it now requires a dedicated endpoint.
+
+Files touched:
+- `write.py`
+- `.env.template`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Ran Python syntax check for `write.py`.
+
 ## 2026-05-26 - Initial project scaffold and Tavily search module
 
 Changed:
@@ -323,3 +404,93 @@ Tested:
 
 Notes / next step:
 - Run `conda run -n blog-automation python write.py` to verify your Together account can access the 72B serverless model.
+
+## 2026-05-26 - Add one-draft source selection to writing stage
+
+Changed:
+- Added source-selection logic to `write.py`.
+- Added `--source-strategy auto|best|combine`.
+- Default `auto` mode now creates one draft by combining sources only when they support the same strategy cluster.
+- If kept sources point to different blog angles, `auto` selects the strongest source by weighted score, roofing relevance, actionability, source authority, and local relevance.
+- Added source-selection metadata to draft validation reports.
+- Added timestamped draft filenames to prevent same-slug runs from overwriting each other.
+- Updated `README.md` with the new source strategy behavior.
+
+Why:
+- Multiple unrelated sources were causing drafts to blend separate topics into one less coherent article.
+- The writing stage should always produce one focused draft, either from a smart combination of aligned sources or from the best single source.
+
+Files touched:
+- `write.py`
+- `README.md`
+- `CHANGELOG.md`
+- `output/drafts/*.md`
+- `output/drafts/*-validation.json`
+
+Tested:
+- Ran Python syntax check for `write.py`.
+- Ran `conda run -n blog-automation python write.py --mock`.
+- Ran `conda run -n blog-automation python write.py --mock --source-strategy combine`.
+- Verified default `auto` selected 1 of 2 current kept sources because they belong to different strategy clusters.
+- Verified forced combine mode selected 2 of 2 current kept sources.
+- Verified a timestamped mock validation report parses as valid JSON.
+
+Notes / next step:
+- Run live `write.py` with the 72B model and inspect whether focused single-source drafts pass more GEO validation checks.
+
+## 2026-05-26 - Move source JSON outputs to output/sources
+
+Changed:
+- Updated `search.py` to save `search_results.json` to `output/sources`.
+- Updated `evaluate.py` to read `output/sources/search_results.json`.
+- Updated `evaluate.py` to save `evaluated_sources.json` and `kept_sources.json` to `output/sources`.
+- Updated `write.py` to read `output/sources/kept_sources.json`.
+- Updated `README.md` to document the new source-output location.
+
+Why:
+- Keep intermediate source/evaluation JSON separate from generated Markdown drafts and draft validation reports.
+
+Files touched:
+- `search.py`
+- `evaluate.py`
+- `write.py`
+- `README.md`
+- `CHANGELOG.md`
+- `output/sources/search_results.json`
+- `output/sources/evaluated_sources.json`
+- `output/sources/kept_sources.json`
+
+Tested:
+- Ran Python syntax checks for `search.py`, `evaluate.py`, and `write.py`.
+- Moved existing `search_results.json`, `evaluated_sources.json`, and `kept_sources.json` into `output/sources`.
+- Ran `conda run -n blog-automation python evaluate.py --mock` and verified it reads/writes `output/sources`.
+- Ran `conda run -n blog-automation python write.py --mock` and verified it reads `output/sources/kept_sources.json`.
+- Verified `output/drafts` now contains generated Markdown drafts and validation reports, while source JSON files live in `output/sources`.
+
+Notes / next step:
+- Keep `output/drafts` for generated blog Markdown and validation reports only.
+
+## 2026-05-26 - Add output cleanup script
+
+Changed:
+- Added `clean_output.py`.
+- The script lists generated files under `output/` by default.
+- Added `--yes` flag to actually delete generated output files.
+- Updated `README.md` with cleanup commands.
+
+Why:
+- Make it easy to start each local pipeline test from a clean output directory.
+- Keep deletion scoped to generated output files only.
+
+Files touched:
+- `clean_output.py`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Ran Python syntax check for `clean_output.py`.
+- Ran `conda run -n blog-automation python clean_output.py` in dry-run mode.
+- Verified dry-run lists generated files without deleting them.
+
+Notes / next step:
+- Use `conda run -n blog-automation python clean_output.py --yes` before full clean-slate test runs.
