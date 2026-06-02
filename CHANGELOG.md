@@ -23,6 +23,275 @@ Notes / next step:
 - 
 ```
 
+## 2026-06-02 - Make write_serverless.py fully standalone
+
+Changed:
+- Extracted shared draft-generation helpers into `write_common.py` (prompt building, validation, PDF/JSON output, generation metadata).
+- Rewrote `write_serverless.py` as a standalone entry point that imports only from `write_common` — no `write.py` or `together_endpoint.py`.
+- Slimmed `write.py` to dedicated-endpoint orchestration plus the same shared output path via `save_draft_outputs()`.
+
+Why:
+- `write_serverless.py` still called `write.main()`, which could start/stop a dedicated endpoint when `TOGETHER_DEDICATED_ENDPOINT_ID` was set in `.env`.
+
+Files touched:
+- `write_common.py`
+- `write_serverless.py`
+- `write.py`
+- `CHANGELOG.md`
+
+Tested:
+- Ran `python write_serverless.py --mock`; confirmed `[write_serverless]` logs, no `[endpoint]` messages, and no import of `together_endpoint` or `write`.
+
+Notes / next step:
+- Use `write_serverless.py` for weekly serverless runs; keep `write.py` only when intentionally using a dedicated endpoint.
+
+## 2026-06-01 - Fix raw endpoint fetch and auto-retry FAILED endpoints
+
+Changed:
+- Updated `fetch_endpoint_raw()` to pass `client.client` to `APIRequestor` (fixes `base_url` error).
+- Auto-retry start when endpoint is in `FAILED` or `ERROR` state instead of exiting immediately.
+
+Why:
+- Rerun failed with `'Together' object has no attribute 'base_url'`.
+- Together leaves endpoints in `FAILED` after a bad deploy; they can be restarted via API.
+
+Files touched:
+- `together_endpoint.py`
+- `CHANGELOG.md`
+
+Tested:
+- Confirmed API restart moves endpoint from `FAILED` to `PENDING`.
+
+## 2026-06-01 - Export PDF alongside Markdown drafts
+
+Changed:
+- Added `draft_pdf.py` to convert generated Markdown drafts to PDF via `markdown` + `xhtml2pdf`.
+- `write.py` and `write_serverless.py` now save a matching `.pdf` next to each `.md` draft.
+- Added `pdf_path` to validation JSON; added `--no-pdf` to skip export.
+- Added `markdown` and `xhtml2pdf` to `requirements.txt`.
+
+Why:
+- Reviewers often want a shareable PDF in addition to the Markdown source file.
+
+Files touched:
+- `draft_pdf.py`
+- `write.py`
+- `write_serverless.py`
+- `requirements.txt`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Ran PDF generation against an existing draft Markdown file.
+
+## 2026-06-01 - Auto-clear output/drafts before writing
+
+Changed:
+- `write.py` and `write_serverless.py` now delete existing files in `output/drafts/` at the start of each run.
+- Added `--keep-drafts` to skip cleanup when needed.
+
+Why:
+- Keep only the latest generated draft and validation report in the drafts folder.
+
+Files touched:
+- `write.py`
+- `README.md`
+- `CHANGELOG.md`
+
+## 2026-06-01 - Tag generation metadata for write.py and write_serverless.py
+
+Changed:
+- Added `runner` and `mode` fields to validation JSON `generation` block for both entry points.
+- `write_serverless.py` sets `WRITE_RUNNER=write_serverless.py` for clearer logs and JSON tagging.
+- Summary logs now show model, token cost, and endpoint cost (when configured) using the correct runner prefix.
+- Documented shared generation metadata in `README.md`.
+
+Why:
+- Serverless is the primary writing path; both scripts should record comparable timing and cost metadata.
+
+Files touched:
+- `write.py`
+- `write_serverless.py`
+- `README.md`
+- `CHANGELOG.md`
+
+## 2026-06-01 - Add generation timing and cost to draft validation JSON
+
+Changed:
+- Added token usage, generation elapsed time, model details, and estimated USD cost to draft validation JSON under `generation`.
+- Added Together catalog pricing for common serverless writing models.
+- Optional `TOGETHER_ENDPOINT_COST_PER_MINUTE` env var for dedicated endpoint uptime cost estimates.
+- Print generation time and estimated token cost after each live run.
+
+Why:
+- Reviewers need visibility into model used, runtime, and inference cost per draft.
+
+Files touched:
+- `write.py`
+- `.env.template`
+- `CHANGELOG.md`
+
+Tested:
+- Ran Python syntax check for `write.py`.
+
+## 2026-06-01 - Fix write_serverless still starting dedicated endpoint
+
+Changed:
+- Updated `write.py` to use `nullcontext(None)` when endpoint management is skipped.
+- Fixed `managed_dedicated_endpoint(None)` incorrectly falling back to `TOGETHER_DEDICATED_ENDPOINT_ID` from `.env`.
+
+Why:
+- `write_serverless.py` set `TOGETHER_SKIP_ENDPOINT_MANAGEMENT=1` but the endpoint ID in `.env` was still picked up and started.
+
+Files touched:
+- `write.py`
+- `CHANGELOG.md`
+
+Tested:
+- Ran Python syntax check for `write.py`.
+
+## 2026-06-01 - Add write_serverless.py for Llama 3.3 70B serverless
+
+Changed:
+- Added `write_serverless.py` as a serverless writing entry point using `meta-llama/Llama-3.3-70B-Instruct-Turbo`.
+- Skips dedicated endpoint start/stop even when `TOGETHER_DEDICATED_ENDPOINT_ID` remains in `.env`.
+
+Why:
+- Dedicated 72B deploys were unreliable; serverless 70B is a simpler path for draft generation.
+
+Files touched:
+- `write_serverless.py`
+- `CHANGELOG.md`
+
+Tested:
+- Ran Python syntax check for `write_serverless.py`.
+
+Notes / next step:
+- Run `python write_serverless.py` for live serverless draft generation.
+
+## 2026-06-01 - Prevent duplicate deploy messages on Together state flicker
+
+Changed:
+- Lock ready phase after first `STARTING` so brief `PENDING` flickers do not restart deploy.
+- Print "Deploy complete" only once per start attempt.
+- Clear the in-progress `\r` status line before phase transition prints.
+
+Why:
+- Together alternates `PENDING`/`STARTING` during deploy, which retriggered deploy phase and duplicated messages.
+
+Files touched:
+- `cli_progress.py`
+- `together_endpoint.py`
+- `CHANGELOG.md`
+
+## 2026-06-01 - Fix endpoint progress labels and auto-retry FAILED deploys
+
+Changed:
+- Fixed progress display showing `deploying` label during the `STARTING` ready phase.
+- Added `StatusTicker.reset_phase()` for clean phase transitions without stale labels.
+- Auto-retry endpoint start up to 2 times when Together returns `FAILED`/`ERROR`.
+- Surface Together `reason_for_state` in failure messages.
+- Only print "Deploy complete" when a `PENDING` phase was actually observed.
+
+Why:
+- Live run showed wrong progress label and crashed after Together failed deploy with a generic start error.
+
+Files touched:
+- `cli_progress.py`
+- `together_endpoint.py`
+- `.env.template`
+- `CHANGELOG.md`
+
+Tested:
+- Ran Python syntax check for `cli_progress.py` and `together_endpoint.py`.
+
+## 2026-06-01 - Split endpoint deploy vs ready timeouts
+
+Changed:
+- Split endpoint startup into deploy (`PENDING`) and ready (`STARTING` → `STARTED`) phases.
+- `TOGETHER_ENDPOINT_START_TIMEOUT` (default 900s) now applies only during the ready phase; deploy time no longer counts against it.
+- Added `TOGETHER_ENDPOINT_DEPLOY_TIMEOUT` (default 2400s) for hardware provisioning.
+- Deploy phase shows elapsed time only; percent bar starts once state reaches `STARTING`.
+- Fetch endpoint status via raw API to handle Together `FAILED` state without SDK pydantic crashes.
+- Skip stop attempts when endpoint is already in `FAILED` or `ERROR`.
+
+Why:
+- 72B endpoint deploy can exceed 10 minutes; the progress bar and timeout were misleading when deploy time consumed the start budget.
+- Together returned `FAILED` state which crashed the SDK's strict pydantic model.
+
+Files touched:
+- `together_endpoint.py`
+- `.env.template`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Ran Python syntax check for `together_endpoint.py`.
+
+Notes / next step:
+- If deploy fails with `FAILED`, check Together dashboard for hardware availability errors and retry.
+
+## 2026-06-01 - Add live CLI progress for write.py
+
+Changed:
+- Added `cli_progress.py` with elapsed time, percent bars, and 5-second terminal updates.
+- Updated `together_endpoint.py` to show progress while starting/stopping the dedicated endpoint.
+- Updated `write.py` to show progress during Together draft generation (runs API call in a background thread).
+- Added `--no-progress` flag and `WRITE_NO_PROGRESS=1` env override for CI/non-TTY runs.
+- Documented `WRITE_PROGRESS_INTERVAL` and `WRITE_GENERATION_ESTIMATE_SECONDS` in `.env.template`.
+
+Why:
+- Endpoint startup and 72B generation can take several minutes; users wanted visible status in the terminal.
+
+Files touched:
+- `cli_progress.py`
+- `together_endpoint.py`
+- `write.py`
+- `.env.template`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Ran Python syntax checks for `cli_progress.py`, `together_endpoint.py`, and `write.py`.
+- Ran `python write.py --mock`.
+
+Notes / next step:
+- Run live `python write.py` in a terminal to see endpoint and generation progress bars.
+
+## 2026-06-01 - Automate Together 72B dedicated endpoint start/stop
+
+Changed:
+- Added `together_endpoint.py` to start, wait for, and stop Together dedicated endpoints via the Python SDK.
+- Updated `write.py` to wrap live generation in managed endpoint lifecycle when `TOGETHER_DEDICATED_ENDPOINT_ID` is set.
+- Disabled serverless 7B fallback when a dedicated endpoint is configured so 72B failures are not silently downgraded.
+- Added optional auto-detection of the deployed endpoint model name when `TOGETHER_WRITING_MODEL` is still the default 7B value.
+- Added `scripts/create_writing_endpoint.sh` for one-time 72B endpoint creation with inactive auto-shutdown.
+- Added `scripts/write_with_endpoint.sh` as a `tg` CLI wrapper alternative with `TOGETHER_SKIP_ENDPOINT_MANAGEMENT` to avoid double start/stop.
+- Documented dedicated endpoint setup, env vars, and safety nets in `README.md` and `.env.template`.
+
+Why:
+- `Qwen/Qwen2.5-72B-Instruct-Turbo` requires a Together dedicated endpoint and bills by uptime, not just tokens.
+- The writing stage should start the endpoint only when needed and stop it afterward, even if draft generation fails.
+
+Files touched:
+- `together_endpoint.py`
+- `write.py`
+- `scripts/create_writing_endpoint.sh`
+- `scripts/write_with_endpoint.sh`
+- `.env.template`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Ran Python syntax checks for `together_endpoint.py` and `write.py`.
+- Ran `python write.py --mock`.
+
+Notes / next step:
+- Create the 72B dedicated endpoint in Together if not already deployed.
+- Add `TOGETHER_DEDICATED_ENDPOINT_ID` and the deployed model name to `TOGETHER_WRITING_MODEL` in `.env`.
+- Set Together endpoint inactive timeout to 10-30 minutes as a billing safety net.
+- Run live `python write.py` and confirm endpoint start/stop behavior.
+
 ## 2026-06-01 - Add Slack approval workflow
 
 Changed:

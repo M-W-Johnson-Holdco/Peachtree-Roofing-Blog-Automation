@@ -18,7 +18,19 @@ STRUCTURE REQUIREMENTS (follow exactly):
 6. NAMED LOCATIONS — Name at least 6 specific Metro Atlanta locations (neighborhoods, cities, counties). Distribute them naturally — not in a list.
 7. FAQ — Exactly 8 Q&A pairs under the exact H2 heading "## FAQ". Format each FAQ question as an H3 heading like "### Should I inspect my roof after an Atlanta storm?" Answers should be 2–4 sentences each.
 8. AUTHOR BYLINE — End with this sentence as normal paragraph text, not as a heading: "Written by {author_name}, {author_credentials}. Peachtree Roofing & Exteriors serves homeowners across Metro Atlanta."
-9. CTA — One call to action at the end. Educational framing first, then: "Contact Peachtree Roofing & Exteriors for a free inspection."
+9. CTA — One call to action at the end. Educational framing first, then this exact sentence on its own line: "Contact Peachtree Roofing & Exteriors for a free inspection."
+
+VALIDATION CHECKLIST (every item is required):
+- One H1 title at the top.
+- Opening paragraph before the first ## is 50-120 words and answer-first.
+- Every ## heading is a question ending with ?, except the exact heading "## FAQ".
+- At least one markdown comparison table.
+- Exactly 3-5 inline citations formatted (Source: Outlet Name, Month Year).
+- At least 6 named Metro Atlanta locations woven into the prose.
+- Exactly 8 FAQ questions as ### H3 headings under ## FAQ.
+- Exact author byline sentence from item 8 above.
+- Exact CTA sentence from item 9 above.
+- No generic openers such as "In today's world", "As a homeowner", or "When it comes to".
 
 ---
 

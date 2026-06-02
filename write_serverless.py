@@ -1,12 +1,16 @@
-"""Generate a GEO-optimized blog draft with Together AI.
+"""Generate a blog draft with Together serverless Llama 3.3 70B.
 
-Uses a dedicated endpoint when `TOGETHER_DEDICATED_ENDPOINT_ID` is set in `.env`.
+Standalone serverless writer — does not import write.py or together_endpoint.py.
+Ignores `TOGETHER_DEDICATED_ENDPOINT_ID` in `.env`.
+
+Saves Markdown, validation JSON, and a PDF (via `draft_pdf.py`) into `output/drafts/`
+by default. Use `--no-pdf` to skip PDF export.
 
 Run live:
-    python write.py
+    python write_serverless.py
 
 Run without Together credits:
-    python write.py --mock
+    python write_serverless.py --mock
 """
 
 from __future__ import annotations
@@ -14,7 +18,6 @@ from __future__ import annotations
 import argparse
 import os
 import time
-from contextlib import nullcontext
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -23,7 +26,6 @@ from write_common import (
     DEFAULT_AUTHOR_CREDENTIALS,
     DEFAULT_AUTHOR_NAME,
     DEFAULT_INPUT_PATH,
-    DEFAULT_MODEL,
     DEFAULT_OUTPUT_DIR,
     DEFAULT_VALIDATION_MAX_ATTEMPTS,
     PROJECT_ROOT,
@@ -45,12 +47,17 @@ from write_common import (
     write_log_prefix,
 )
 
+SERVERLESS_WRITING_MODEL = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+WRITE_RUNNER = "write_serverless.py"
+
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate a GEO blog draft from kept sources.")
+    parser = argparse.ArgumentParser(
+        description="Generate a GEO blog draft with Together serverless Llama 3.3 70B.",
+    )
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT_PATH)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
-    parser.add_argument("--model", default=os.getenv("TOGETHER_WRITING_MODEL", DEFAULT_MODEL))
+    parser.add_argument("--model", default=SERVERLESS_WRITING_MODEL)
     parser.add_argument(
         "--source-strategy",
         choices=("auto", "best", "combine"),
@@ -91,7 +98,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    os.environ.setdefault("WRITE_RUNNER", "write.py")
+    os.environ["WRITE_RUNNER"] = WRITE_RUNNER
     load_dotenv(PROJECT_ROOT / ".env")
     if args.no_progress:
         os.environ["WRITE_NO_PROGRESS"] = "1"
@@ -142,67 +149,33 @@ def main() -> None:
         )
         tag_generation_report(generation_report, mode="mock")
     else:
-        from together_endpoint import managed_dedicated_endpoint
-
-        endpoint_id = os.getenv("TOGETHER_DEDICATED_ENDPOINT_ID", "").strip()
         model_used = args.model
-        use_endpoint = bool(endpoint_id)
-        endpoint_session_started_at = time.monotonic()
-
-        with managed_dedicated_endpoint(endpoint_id) if use_endpoint else nullcontext(None) as endpoint_model:
-            if endpoint_model and model_used == DEFAULT_MODEL:
-                model_used = endpoint_model
-                print(f"{log} Using dedicated endpoint model: {model_used}")
-
-            prompt = build_prompt(
-                read_text(PROMPT_PATH),
-                selected_sources,
-                read_text(STYLE_NOTES_PATH),
-                author_name,
-                author_credentials,
-                approval_feedback,
-                previous_draft,
+        prompt = build_prompt(
+            read_text(PROMPT_PATH),
+            selected_sources,
+            read_text(STYLE_NOTES_PATH),
+            author_name,
+            author_credentials,
+            approval_feedback,
+            previous_draft,
+        )
+        if args.no_validation_retry:
+            draft, generation_report = generate_with_together(
+                prompt,
+                model_used,
+                allow_serverless_fallback=True,
             )
-            if args.no_validation_retry:
-                draft, generation_report = generate_with_together(
-                    prompt,
-                    model_used,
-                    allow_serverless_fallback=not use_endpoint,
-                )
-            else:
-                draft, _, generation_report = generate_validated_draft(
-                    prompt,
-                    model_used,
-                    allow_serverless_fallback=not use_endpoint,
-                    max_attempts=args.max_validation_attempts,
-                    author_name=author_name,
-                    author_credentials=author_credentials,
-                )
-            generation_report["endpoint_management_used"] = use_endpoint
-            if use_endpoint:
-                generation_report["endpoint_session_seconds"] = round(
-                    time.monotonic() - endpoint_session_started_at,
-                    2,
-                )
-                per_minute = os.getenv("TOGETHER_ENDPOINT_COST_PER_MINUTE", "").strip()
-                if per_minute:
-                    endpoint_cost = (generation_report["endpoint_session_seconds"] / 60.0) * float(per_minute)
-                    generation_report.setdefault("estimated_cost_usd", {})
-                    generation_report["estimated_cost_usd"]["endpoint"] = {
-                        "total": round(endpoint_cost, 4),
-                        "currency": "USD",
-                        "cost_per_minute": float(per_minute),
-                        "pricing_source": "env:TOGETHER_ENDPOINT_COST_PER_MINUTE",
-                        "note": "Endpoint uptime cost is separate from token usage.",
-                    }
-                    token_total = generation_report["estimated_cost_usd"].get("tokens", {}).get("total")
-                    if token_total is not None:
-                        generation_report["estimated_cost_usd"]["combined_total"] = round(
-                            token_total + endpoint_cost,
-                            4,
-                        )
-
-        tag_generation_report(generation_report, mode="dedicated" if use_endpoint else "serverless")
+        else:
+            draft, _, generation_report = generate_validated_draft(
+                prompt,
+                model_used,
+                allow_serverless_fallback=True,
+                max_attempts=args.max_validation_attempts,
+                author_name=author_name,
+                author_credentials=author_credentials,
+            )
+        generation_report["endpoint_management_used"] = False
+        tag_generation_report(generation_report, mode="serverless")
 
     save_draft_outputs(
         draft=draft,

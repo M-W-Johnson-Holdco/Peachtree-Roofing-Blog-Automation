@@ -199,7 +199,68 @@ You can override that model in `.env`:
 TOGETHER_WRITING_MODEL=Qwen/Qwen2.5-7B-Instruct-Turbo
 ```
 
-If Together rejects an overridden model because it requires a dedicated endpoint, `write.py` retries once with the serverless fallback model.
+If Together rejects an overridden model because it requires a dedicated endpoint, `write.py` retries once with the serverless fallback model (unless a dedicated endpoint is configured).
+
+### Serverless writing (recommended)
+
+For pay-per-token drafting without dedicated endpoint spin-up, use `write_serverless.py`:
+
+```bash
+conda run -n blog-automation python write_serverless.py
+```
+
+This always uses Together serverless `meta-llama/Llama-3.3-70B-Instruct-Turbo` and ignores `TOGETHER_DEDICATED_ENDPOINT_ID` in `.env`.
+
+### Generation metadata in validation JSON
+
+Both `write.py` and `write_serverless.py` save a `generation` object in each `*-validation.json` file:
+
+- `runner` — `write.py` or `write_serverless.py`
+- `mode` — `serverless`, `dedicated`, or `mock`
+- `model_used` — Together model billed for inference
+- `elapsed_seconds` — API generation time
+- `usage` — prompt/completion/total tokens from Together
+- `estimated_cost_usd.tokens` — estimated token cost from Together catalog pricing
+
+For dedicated runs, optional `TOGETHER_ENDPOINT_COST_PER_MINUTE` in `.env` adds endpoint uptime cost and `combined_total`.
+
+### 72B Dedicated Endpoint (Auto Start/Stop)
+
+`Qwen/Qwen2.5-72B-Instruct-Turbo` requires a Together dedicated endpoint. To avoid leaving it running (and billing) between runs, set these in `.env`:
+
+```env
+TOGETHER_DEDICATED_ENDPOINT_ID=endpoint-c2a48674-9ec7-45b3-ac30-0f25f2ad9462
+TOGETHER_WRITING_MODEL=your-username/Qwen/Qwen2.5-72B-Instruct-Turbo-suffix
+```
+
+When `TOGETHER_DEDICATED_ENDPOINT_ID` is set, `write.py` automatically:
+
+1. Starts the endpoint and waits until it is ready.
+2. Generates the draft.
+3. Stops the endpoint on exit, even if generation fails.
+
+Endpoint startup uses two timeouts:
+
+- `TOGETHER_ENDPOINT_DEPLOY_TIMEOUT` (default 40 min): hardware provisioning while state is `PENDING`. Shows elapsed time only, no percent bar.
+- `TOGETHER_ENDPOINT_START_TIMEOUT` (default 15 min): becoming ready while state is `STARTING`. The percent bar uses this budget only after deploy completes.
+
+While running in a terminal, `write.py` shows live progress bars with elapsed time and estimated percent, updating every 5 seconds during endpoint start/stop and draft generation. Disable with `--no-progress` or `WRITE_NO_PROGRESS=1`.
+
+`pipeline.py` and `approve.py` call `write.py` directly, so they inherit this behavior.
+
+One-time setup with the Together CLI:
+
+```bash
+bash scripts/create_writing_endpoint.sh
+```
+
+Set the endpoint's inactive timeout to 10-30 minutes in Together as a billing safety net if your machine crashes mid-run.
+
+Alternative CLI wrapper (if you prefer `tg` over the Python SDK):
+
+```bash
+bash scripts/write_with_endpoint.sh
+```
 
 ### How Writing Works
 
@@ -211,7 +272,10 @@ If Together rejects an overridden model because it requires a dedicated endpoint
 4. Formats source excerpts, evaluation reasons, strategy clusters, and recommended angles into a source block.
 5. Calls Together AI to generate a Markdown draft.
 6. Saves the draft to `output/drafts/YYYY-MM-DD-HHMMSS-title-slug.md`.
-7. Saves a validation report to `output/drafts/YYYY-MM-DD-HHMMSS-title-slug-validation.json`.
+7. Saves a matching PDF to `output/drafts/YYYY-MM-DD-HHMMSS-title-slug.pdf`.
+8. Saves a validation report to `output/drafts/YYYY-MM-DD-HHMMSS-title-slug-validation.json`.
+
+Each run of `write.py` or `write_serverless.py` clears existing files in `output/drafts/` first so only the latest draft remains. Use `--keep-drafts` to skip cleanup. Use `--no-pdf` to skip PDF export.
 
 Run live writing with:
 
@@ -264,14 +328,29 @@ Create a Slack app and install it into the company workspace. The bot needs thes
 
 ```text
 chat:write
+files:write
 reactions:read
+reactions:write
 channels:history
 groups:history
 im:history
 mpim:history
 ```
 
+When a PDF exists beside the draft (the default from `write.py` or `write_serverless.py`),
+`approve.py post` uploads that existing PDF to Slack. It does not generate or modify files
+in `output/drafts/`.
+
 Use only the history scopes that match where the approval message will be posted. A public channel needs `channels:history`; a private channel needs `groups:history`; a group DM needs `mpim:history`.
+
+Under **Event Subscriptions**, enable events and subscribe to these **bot events**:
+
+```text
+reaction_added
+reaction_removed
+message.groups    # private approval channel
+message.channels  # public approval channel
+```
 
 For local listening without a public webhook URL, enable Socket Mode and create an app-level token with:
 
@@ -282,8 +361,8 @@ connections:write
 Add the Slack settings to `.env`:
 
 ```env
-SLACK_BOT_TOKEN=xoxb-your-bot-token
-SLACK_APP_TOKEN=xapp-your-app-token
+SLACK_APPROVAL_BOT_TOKEN=xoxb-your-bot-token
+SLACK_APPROVAL_TOKEN=xapp-your-app-token
 SLACK_APPROVAL_CHANNEL=C1234567890
 ```
 
@@ -303,13 +382,29 @@ Or post a specific draft:
 conda run -n blog-automation python approve.py post output/drafts/example.md
 ```
 
-The message asks reviewers to react with `:white_check_mark:` to approve or `:x:` to request revisions. Posting creates a JSON approval record like:
+The message asks reviewers to react with `:white_check_mark:` to approve or `:x:` to request revisions on the **intro message** (not the PDF thread reply). The bot pre-adds those reactions so reviewers can click one to register their decision.
+
+Posting creates a JSON approval record like:
 
 ```text
 output/approvals/YYYY-MM-DD-HHMMSS-title-slug.json
 ```
 
+To post and immediately start listening for reactions in one command:
+
+```bash
+conda run -n blog-automation python approve.py post --latest --then-listen
+```
+
+Or use the shortcut:
+
+```bash
+conda run -n blog-automation python approve_listen.py
+```
+
 ### Listen For Approval
+
+Reactions are only processed while the listener is running. Start it in a separate terminal, or use `--then-listen` when posting.
 
 Run the Socket Mode listener:
 
@@ -317,12 +412,12 @@ Run the Socket Mode listener:
 conda run -n blog-automation python approve.py listen
 ```
 
-When a reviewer reacts with `:white_check_mark:`, the approval JSON status changes to `approved`.
+When a reviewer reacts with `:white_check_mark:` on the **intro message** (not the PDF thread reply), the approval JSON status changes to `approved` and the bot replies in the thread.
 
-When a reviewer reacts with `:x:`, the bot asks for feedback in the Slack thread. The next human thread reply is saved into the approval JSON and `write.py` is rerun with:
+When a reviewer reacts with `:x:`, the bot asks for feedback in the Slack thread. The next human thread reply is saved into the approval JSON and `write_serverless.py` is rerun with:
 
 ```bash
-python write.py --feedback-json output/approvals/example.json
+python write_serverless.py --feedback-json output/approvals/example.json
 ```
 
 The revised draft is then posted back to Slack for another approval round. To collect feedback without automatically rewriting, run:
