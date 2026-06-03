@@ -45,7 +45,7 @@ The search plan is organized around the four topical territories from the strate
 
 1. Loads `TAVILY_API_KEY` from the project-level `.env` file.
 2. Builds strategy-clustered search queries from the four GEO topical territories.
-3. Runs staged searches: 7-day priority sources, 30-day priority sources, 14-day broader news, then official sources if needed.
+3. Runs staged searches: 7-day priority sources, 30-day priority sources, 14-day regional secondary outlets, 14-day broader news, then official sources if needed.
 4. Uses Tavily's `news` topic for news stages and `general` topic for official-source fallback.
 5. Uses `advanced` search depth.
 6. Prioritizes trusted Atlanta and Georgia sources.
@@ -57,12 +57,29 @@ The search plan is organized around the four topical territories from the strate
 12. Applies cluster-specific gates so storm, insurance, roof-safety, and county-guide results each prove the right kind of relevance.
 13. Blocks common false positives like sports, car insurance, liability-only legal stories, shootings, and election/runoff articles.
 14. Adds strategy metadata to each result, including `strategy_cluster`, `pillar_topic`, `trigger_window_hours`, `search_stage`, `search_quality_score`, and `matched_terms`.
-15. Saves the final result list to `output/sources/search_results.json`.
+15. Skips source URLs already recorded in `output/sources/used_sources.json` from previous blog drafts.
+16. Saves the final result list to `output/sources/search_results.json`.
 
 Run it with:
 
 ```bash
 conda run -n blog-automation python search.py
+```
+
+Useful flags:
+
+```bash
+# Default: 8 rotating queries (2/cluster), early stop at 10 results (~8–32 credits typical)
+conda run -n blog-automation python search.py
+
+# Full 27-query plan (higher credit usage)
+conda run -n blog-automation python search.py --all-queries
+
+# Keep searching until 25 candidates are found (default is 10)
+conda run -n blog-automation python search.py --target-results 25
+
+# Run every stage and every query regardless of target (~80–270 credits)
+conda run -n blog-automation python search.py --all-stages --all-queries
 ```
 
 ### Priority Sources
@@ -79,6 +96,21 @@ The current search module prioritizes:
 
 These sources are preferred because they are more likely to produce credible local facts that can be cited in a blog post.
 
+### Secondary Regional Sources
+
+A dedicated secondary stage searches these Metro Atlanta outlets:
+
+- CBS46 / Atlanta News First
+- Atlanta Magazine (`atlantan.com`)
+- Marietta Daily Journal
+- Gwinnett Daily Post
+- Rockdale Newton Citizen
+- AccessWDUN
+- Reporter Newspapers (Dunwoody/Brookhaven)
+- Northside Neighbor
+
+Secondary outlets receive a moderate authority bonus in `evaluate.py` (below priority TV/gov sources, above generic web hits).
+
 ### Search Cost
 
 Tavily does not bill search by LLM tokens. It uses API credits.
@@ -88,25 +120,31 @@ The current module uses `search_depth="advanced"`. Tavily's current docs state t
 - `basic` search costs 1 API credit per request.
 - `advanced` search costs 2 API credits per request.
 
-The current module has 19 strategy queries. Because each query uses advanced search, each full search stage costs about:
+By default, search uses **weekly query rotation**: 2 queries per strategy cluster (8 active queries) instead of all 27. Each advanced call costs 2 credits:
 
 ```text
-19 queries * 2 credits = 38 Tavily API credits
+8 active queries * 2 credits = 16 Tavily API credits per full stage
 ```
 
-The module stops once it finds enough quality candidates, so quiet weeks cost more than active weeks because fallback stages run. The maximum current run is four stages:
+Credit savers built in:
+
+- **Weekly query rotation** — `--queries-per-cluster 2` (default); use `--all-queries` for the full 27-query plan.
+- **Between-stage early stop** — stops when `--target-results` (default: 10) is reached.
+- **Within-stage early stop** — skips remaining queries in the current stage once the target is hit.
+
+Worst case with defaults (all 5 stages, every rotated query):
 
 ```text
-38 credits/stage * 4 stages = 152 Tavily API credits
+16 credits/stage * 5 stages = 80 Tavily API credits
 ```
 
-If the maximum path ran once per week, the search stage would use about:
+Typical weekly run (target hit during stage 1–2, mid-stage exit):
 
 ```text
-152 credits/week * 4 weeks = 608 credits/month
+~8–32 Tavily API credits
 ```
 
-Tavily currently offers 1,000 free API credits per month on its free Researcher plan, so this search stage should fit comfortably inside the free tier during normal weekly usage.
+Use `--all-queries` for maximum coverage (up to ~270 credits if all five stages run every query). Use `--all-stages` only when debugging.
 
 Sources:
 
@@ -117,15 +155,48 @@ Sources:
 
 The current filter is intentionally strict. If Tavily finds Atlanta stories that are unrelated to roofing, storms, insurance, building safety, or exterior repair, those stories are filtered out before they reach the next pipeline stage.
 
-At the moment, the search stage favors precision over raw volume. A quiet local news week may produce only a few source candidates. That is acceptable because the evaluation stage should receive fewer, cleaner candidates rather than many unrelated articles.
+At the moment, the search stage favors precision over raw volume, but it now targets up to 10 kept candidates before stopping (configurable with `--target-results`). A quiet local news week may still produce fewer results if filters reject off-topic stories. That is acceptable because the evaluation stage should receive fewer, cleaner candidates rather than many unrelated articles.
 
 Search scoring now includes:
 
 - Territory alignment scoring for the four GEO territories.
 - A multi-territory bonus when one source bridges more than one useful content territory.
 - Semantic relevance checks that require meaningful combinations, such as storm plus property damage or insurance plus roof/homeowner impact.
+- Graduated recency scoring (1-day breaking news scores higher than week-old stories).
+- Headline homeowner-relevance scoring for search-intent language in titles.
+- Seasonal alignment bonus for storm and roof-safety clusters during Atlanta peak storm months.
+- Content depth scoring based on Tavily snippet length.
+- Actionability scoring for homeowner next-step language.
 - Negative scoring for sports, politics, unrelated insurance, crime-only stories, and generic local news.
 - Duplicate-topic penalties when a source overlaps a draft topic from the past 30 days.
+- Permanent URL blocking via `output/sources/used_sources.json` so previously used story URLs are skipped in future searches.
+
+Candidates must reach `--min-quality-score` (default: 7.5) to be kept. Lower it with `--min-quality-score 6` if a quiet news week returns too few results.
+
+### Used Source Registry
+
+When `write.py` or `write_serverless.py` saves a draft, the selected source URLs are appended to:
+
+```text
+output/sources/used_sources.json
+```
+
+The next `search.py` run skips those URLs automatically. `evaluate.py` also hard-rejects them as a backup if an old search file still contains them.
+
+Useful commands:
+
+```bash
+# List recorded used sources
+conda run -n blog-automation python used_sources.py --list
+
+# Seed the registry from an existing kept-sources file (one-time backfill)
+conda run -n blog-automation python used_sources.py --seed output/sources/kept_sources.json
+
+# Allow previously used URLs again for one search run
+conda run -n blog-automation python search.py --include-used-sources
+```
+
+Mock writes do not update the registry.
 
 The next planned improvement is a separate evergreen/reference-source lane for statistics and background citations, so the news-hook search can stay strict while the writing stage still receives enough authoritative supporting data.
 
@@ -271,11 +342,11 @@ bash scripts/write_with_endpoint.sh
 3. Loads editor feedback from `feedback/style_notes.txt`.
 4. Formats source excerpts, evaluation reasons, strategy clusters, and recommended angles into a source block.
 5. Calls Together AI to generate a Markdown draft.
-6. Saves the draft to `output/drafts/YYYY-MM-DD-HHMMSS-title-slug.md`.
-7. Saves a matching PDF to `output/drafts/YYYY-MM-DD-HHMMSS-title-slug.pdf`.
-8. Saves a validation report to `output/drafts/YYYY-MM-DD-HHMMSS-title-slug-validation.json`.
+6. Saves the draft to `output/drafts/drafts_md/YYYY-MM-DD-HHMMSS-title-slug.md`.
+7. Saves a matching PDF to `output/drafts/drafts_pdf/YYYY-MM-DD-HHMMSS-title-slug.pdf`.
+8. Saves a validation report to `output/drafts/drafts_json/YYYY-MM-DD-HHMMSS-title-slug-validation.json`.
 
-Each run of `write.py` or `write_serverless.py` clears existing files in `output/drafts/` first so only the latest draft remains. Use `--keep-drafts` to skip cleanup. Use `--no-pdf` to skip PDF export.
+`write_serverless.py` keeps existing drafts in those subdirectories and adds new timestamped files each run. Approval rewrites delete only the replaced draft's three files. Use `--clear-drafts` on `write_serverless.py` to wipe all draft subdirectories before writing. `write.py` still clears `output/drafts/` by default unless `--keep-drafts` is passed. Use `--no-pdf` to skip PDF export.
 
 Run live writing with:
 
@@ -379,7 +450,7 @@ conda run -n blog-automation python approve.py post --latest
 Or post a specific draft:
 
 ```bash
-conda run -n blog-automation python approve.py post output/drafts/example.md
+conda run -n blog-automation python approve.py post output/drafts/drafts_md/example.md
 ```
 
 The message asks reviewers to react with `:white_check_mark:` to approve or `:x:` to request revisions on the **intro message** (not the PDF thread reply). The bot pre-adds those reactions so reviewers can click one to register their decision.

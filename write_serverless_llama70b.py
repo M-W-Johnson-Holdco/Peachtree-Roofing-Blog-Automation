@@ -1,4 +1,4 @@
-"""Generate a blog draft with Together serverless Qwen3.5 397B A17B.
+"""Generate a blog draft with Together serverless Llama 3.3 70B.
 
 Standalone serverless writer — does not import write.py or together_endpoint.py.
 Ignores `TOGETHER_DEDICATED_ENDPOINT_ID` in `.env`.
@@ -7,10 +7,10 @@ Saves Markdown, validation JSON, and a PDF (via `draft_pdf.py`) into `output/dra
 `output/drafts/drafts_pdf/`, and `output/drafts/drafts_json/` by default. Use `--no-pdf` to skip PDF export.
 
 Run live:
-    python write_serverless.py
+    python write_serverless_llama70b.py
 
 Run without Together credits:
-    python write_serverless.py --mock
+    python write_serverless_llama70b.py --mock
 """
 
 from __future__ import annotations
@@ -49,13 +49,13 @@ from write_common import (
     write_log_prefix,
 )
 
-SERVERLESS_WRITING_MODEL = "Qwen/Qwen3.5-397B-A17B"
-WRITE_RUNNER = "write_serverless.py"
+SERVERLESS_WRITING_MODEL = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+WRITE_RUNNER = "write_serverless_llama70b.py"
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Generate a GEO blog draft with Together serverless Qwen3.5 397B A17B.",
+        description="Generate a GEO blog draft with Together serverless Llama 3.3 70B.",
     )
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT_PATH)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)

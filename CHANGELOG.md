@@ -23,6 +23,139 @@ Notes / next step:
 - 
 ```
 
+## 2026-06-03 - Reduce Tavily credits with query rotation and mid-stage early exit
+
+Changed:
+- Default search now runs 2 rotating queries per strategy cluster (8 active queries) based on ISO week number.
+- Added within-stage early exit when `--target-results` is reached (skips remaining queries in that stage).
+- Added CLI flags: `--queries-per-cluster`, `--all-queries`, `--rotation-week`.
+
+Why:
+- Cut typical weekly search usage from ~54–270 credits toward ~8–32 credits without losing staged priority/secondary/broad coverage.
+
+Files touched:
+- `search.py`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Verified `build_active_search_plan()` returns 8 queries with rotation and 27 with `--all-queries`.
+
+## 2026-06-03 - Improve search scoring granularity in search.py
+
+Changed:
+- Added graduated recency, headline homeowner relevance, seasonal alignment, content depth, and actionability scores to `_quality_score`.
+- Raised default minimum quality threshold from 6.0 to 7.5 (`--min-quality-score` to override).
+- Persist new score fields on each search result JSON object.
+- Added early-stop log message when `--target-results` is reached after a full stage.
+
+Why:
+- Prefer fresher, deeper, and more homeowner-actionable sources without changing existing territory, semantic, or off-topic filters.
+
+Files touched:
+- `search.py`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Ran Python syntax check for `search.py`.
+
+## 2026-06-03 - Split draft outputs into drafts_md, drafts_pdf, and drafts_json
+
+Changed:
+- Draft Markdown, PDF, and validation JSON now save under `output/drafts/drafts_md/`, `drafts_pdf/`, and `drafts_json/`.
+- Centralized draft path helpers in `write_common.py` (`output_paths`, `draft_pdf_path`, `latest_markdown_draft`, etc.).
+- Updated `approve.py`, `search.py`, and rewrite cleanup to use the new layout with legacy flat-file fallback.
+
+Why:
+- Keep draft file types organized while preserving shared timestamped stems across formats.
+
+Files touched:
+- `write_common.py`
+- `write_serverless.py`
+- `approve.py`
+- `approve_listen.py`
+- `search.py`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Ran Python syntax check for modified modules.
+
+## 2026-06-03 - Keep draft history in write_serverless; replace one draft on rewrite
+
+Changed:
+- `write_serverless.py` no longer clears all files in `output/drafts/` before each run.
+- Slack approval rewrites remove only the replaced draft's Markdown, PDF, and validation JSON.
+- Added `remove_draft_artifacts()` and `resolve_replace_draft_path()` in `write_common.py`.
+- Replaced `--keep-drafts` with optional `--clear-drafts` on `write_serverless.py`.
+
+Why:
+- Preserve prior drafts while still replacing only the draft being revised.
+
+Files touched:
+- `write_common.py`
+- `write_serverless.py`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Ran Python syntax check for `write_common.py` and `write_serverless.py`.
+
+## 2026-06-02 - Track used source URLs and skip them in search
+
+Changed:
+- Added `used_sources.py` and `output/sources/used_sources.json` registry for story URLs used in blog drafts.
+- `write.py` / `write_serverless.py` record selected source URLs after each non-mock draft save.
+- `search.py` skips registry URLs by default; added `--include-used-sources` override.
+- `evaluate.py` hard-rejects previously used URLs as a backup gate.
+- Validation JSON now includes a `sources_used` block for traceability.
+
+Why:
+- Avoid reusing the same news story across multiple blog posts.
+
+Files touched:
+- `used_sources.py`
+- `write_common.py`
+- `search.py`
+- `evaluate.py`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Ran Python syntax check for `used_sources.py`, `search.py`, `evaluate.py`, and `write_common.py`.
+
+Notes / next step:
+- Run `python used_sources.py --seed output/sources/kept_sources.json` once to block sources from drafts already written.
+
+## 2026-06-02 - Expand search outlets, stages, and candidate volume
+
+Changed:
+- Raised default kept-result target from 5 to 15 and increased per-query result limits.
+- Added `SECONDARY_SOURCES` with eight regional Metro Atlanta outlets and a new `secondary_14_day_news` Tavily stage.
+- Added eight strategy queries (two per GEO cluster) for 27 total queries.
+- Added `secondary_source` and `official_source` metadata on search results.
+- Added CLI flags: `--target-results`, `--days-back`, `--max-results-per-query`, `--all-stages`.
+- Log estimated and actual Tavily credit usage per run.
+- Updated `evaluate.py` authority scoring for secondary (7) and official (8) sources.
+
+Why:
+- Find more candidates for evaluation while keeping search filters strict.
+- Cover regional outlets beyond the original seven priority domains.
+
+Files touched:
+- `search.py`
+- `evaluate.py`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Ran Python syntax check for `search.py` and `evaluate.py`.
+
+Notes / next step:
+- Run live `python search.py` and confirm more results in `output/sources/search_results.json`.
+- Use `--all-stages` sparingly if staying inside Tavily's 1,000 free credits/month.
+
 ## 2026-06-02 - Make write_serverless.py fully standalone
 
 Changed:

@@ -1,7 +1,7 @@
 """Post the latest draft PDF to Slack and start the approval listener.
 
-Expects the latest draft in `output/drafts/` to already have a matching `.pdf`
-file from `write.py` or `write_serverless.py`.
+Expects the latest draft in `output/drafts/drafts_md/` to already have a matching `.pdf`
+in `output/drafts/drafts_pdf/` from `write.py` or `write_serverless.py`.
 
 Shortcut for:
     python approve.py post --latest --then-listen

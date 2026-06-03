@@ -13,6 +13,7 @@ from typing import Any
 from dotenv import load_dotenv
 
 from cli_progress import run_with_progress
+from used_sources import normalize_source_url, record_used_sources, sources_used_payload, used_source_urls
 from draft_pdf import save_draft_pdf
 
 
@@ -21,6 +22,9 @@ DEFAULT_INPUT_PATH = PROJECT_ROOT / "output" / "sources" / "kept_sources.json"
 PROMPT_PATH = PROJECT_ROOT / "prompts" / "blog.txt"
 STYLE_NOTES_PATH = PROJECT_ROOT / "feedback" / "style_notes.txt"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "output" / "drafts"
+DRAFTS_MD_DIRNAME = "drafts_md"
+DRAFTS_PDF_DIRNAME = "drafts_pdf"
+DRAFTS_JSON_DIRNAME = "drafts_json"
 
 DEFAULT_MODEL = "Qwen/Qwen2.5-7B-Instruct-Turbo"
 SERVERLESS_FALLBACK_MODEL = "Qwen/Qwen2.5-7B-Instruct-Turbo"
@@ -30,6 +34,7 @@ DEFAULT_AUTHOR_CREDENTIALS = "Licensed Roofing Contractor, Metro Atlanta"
 # Together serverless pricing (USD per 1M tokens). Source: docs.together.ai/docs/serverless/models
 TOGETHER_MODEL_PRICING_PER_MILLION: dict[str, dict[str, float]] = {
     "meta-llama/Llama-3.3-70B-Instruct-Turbo": {"input": 1.04, "output": 1.04},
+    "Qwen/Qwen3.5-397B-A17B": {"input": 0.60, "output": 3.60},
     "Qwen/Qwen2.5-7B-Instruct-Turbo": {"input": 0.30, "output": 0.30},
     "Qwen/Qwen2.5-72B-Instruct-Turbo": {"input": 0.90, "output": 0.90},
 }
@@ -111,47 +116,203 @@ def read_feedback_json(path: Path | None) -> str:
     return load_approval_rewrite_context(path)["approval_feedback"]
 
 
-def load_approval_rewrite_context(path: Path | None) -> dict[str, str]:
+REVISION_MODE_EDITORIAL = "editorial"
+REVISION_MODE_FACTUAL = "factual"
+REVISION_MODES = (REVISION_MODE_EDITORIAL, REVISION_MODE_FACTUAL)
+
+FEEDBACK_PREFIX_TO_MODE: dict[str, str] = {
+    "edit": REVISION_MODE_EDITORIAL,
+    "editorial": REVISION_MODE_EDITORIAL,
+    "sources": REVISION_MODE_FACTUAL,
+    "stats": REVISION_MODE_FACTUAL,
+    "factual": REVISION_MODE_FACTUAL,
+}
+
+FACTUAL_FEEDBACK_PATTERNS = (
+    r"\bstat(?:istic)?s?\b",
+    r"\bcitations?\b",
+    r"\bcite\b",
+    r"\bcited\b",
+    r"\bsources?\b",
+    r"\barticles?\b",
+    r"\bpercent(?:age)?\b",
+    r"\bfigures?\b",
+    r"\bnumbers?\b",
+    r"\bdata\b",
+    r"\bclaims?\b",
+    r"\bfacts?\b",
+    r"\bfrom the (?:story|article|source|report)\b",
+    r"\badd(?:ing)? (?:a |another )?(?:stat|figure|number|citation)\b",
+    r"\$\d",
+    r"\b\d+\s*(?:%|percent)\b",
+)
+
+EDITORIAL_FEEDBACK_PATTERNS = (
+    r"\btone\b",
+    r"\bwordy\b",
+    r"\bshorter\b",
+    r"\blonger\b",
+    r"\bconcise\b",
+    r"\bopening\b",
+    r"\bintro(?:duction)?\b",
+    r"\bparagraph\b",
+    r"\bheadings?\b",
+    r"\bh2\b",
+    r"\bfaq\b",
+    r"\bsalesy\b",
+    r"\bpromotional\b",
+    r"\brephrase\b",
+    r"\breword\b",
+    r"\bwording\b",
+    r"\bless repetitive\b",
+    r"\brepetitive\b",
+    r"\bgeneric\b",
+    r"\bbyline\b",
+    r"\bcta\b",
+    r"\bvalidation\b",
+)
+
+
+def parse_feedback_prefix(text: str) -> tuple[str, str | None]:
+    """Return cleaned feedback text and optional explicit revision mode from a prefix."""
+    match = re.match(
+        r"^(edit|editorial|sources|stats|factual)\s*:\s*(.*)$",
+        text.strip(),
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if not match:
+        return text.strip(), None
+    mode = FEEDBACK_PREFIX_TO_MODE[match.group(1).lower()]
+    cleaned = match.group(2).strip()
+    return cleaned or text.strip(), mode
+
+
+def classify_revision_mode(feedback_texts: list[str]) -> tuple[str, str]:
+    """Pick editorial vs factual revision mode from Slack feedback."""
+    explicit_modes: list[str] = []
+    cleaned_texts: list[str] = []
+    for text in feedback_texts:
+        cleaned, explicit_mode = parse_feedback_prefix(text)
+        if cleaned:
+            cleaned_texts.append(cleaned)
+        if explicit_mode:
+            explicit_modes.append(explicit_mode)
+
+    if REVISION_MODE_FACTUAL in explicit_modes:
+        return REVISION_MODE_FACTUAL, "explicit prefix (sources/stats/factual)"
+    if explicit_modes:
+        return REVISION_MODE_EDITORIAL, "explicit prefix (edit/editorial)"
+
+    combined = "\n".join(cleaned_texts).lower()
+    if not combined.strip():
+        return REVISION_MODE_EDITORIAL, "default"
+
+    factual_score = sum(1 for pattern in FACTUAL_FEEDBACK_PATTERNS if re.search(pattern, combined))
+    editorial_score = sum(1 for pattern in EDITORIAL_FEEDBACK_PATTERNS if re.search(pattern, combined))
+
+    if factual_score > editorial_score and factual_score > 0:
+        return REVISION_MODE_FACTUAL, f"keyword match (factual={factual_score}, editorial={editorial_score})"
+    if editorial_score > 0:
+        return REVISION_MODE_EDITORIAL, f"keyword match (factual={factual_score}, editorial={editorial_score})"
+    return REVISION_MODE_EDITORIAL, "default"
+
+
+def feedback_items_to_texts(feedback: Any) -> list[str]:
+    texts: list[str] = []
+    if not isinstance(feedback, list):
+        return texts
+    for item in feedback:
+        if isinstance(item, dict):
+            text = str(item.get("text", "")).strip()
+        else:
+            text = str(item).strip()
+        if text:
+            texts.append(text)
+    return texts
+
+
+def format_approval_feedback_lines(feedback_texts: list[str]) -> str:
+    lines: list[str] = []
+    for index, text in enumerate(feedback_texts, start=1):
+        cleaned, _ = parse_feedback_prefix(text)
+        if cleaned:
+            lines.append(f"{index}. {cleaned}")
+    return "\n".join(lines)
+
+
+def classify_revision_mode_from_record(record: dict[str, Any]) -> tuple[str, str]:
+    return classify_revision_mode(feedback_items_to_texts(record.get("feedback", [])))
+
+
+def update_record_revision_mode(record: dict[str, Any]) -> tuple[str, str]:
+    mode, reason = classify_revision_mode_from_record(record)
+    record["revision_mode"] = mode
+    record["revision_mode_reason"] = reason
+    return mode, reason
+
+
+def load_approval_rewrite_context(path: Path | None) -> dict[str, Any]:
     if path is None:
-        return {"approval_feedback": "", "previous_draft": ""}
+        return {
+            "approval_feedback": "",
+            "previous_draft": "",
+            "replace_draft_path": None,
+            "revision_mode": "",
+            "revision_mode_reason": "",
+        }
     if not path.exists():
         raise FileNotFoundError(f"Feedback JSON not found: {path}")
 
     with path.open("r", encoding="utf-8") as f:
         data = json.load(f)
 
-    feedback = data.get("feedback", [])
-    lines: list[str] = []
-    if isinstance(feedback, list):
-        for index, item in enumerate(feedback, start=1):
-            if isinstance(item, dict):
-                text = str(item.get("text", "")).strip()
-                user = str(item.get("user", "unknown")).strip() or "unknown"
-                created_at = str(item.get("created_at", "")).strip()
-                if text:
-                    timestamp = f" at {created_at}" if created_at else ""
-                    lines.append(f"{index}. Slack feedback from {user}{timestamp}: {text}")
-            elif str(item).strip():
-                lines.append(f"{index}. Slack feedback: {str(item).strip()}")
+    feedback_texts = feedback_items_to_texts(data.get("feedback", []))
+    approval_feedback = format_approval_feedback_lines(feedback_texts)
+    revision_mode, revision_mode_reason = classify_revision_mode(feedback_texts)
 
-    draft_rel = str(data.get("draft_path", "")).strip()
+    replace_draft_path = resolve_replace_draft_path(data)
     previous_draft = ""
-    if draft_rel:
+    if replace_draft_path and replace_draft_path.is_file():
+        previous_draft = replace_draft_path.read_text(encoding="utf-8")
+    elif replace_draft_path:
+        print(
+            f"{write_log_prefix()} Warning: Previous draft not found at {replace_draft_path}. "
+            "Rewrite will use Slack feedback only."
+        )
+
+    return {
+        "approval_feedback": approval_feedback,
+        "previous_draft": previous_draft,
+        "replace_draft_path": replace_draft_path,
+        "revision_mode": revision_mode if approval_feedback else "",
+        "revision_mode_reason": revision_mode_reason if approval_feedback else "",
+    }
+
+
+def resolve_replace_draft_path(record: dict[str, Any]) -> Path | None:
+    """Return the draft file that a rewrite should replace, if known."""
+    for key in ("revision_draft_path", "draft_path"):
+        draft_rel = str(record.get(key, "")).strip()
+        if not draft_rel:
+            continue
         draft_path = Path(draft_rel)
         if not draft_path.is_absolute():
             draft_path = PROJECT_ROOT / draft_path
         if draft_path.is_file():
-            previous_draft = draft_path.read_text(encoding="utf-8")
-        else:
-            print(
-                f"{write_log_prefix()} Warning: Previous draft not found at {draft_path}. "
-                "Rewrite will use Slack feedback only."
-            )
+            return draft_path
+    return None
 
-    return {
-        "approval_feedback": "\n".join(lines),
-        "previous_draft": previous_draft,
-    }
+
+def persist_revision_mode_to_approval_json(path: Path, mode: str, reason: str) -> None:
+    if not path.exists():
+        return
+    with path.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    data["revision_mode"] = mode
+    data["revision_mode_reason"] = reason
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
 
 
 def source_display_name(source: dict[str, Any]) -> str:
@@ -281,14 +442,28 @@ def select_sources_for_draft(
     return selected, decision
 
 
-def build_prompt(
+def validation_checklist_block(author_name: str, author_credentials: str) -> str:
+    return (
+        "- One H1 title at the top.\n"
+        "- Opening paragraph before the first ## is 50-120 words and answer-first.\n"
+        "- Every ## heading is a question ending with ?, except the exact heading `## FAQ`.\n"
+        "- At least one markdown comparison table.\n"
+        "- Exactly 3-5 inline citations formatted `(Source: Outlet Name, Month Year)`.\n"
+        "- At least 6 named Metro Atlanta locations woven into the prose.\n"
+        "- Exactly 8 FAQ questions as ### H3 headings under `## FAQ`.\n"
+        f'- Exact author byline: "Written by {author_name}, {author_credentials}. Peachtree Roofing & Exteriors serves homeowners across Metro Atlanta."\n'
+        '- Exact CTA: "Contact Peachtree Roofing & Exteriors for a free inspection."\n'
+        "- No generic openers such as In today's world, As a homeowner, or When it comes to."
+    )
+
+
+def build_first_draft_prompt(
     prompt_template: str,
     sources: list[dict[str, Any]],
     style_notes: str,
     author_name: str,
     author_credentials: str,
     approval_feedback: str = "",
-    previous_draft: str = "",
 ) -> str:
     sources_block = format_sources_block(sources)
     feedback_parts = [style_notes.strip()]
@@ -303,42 +478,150 @@ def build_prompt(
         author_credentials=author_credentials,
     )
 
-    prompt = (
+    checklist = validation_checklist_block(author_name, author_credentials)
+    indented_checklist = "\n".join(f"  {line}" for line in checklist.splitlines())
+    return (
         f"{base_prompt}\n\n---\n\n"
         "RECENT EDITOR FEEDBACK TO APPLY:\n"
         f"{style_block}\n\n"
         "---\n\n"
         "IMPORTANT SOURCE USE RULES:\n"
         "- Do not invent facts, statistics, dates, credentials, review counts, project counts, or license numbers.\n"
-        "- Use exactly 3 to 5 cited statistics from the provided sources. The current sources include figures such as 24%, 30%, 25%, $1,000, $2,500, 10 to 20 percent, May 18, 2026, 20-story, three unsecured gaps, and 8x8 concrete pavers when relevant.\n"
+        "- Use exactly 3 to 5 cited statistics from the provided sources.\n"
         "- Keep all headings and FAQ questions in question format.\n"
         "- Use the exact FAQ format: ## FAQ, then exactly eight H3 question headings and paragraph answers.\n"
         "- Do not format the author byline as a heading.\n"
         "- Pass every automated validation check:\n"
-        "  - One H1 title at the top.\n"
-        "  - Opening paragraph before the first ## is 50-120 words and answer-first.\n"
-        "  - Every ## heading is a question ending with ?, except the exact heading `## FAQ`.\n"
-        "  - At least one markdown comparison table.\n"
-        "  - Exactly 3-5 inline citations formatted `(Source: Outlet Name, Month Year)`.\n"
-        "  - At least 6 named Metro Atlanta locations woven into the prose.\n"
-        "  - Exactly 8 FAQ questions as ### H3 headings under `## FAQ`.\n"
-        f'  - End with this exact byline sentence: "Written by {author_name}, {author_credentials}. Peachtree Roofing & Exteriors serves homeowners across Metro Atlanta."\n'
-        '  - End with this exact CTA sentence: "Contact Peachtree Roofing & Exteriors for a free inspection."\n'
-        "  - Do not use generic openers such as In today's world, As a homeowner, or When it comes to.\n"
+        f"{indented_checklist}\n"
     )
 
-    if previous_draft.strip():
-        prompt += (
-            "\n---\n\n"
-            "REVISION TASK:\n"
-            "Revise the previous draft below using the Slack approval feedback above.\n"
-            "Keep facts grounded in the provided sources, preserve what still works, and apply every requested change.\n"
-            "Return the complete revised Markdown draft only.\n\n"
-            "PREVIOUS DRAFT TO REVISE:\n"
-            f"```\n{previous_draft.strip()}\n```\n"
+
+def build_editorial_revision_prompt(
+    *,
+    style_notes: str,
+    author_name: str,
+    author_credentials: str,
+    approval_feedback: str,
+    previous_draft: str,
+) -> str:
+    checklist = validation_checklist_block(author_name, author_credentials)
+    style_block = style_notes.strip() or "No standing style notes recorded yet."
+    return (
+        "You are revising an existing Peachtree Roofing & Exteriors blog draft for Metro Atlanta homeowners.\n\n"
+        f"AUTHOR: {author_name}, {author_credentials}\n"
+        f"TODAY'S DATE: {date.today().isoformat()}\n\n"
+        "REVISION TYPE: EDITORIAL — fix wording, structure, tone, and validation issues only.\n\n"
+        "EDITOR FEEDBACK (apply every item):\n"
+        f"{approval_feedback.strip()}\n\n"
+        "STANDING STYLE NOTES:\n"
+        f"{style_block}\n\n"
+        "GROUNDING RULES:\n"
+        "- Do not invent new statistics, dates, credentials, or citations.\n"
+        "- Keep existing facts and citations unless feedback explicitly asks to change them.\n"
+        "- Preserve sections that already satisfy the feedback; change only what is needed.\n\n"
+        "VALIDATION CHECKLIST (every item is required):\n"
+        f"{checklist}\n\n"
+        "Return the complete revised Markdown draft only. No preamble or meta-commentary.\n\n"
+        "PREVIOUS DRAFT TO REVISE:\n"
+        f"```\n{previous_draft.strip()}\n```\n"
+    )
+
+
+def build_factual_revision_prompt(
+    sources: list[dict[str, Any]],
+    style_notes: str,
+    author_name: str,
+    author_credentials: str,
+    approval_feedback: str,
+    previous_draft: str,
+) -> str:
+    sources_block = format_sources_block(sources)
+    checklist = validation_checklist_block(author_name, author_credentials)
+    style_block = style_notes.strip() or "No standing style notes recorded yet."
+    return (
+        "You are revising an existing Peachtree Roofing & Exteriors blog draft using source material.\n\n"
+        f"AUTHOR: {author_name}, {author_credentials}\n"
+        f"TODAY'S DATE: {date.today().isoformat()}\n\n"
+        "REVISION TYPE: FACTUAL — update statistics, citations, and claims using the sources below.\n\n"
+        "EDITOR FEEDBACK (apply every item):\n"
+        f"{approval_feedback.strip()}\n\n"
+        "STANDING STYLE NOTES:\n"
+        f"{style_block}\n\n"
+        "SOURCES TO DRAW FROM:\n"
+        f"{sources_block}\n\n"
+        "SOURCE USE RULES:\n"
+        "- Update statistics and citations only where feedback requests it.\n"
+        "- Do not invent facts, statistics, dates, credentials, or license numbers.\n"
+        "- Use 3 to 5 cited statistics total, formatted `(Source: Outlet Name, Month Year)`.\n"
+        "- Keep unchanged sections verbatim where possible; do not rewrite unrelated prose.\n\n"
+        "VALIDATION CHECKLIST (every item is required):\n"
+        f"{checklist}\n\n"
+        "Return the complete revised Markdown draft only. No preamble or meta-commentary.\n\n"
+        "PREVIOUS DRAFT TO REVISE:\n"
+        f"```\n{previous_draft.strip()}\n```\n"
+    )
+
+
+def build_draft_prompt(
+    prompt_template: str,
+    sources: list[dict[str, Any]],
+    style_notes: str,
+    author_name: str,
+    author_credentials: str,
+    approval_feedback: str = "",
+    previous_draft: str = "",
+    revision_mode: str | None = None,
+) -> str:
+    is_rewrite = bool(previous_draft.strip() and approval_feedback.strip())
+    if not is_rewrite:
+        return build_first_draft_prompt(
+            prompt_template,
+            sources,
+            style_notes,
+            author_name,
+            author_credentials,
+            approval_feedback,
         )
 
-    return prompt
+    mode = revision_mode or REVISION_MODE_EDITORIAL
+    if mode == REVISION_MODE_FACTUAL:
+        return build_factual_revision_prompt(
+            sources,
+            style_notes,
+            author_name,
+            author_credentials,
+            approval_feedback,
+            previous_draft,
+        )
+    return build_editorial_revision_prompt(
+        style_notes=style_notes,
+        author_name=author_name,
+        author_credentials=author_credentials,
+        approval_feedback=approval_feedback,
+        previous_draft=previous_draft,
+    )
+
+
+def build_prompt(
+    prompt_template: str,
+    sources: list[dict[str, Any]],
+    style_notes: str,
+    author_name: str,
+    author_credentials: str,
+    approval_feedback: str = "",
+    previous_draft: str = "",
+    revision_mode: str | None = None,
+) -> str:
+    return build_draft_prompt(
+        prompt_template,
+        sources,
+        style_notes,
+        author_name,
+        author_credentials,
+        approval_feedback,
+        previous_draft,
+        revision_mode,
+    )
 
 
 def get_together_client():
@@ -582,6 +865,79 @@ Contact Peachtree Roofing & Exteriors for a free inspection.
 """
 
 
+def draft_subdirs(output_dir: Path = DEFAULT_OUTPUT_DIR) -> tuple[Path, Path, Path]:
+    """Return Markdown, PDF, and validation JSON directories under the drafts root."""
+    return (
+        output_dir / DRAFTS_MD_DIRNAME,
+        output_dir / DRAFTS_PDF_DIRNAME,
+        output_dir / DRAFTS_JSON_DIRNAME,
+    )
+
+
+def ensure_draft_subdirs(output_dir: Path = DEFAULT_OUTPUT_DIR) -> tuple[Path, Path, Path]:
+    md_dir, pdf_dir, json_dir = draft_subdirs(output_dir)
+    for directory in (md_dir, pdf_dir, json_dir):
+        directory.mkdir(parents=True, exist_ok=True)
+    return md_dir, pdf_dir, json_dir
+
+
+def resolve_drafts_root(path: Path) -> Path:
+    if path.parent.name in {DRAFTS_MD_DIRNAME, DRAFTS_PDF_DIRNAME, DRAFTS_JSON_DIRNAME}:
+        return path.parent.parent
+    if path.parent.name == "drafts" or path.parent == DEFAULT_OUTPUT_DIR:
+        return path.parent
+    return DEFAULT_OUTPUT_DIR
+
+
+def draft_stem_from_path(draft_path: Path) -> str:
+    name = draft_path.name
+    if name.endswith("-validation.json"):
+        return name[: -len("-validation.json")]
+    return draft_path.stem
+
+
+def draft_pdf_path(markdown_path: Path) -> Path:
+    stem = draft_stem_from_path(markdown_path)
+    _, pdf_dir, _ = draft_subdirs(resolve_drafts_root(markdown_path))
+    return pdf_dir / f"{stem}.pdf"
+
+
+def draft_validation_json_path(draft_path: Path) -> Path:
+    stem = draft_stem_from_path(draft_path)
+    _, _, json_dir = draft_subdirs(resolve_drafts_root(draft_path))
+    return json_dir / f"{stem}-validation.json"
+
+
+def markdown_draft_paths(output_dir: Path = DEFAULT_OUTPUT_DIR) -> list[Path]:
+    """List Markdown drafts in the typed subdir, with legacy flat-directory fallback."""
+    md_dir, _, _ = draft_subdirs(output_dir)
+    drafts = sorted(md_dir.glob("*.md")) if md_dir.exists() else []
+    if drafts:
+        return drafts
+    return sorted(
+        path
+        for path in output_dir.glob("*.md")
+        if path.is_file() and not path.name.endswith("-validation.md")
+    )
+
+
+def latest_markdown_draft(output_dir: Path = DEFAULT_OUTPUT_DIR) -> Path:
+    drafts = markdown_draft_paths(output_dir)
+    if not drafts:
+        raise FileNotFoundError(f"No Markdown drafts found under {output_dir}")
+
+    for draft_path in reversed(drafts):
+        if draft_pdf_path(draft_path).is_file():
+            return draft_path
+
+    latest = drafts[-1]
+    expected_pdf = draft_pdf_path(latest)
+    raise FileNotFoundError(
+        f"No PDF found for the latest draft under {output_dir}. "
+        f"Expected {expected_pdf}. Run write.py or write_serverless.py first."
+    )
+
+
 def slugify(text: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
     return slug[:60] or "blog-draft"
@@ -594,12 +950,16 @@ def first_heading(markdown: str) -> str:
     return "blog-draft"
 
 
-def output_paths(markdown: str, output_dir: Path) -> tuple[Path, Path]:
+def output_paths(markdown: str, output_dir: Path) -> tuple[Path, Path, Path]:
+    md_dir, pdf_dir, json_dir = ensure_draft_subdirs(output_dir)
     run_stamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
     slug = slugify(first_heading(markdown))
-    draft_path = output_dir / f"{run_stamp}-{slug}.md"
-    report_path = output_dir / f"{run_stamp}-{slug}-validation.json"
-    return draft_path, report_path
+    base = f"{run_stamp}-{slug}"
+    return (
+        md_dir / f"{base}.md",
+        pdf_dir / f"{base}.pdf",
+        json_dir / f"{base}-validation.json",
+    )
 
 
 def count_faq_pairs(markdown: str) -> int:
@@ -814,107 +1174,6 @@ def generate_validated_draft(
     return draft, validation_report, merged_report
 
 
-TOGETHER_CREDITS_ENV = "TOGETHER_CREDITS_USD"
-TOGETHER_CREDITS_STATE_PATH = PROJECT_ROOT / "output" / "together_credits.json"
-
-
-def extract_run_cost_usd(generation_report: dict[str, Any]) -> float | None:
-    """Best-effort USD cost for one write run from the generation report."""
-    estimated = generation_report.get("estimated_cost_usd") or {}
-    combined = estimated.get("combined_total")
-    if combined is not None:
-        return float(combined)
-
-    token_total = (estimated.get("tokens") or {}).get("total")
-    endpoint_total = (estimated.get("endpoint") or {}).get("total") or 0
-    if token_total is not None:
-        return float(token_total) + float(endpoint_total)
-    return None
-
-
-def _load_together_credits_state() -> dict[str, Any]:
-    if not TOGETHER_CREDITS_STATE_PATH.exists():
-        return {}
-    try:
-        return json.loads(TOGETHER_CREDITS_STATE_PATH.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return {}
-
-
-def _save_together_credits_state(state: dict[str, Any]) -> None:
-    TOGETHER_CREDITS_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with TOGETHER_CREDITS_STATE_PATH.open("w", encoding="utf-8") as f:
-        json.dump(state, f, indent=2)
-
-
-def record_together_credits(run_cost_usd: float | None) -> str | None:
-    """
-    Track blog-write spend against TOGETHER_CREDITS_USD from .env.
-
-    Together does not expose remaining prepaid balance via API, so this keeps a
-    local ledger: set TOGETHER_CREDITS_USD to the balance shown in the dashboard
-    when you top up; each write run subtracts its estimated cost.
-    """
-    env_value = os.getenv(TOGETHER_CREDITS_ENV, "").strip()
-    if not env_value and run_cost_usd is None:
-        return None
-
-    state = _load_together_credits_state()
-    now = datetime.now().isoformat()
-
-    if env_value:
-        try:
-            baseline_usd = float(env_value)
-        except ValueError:
-            return (
-                f"Invalid {TOGETHER_CREDITS_ENV}={env_value!r} in .env "
-                "(expected a number like 25.00)."
-            )
-        if (
-            state.get("baseline_env_value") != env_value
-            or state.get("baseline_usd") != baseline_usd
-        ):
-            state = {
-                "baseline_usd": baseline_usd,
-                "baseline_env_value": env_value,
-                "baseline_set_at": now,
-                "tracked_spend_usd": 0.0,
-                "run_count": 0,
-            }
-    elif not state.get("baseline_usd"):
-        if run_cost_usd is not None:
-            return (
-                f"Set {TOGETHER_CREDITS_ENV} in .env to your Together dashboard balance "
-                f"to track estimated credits remaining (this run ~${run_cost_usd:.4f})."
-            )
-        return (
-            f"Set {TOGETHER_CREDITS_ENV} in .env to your Together dashboard balance "
-            "to track estimated credits remaining after each draft."
-        )
-
-    if run_cost_usd is not None and run_cost_usd > 0:
-        state["tracked_spend_usd"] = round(
-            float(state.get("tracked_spend_usd") or 0) + run_cost_usd,
-            6,
-        )
-        state["run_count"] = int(state.get("run_count") or 0) + 1
-        state["last_run_usd"] = round(run_cost_usd, 6)
-        state["last_run_at"] = now
-
-    baseline = float(state["baseline_usd"])
-    tracked = float(state.get("tracked_spend_usd") or 0)
-    remaining = round(baseline - tracked, 4)
-    state["estimated_remaining_usd"] = remaining
-    _save_together_credits_state(state)
-
-    synced = state.get("baseline_set_at", "")[:10] or "unknown date"
-    return (
-        f"Together credits (est.): ${remaining:.2f} remaining "
-        f"(${tracked:.4f} spent on blog writes since sync on {synced}; "
-        "update TOGETHER_CREDITS_USD after top-ups)"
-    )
-
-
 def save_text(text: str, path: Path, *, log_prefix: str | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
@@ -929,13 +1188,60 @@ def save_json(data: dict[str, Any], path: Path, *, log_prefix: str | None = None
 
 
 def clear_drafts_directory(output_dir: Path) -> list[Path]:
-    """Remove existing files in the drafts output directory."""
+    """Remove existing draft files from typed subdirectories and legacy flat files."""
     output_dir.mkdir(parents=True, exist_ok=True)
     removed: list[Path] = []
-    for path in sorted(output_dir.iterdir()):
-        if path.is_file():
+    md_dir, pdf_dir, json_dir = draft_subdirs(output_dir)
+    targets = [md_dir, pdf_dir, json_dir, output_dir]
+    for directory in targets:
+        if not directory.exists():
+            continue
+        for path in sorted(directory.iterdir()):
+            if not path.is_file():
+                continue
+            if directory == output_dir and path.name in {
+                DRAFTS_MD_DIRNAME,
+                DRAFTS_PDF_DIRNAME,
+                DRAFTS_JSON_DIRNAME,
+            }:
+                continue
             path.unlink()
             removed.append(path)
+    return removed
+
+
+def draft_artifact_paths(draft_path: Path) -> list[Path]:
+    """Return the Markdown, PDF, and validation JSON paths for one draft stem."""
+    stem = draft_stem_from_path(draft_path)
+    output_dir = resolve_drafts_root(draft_path)
+    md_dir, pdf_dir, json_dir = draft_subdirs(output_dir)
+    paths = [
+        md_dir / f"{stem}.md",
+        pdf_dir / f"{stem}.pdf",
+        json_dir / f"{stem}-validation.json",
+    ]
+    if draft_path.parent == output_dir:
+        paths.extend(
+            [
+                output_dir / f"{stem}.md",
+                output_dir / f"{stem}.pdf",
+                output_dir / f"{stem}-validation.json",
+            ]
+        )
+    return paths
+
+
+def remove_draft_artifacts(draft_path: Path) -> list[Path]:
+    """Remove one draft's Markdown, PDF, and validation JSON files."""
+    removed: list[Path] = []
+    seen: set[str] = set()
+    for path in draft_artifact_paths(draft_path):
+        key = str(path.resolve())
+        if key in seen or not path.is_file():
+            continue
+        seen.add(key)
+        path.unlink()
+        removed.append(path)
     return removed
 
 
@@ -952,7 +1258,7 @@ def save_draft_outputs(
 ) -> dict[str, Any]:
     """Validate, save Markdown/PDF/JSON outputs, and print summary lines."""
     log = write_log_prefix()
-    draft_path, report_path = output_paths(draft, output_dir)
+    draft_path, pdf_path, report_path = output_paths(draft, output_dir)
     report = validate_draft(draft)
     report["generated_at"] = datetime.now().isoformat()
     report["source_count"] = len(selected_sources)
@@ -961,13 +1267,13 @@ def save_draft_outputs(
     report["model"] = model_used
     report["generation"] = generation_report
     report["draft_path"] = str(draft_path)
+    report["sources_used"] = sources_used_payload(selected_sources)
     if generation_report.get("validation_attempts") is not None:
         report["validation_attempts"] = generation_report["validation_attempts"]
     if generation_report.get("validation_passed") is not None:
         report["validation_passed_on_generation"] = generation_report["validation_passed"]
 
     save_text(draft, draft_path, log_prefix=log)
-    pdf_path = draft_path.with_suffix(".pdf")
     if skip_pdf:
         report["pdf_path"] = None
     else:
@@ -994,13 +1300,18 @@ def save_draft_outputs(
     combined = (generation_report.get("estimated_cost_usd") or {}).get("combined_total")
     if combined is not None:
         print(f"{log} Estimated combined cost: ${combined:.4f} USD")
-    run_cost = extract_run_cost_usd(generation_report)
-    credits_line = record_together_credits(run_cost)
-    if credits_line:
-        print(f"{log} {credits_line}")
     if not report["passed"]:
         failed = [name for name, passed in report["checks"].items() if not passed]
         print(f"{log} Failed checks: {', '.join(failed)}")
+
+    recorded = record_used_sources(
+        selected_sources,
+        draft_path=draft_path,
+        runner=write_runner_name(),
+        mode=str(generation_report.get("mode") or ""),
+    )
+    if recorded:
+        print(f"{log} Recorded {len(recorded)} used source URL(s) in output/sources/used_sources.json")
 
     return report
 

@@ -7,10 +7,10 @@ Saves Markdown, validation JSON, and a PDF (via `draft_pdf.py`) into `output/dra
 `output/drafts/drafts_pdf/`, and `output/drafts/drafts_json/` by default. Use `--no-pdf` to skip PDF export.
 
 Run live:
-    python write_serverless.py
+    python write_serverless_qwen397b.py
 
 Run without Together credits:
-    python write_serverless.py --mock
+    python write_serverless_qwen397b.py --mock
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ from write_common import (
 )
 
 SERVERLESS_WRITING_MODEL = "Qwen/Qwen3.5-397B-A17B"
-WRITE_RUNNER = "write_serverless.py"
+WRITE_RUNNER = "write_serverless_qwen397b.py"
 
 
 def main() -> None:

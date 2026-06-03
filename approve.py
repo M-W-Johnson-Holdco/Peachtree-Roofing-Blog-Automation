@@ -2,11 +2,11 @@
 
 Commands:
     python approve.py post --latest
-    python approve.py post output/drafts/example.md
+    python approve.py post output/drafts/drafts_md/example.md
     python approve.py listen
 
-Posting uploads the existing PDF from `output/drafts/` (same stem as the `.md`
-file). Run `write.py` or `write_serverless.py` first to generate the PDF.
+Posting uploads the existing PDF from `output/drafts/drafts_pdf/` (matching stem as the `.md`
+file in `output/drafts/drafts_md/`). Run `write.py` or `write_serverless.py` first to generate the PDF.
 
 Required environment for posting:
     SLACK_APPROVAL_BOT_TOKEN
@@ -29,9 +29,16 @@ from typing import Any
 
 from dotenv import load_dotenv
 
+from write_common import (
+    DEFAULT_OUTPUT_DIR,
+    draft_pdf_path,
+    latest_markdown_draft,
+    update_record_revision_mode,
+)
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-DEFAULT_DRAFT_DIR = PROJECT_ROOT / "output" / "drafts"
+DEFAULT_DRAFT_DIR = DEFAULT_OUTPUT_DIR
 DEFAULT_APPROVAL_DIR = PROJECT_ROOT / "output" / "approvals"
 REWRITE_SCRIPT = "write_serverless.py"
 APPROVE_REACTIONS = {"white_check_mark", "heavy_check_mark"}
@@ -89,28 +96,7 @@ def get_approval_channel() -> str:
 
 
 def latest_draft_path(draft_dir: Path = DEFAULT_DRAFT_DIR) -> Path:
-    drafts = sorted(
-        path
-        for path in draft_dir.glob("*.md")
-        if not path.name.endswith("-validation.md")
-    )
-    if not drafts:
-        raise FileNotFoundError(f"No Markdown drafts found in {draft_dir}")
-
-    for draft_path in reversed(drafts):
-        if draft_pdf_path(draft_path).is_file():
-            return draft_path
-
-    latest = drafts[-1]
-    expected_pdf = draft_pdf_path(latest)
-    raise FileNotFoundError(
-        f"No PDF found for the latest draft in {draft_dir}. "
-        f"Expected {expected_pdf}. Run write.py or write_serverless.py first."
-    )
-
-
-def draft_pdf_path(draft_path: Path) -> Path:
-    return draft_path.with_suffix(".pdf")
+    return latest_markdown_draft(draft_dir)
 
 
 def approval_path_for_draft(draft_path: Path) -> Path:
@@ -287,7 +273,11 @@ def request_feedback(client: Any, record: dict[str, Any]) -> None:
     client.chat_postMessage(
         channel=record["channel"],
         thread_ts=record["message_ts"],
-        text="Got it. Please reply in this thread with the changes you want, and I will save the feedback for a rewrite.",
+        text=(
+            "Got it. Please reply in this thread with the changes you want.\n"
+            "Start with `edit:` for wording/structure fixes, or `sources:` if you need "
+            "new stats/citations from the articles."
+        ),
     )
 
 
@@ -306,18 +296,25 @@ def append_feedback(path: Path, record: dict[str, Any], user: str, text: str, ev
         }
     )
     record["status"] = "feedback_received"
+    update_record_revision_mode(record)
     save_json(record, path)
 
 
-def regenerate_from_feedback(record_path: Path, record: dict[str, Any], mock: bool) -> Path:
-    command = [sys.executable, REWRITE_SCRIPT, "--feedback-json", str(record_path)]
+def regenerate_from_feedback(
+    record_path: Path,
+    record: dict[str, Any],
+    mock: bool,
+    *,
+    rewrite_script: str = REWRITE_SCRIPT,
+) -> Path:
+    command = [sys.executable, rewrite_script, "--feedback-json", str(record_path)]
     if mock:
         command.append("--mock")
 
     print(f"[approve] Regenerating draft: {' '.join(command)}")
     completed = subprocess.run(command, cwd=PROJECT_ROOT)
     if completed.returncode != 0:
-        raise RuntimeError(f"{REWRITE_SCRIPT} failed with exit code {completed.returncode}")
+        raise RuntimeError(f"{rewrite_script} failed with exit code {completed.returncode}")
 
     new_draft_path = latest_draft_path()
     record["status"] = "revision_generated"
@@ -441,6 +438,8 @@ def handle_message(
     auto_rewrite: bool,
     mock: bool,
     bot_user_id: str | None = None,
+    *,
+    rewrite_script: str = REWRITE_SCRIPT,
 ) -> None:
     if not is_human_thread_reply(event, bot_user_id):
         return
@@ -461,10 +460,20 @@ def handle_message(
         return
 
     append_feedback(path, record, user, text, event.get("event_ts"))
-    client.chat_postMessage(channel=channel, thread_ts=thread_ts, text="Feedback saved.")
+    mode = record.get("revision_mode", "editorial")
+    client.chat_postMessage(
+        channel=channel,
+        thread_ts=thread_ts,
+        text=f"Feedback saved ({mode} revision).",
+    )
 
     if auto_rewrite:
-        new_draft_path = regenerate_from_feedback(path, record, mock=mock)
+        new_draft_path = regenerate_from_feedback(
+            path,
+            record,
+            mock=mock,
+            rewrite_script=rewrite_script,
+        )
         new_record_path = post_draft(new_draft_path, rewritten_from=str(path.relative_to(PROJECT_ROOT)))
         client.chat_postMessage(
             channel=channel,
@@ -473,7 +482,12 @@ def handle_message(
         )
 
 
-def listen(auto_rewrite: bool, mock: bool) -> None:
+def listen(
+    auto_rewrite: bool,
+    mock: bool,
+    *,
+    rewrite_script: str = REWRITE_SCRIPT,
+) -> None:
     try:
         from slack_sdk.socket_mode import SocketModeClient
         from slack_sdk.socket_mode.response import SocketModeResponse
@@ -503,7 +517,14 @@ def listen(auto_rewrite: bool, mock: bool) -> None:
         elif event_type == "reaction_removed":
             handle_reaction_removed(event, web_client, bot_user_id=bot_user_id)
         elif event_type == "message":
-            handle_message(event, web_client, auto_rewrite=auto_rewrite, mock=mock, bot_user_id=bot_user_id)
+            handle_message(
+                event,
+                web_client,
+                auto_rewrite=auto_rewrite,
+                mock=mock,
+                bot_user_id=bot_user_id,
+                rewrite_script=rewrite_script,
+            )
 
     socket_client.socket_mode_request_listeners.append(process)
     print("[approve] Listening for Slack approval reactions and feedback...")

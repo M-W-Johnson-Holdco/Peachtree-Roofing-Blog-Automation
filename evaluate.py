@@ -26,15 +26,18 @@ from typing import Any
 
 from dotenv import load_dotenv
 
+from used_sources import normalize_source_url, source_url, used_source_urls
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-DEFAULT_INPUT_PATH = PROJECT_ROOT / "output" / "sources" / "search_results.json"
+DEFAULT_INPUT_PATH = PROJECT_ROOT / "output" / "sources" / "search_results_all_roofing.json"
 DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "output" / "sources" / "evaluated_sources.json"
 DEFAULT_KEPT_PATH = PROJECT_ROOT / "output" / "sources" / "kept_sources.json"
 PROMPT_PATH = PROJECT_ROOT / "prompts" / "evaluate.txt"
 
 DEFAULT_MODEL = "Qwen/Qwen2.5-7B-Instruct-Turbo"
 KEEP_THRESHOLD = 6.0
+MIN_KEPT_SOURCES = 2
 CONTENT_SNIPPET_LIMIT = 2800
 
 SCORE_KEYS = [
@@ -113,6 +116,28 @@ PRIORITY_DOMAINS = {
     "legis.ga.gov",
     "dca.ga.gov",
 }
+
+SECONDARY_DOMAINS = {
+    "cbs46.com",
+    "atlantan.com",
+    "mdjonline.com",
+    "gwinnettdailypost.com",
+    "rockdalenewtoncitizen.com",
+    "accesswdun.com",
+    "reporternewspapers.net",
+    "northside-neighbor.com",
+}
+
+
+def source_authority_score(source: dict[str, Any]) -> int:
+    domain = str(source.get("domain", "")).lower()
+    if bool(source.get("priority_source")) or domain in PRIORITY_DOMAINS:
+        return 9
+    if bool(source.get("secondary_source")) or domain in SECONDARY_DOMAINS:
+        return 7
+    if bool(source.get("official_source")):
+        return 8
+    return 5
 
 
 def load_json(path: Path) -> list[dict[str, Any]]:
@@ -219,6 +244,9 @@ def metadata_adjustments(source: dict[str, Any]) -> dict[str, Any]:
     )
 
     hard_reject_reasons = []
+    used_urls = used_source_urls()
+    if used_urls and normalize_source_url(source_url(source)) in used_urls:
+        hard_reject_reasons.append("source URL was already used in a previous blog draft")
     if off_topic_penalty >= 7:
         hard_reject_reasons.append("off-topic penalty is too high")
     if semantic_score and semantic_score < 4:
@@ -253,8 +281,6 @@ def mock_evaluate_source(source: dict[str, Any]) -> dict[str, Any]:
             str(source.get("content", ""))[:900],
         ]
     ).lower()
-    domain = str(source.get("domain", "")).lower()
-    priority_source = bool(source.get("priority_source")) or domain in PRIORITY_DOMAINS
 
     headline_has_topic = contains_any(title_url_text, ROOFING_TERMS)
     early_article_has_topic = contains_any(early_article_text, ROOFING_TERMS)
@@ -265,7 +291,7 @@ def mock_evaluate_source(source: dict[str, Any]) -> dict[str, Any]:
         "local_relevance": 9 if headline_has_local else 7 if article_has_local else 2,
         "roofing_relevance": 8 if headline_has_topic else 5 if early_article_has_topic else 1,
         "recency": recency_score(str(source.get("published_date", ""))),
-        "source_authority": 9 if priority_source else 5,
+        "source_authority": source_authority_score(source),
         "actionability": 8
         if contains_any(early_article_text, {"inspection", "damage", "claim", "insurance", "permit", "safety"})
         else 3,
@@ -501,6 +527,54 @@ def evaluate_sources(
     return evaluated
 
 
+def _promote_minimum_kept(item: dict[str, Any]) -> None:
+    item["keep"] = True
+    fallback_note = (
+        f" Kept by minimum-kept fallback (top {MIN_KEPT_SOURCES} by weighted_score "
+        f"despite threshold {KEEP_THRESHOLD})."
+    )
+    item["reason"] = f"{item.get('reason', '').strip()}{fallback_note}".strip()
+    if not item.get("recommended_angle"):
+        item["recommended_angle"] = build_fallback_angle(item.get("source", {}))
+
+
+def ensure_minimum_kept(
+    evaluated: list[dict[str, Any]],
+    *,
+    min_kept: int = MIN_KEPT_SOURCES,
+) -> list[dict[str, Any]]:
+    """Guarantee at least min_kept sources by promoting the highest weighted_score hits."""
+    kept = [item for item in evaluated if item.get("keep")]
+    if len(kept) >= min_kept:
+        return sorted(kept, key=lambda item: item["weighted_score"], reverse=True)
+
+    kept_urls = {item["url"] for item in kept}
+    ranked = sorted(evaluated, key=lambda item: item["weighted_score"], reverse=True)
+
+    def try_promote(item: dict[str, Any], *, allow_hard_reject: bool) -> bool:
+        if item["url"] in kept_urls:
+            return False
+        hard_rejects = item.get("scoring_adjustments", {}).get("hard_reject_reasons") or []
+        if hard_rejects and not allow_hard_reject:
+            return False
+        _promote_minimum_kept(item)
+        kept.append(item)
+        kept_urls.add(item["url"])
+        return True
+
+    for item in ranked:
+        if len(kept) >= min_kept:
+            break
+        try_promote(item, allow_hard_reject=False)
+
+    for item in ranked:
+        if len(kept) >= min_kept:
+            break
+        try_promote(item, allow_hard_reject=True)
+
+    return sorted(kept, key=lambda item: item["weighted_score"], reverse=True)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate Tavily sources for GEO blog relevance.")
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT_PATH)
@@ -514,14 +588,22 @@ def main() -> None:
     print(f"[evaluate] Loaded {len(sources)} source candidates from {args.input}")
 
     evaluated = evaluate_sources(sources, mock=args.mock, model=args.model)
-    kept = [item for item in evaluated if item["keep"]]
     evaluated.sort(key=lambda item: item["weighted_score"], reverse=True)
-    kept.sort(key=lambda item: item["weighted_score"], reverse=True)
+    kept = ensure_minimum_kept(evaluated)
 
     save_json(evaluated, args.output)
     save_json(kept, args.kept_output)
 
-    print(f"[evaluate] Kept {len(kept)}/{len(evaluated)} sources at threshold {KEEP_THRESHOLD}")
+    promoted = sum(
+        1
+        for item in kept
+        if "minimum-kept fallback" in str(item.get("reason", ""))
+    )
+    print(
+        f"[evaluate] Kept {len(kept)}/{len(evaluated)} sources "
+        f"(threshold {KEEP_THRESHOLD}, minimum {MIN_KEPT_SOURCES}"
+        f"{f', {promoted} promoted by fallback' if promoted else ''})"
+    )
 
 
 if __name__ == "__main__":

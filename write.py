@@ -28,16 +28,17 @@ from write_common import (
     DEFAULT_VALIDATION_MAX_ATTEMPTS,
     PROJECT_ROOT,
     PROMPT_PATH,
+    REVISION_MODES,
     STYLE_NOTES_PATH,
     build_generation_report,
-    build_prompt,
+    build_draft_prompt,
     clear_drafts_directory,
     generate_mock_draft,
     generate_validated_draft,
     generate_with_together,
     load_json,
     load_approval_rewrite_context,
-    read_feedback_json,
+    persist_revision_mode_to_approval_json,
     read_text,
     save_draft_outputs,
     select_sources_for_draft,
@@ -67,6 +68,11 @@ def main() -> None:
         "--feedback-json",
         type=Path,
         help="Optional Slack approval JSON whose feedback should be applied to this rewrite.",
+    )
+    parser.add_argument(
+        "--revision-mode",
+        choices=REVISION_MODES,
+        help="Override editorial vs factual rewrite mode (default: auto-detect from feedback).",
     )
     parser.add_argument(
         "--keep-drafts",
@@ -100,11 +106,21 @@ def main() -> None:
     rewrite_context = load_approval_rewrite_context(args.feedback_json)
     approval_feedback = rewrite_context["approval_feedback"]
     previous_draft = rewrite_context["previous_draft"]
+    revision_mode = args.revision_mode or rewrite_context.get("revision_mode") or None
+    revision_mode_reason = rewrite_context.get("revision_mode_reason") or ""
     if args.feedback_json:
         if approval_feedback:
             print(f"{log} Loaded Slack approval feedback from {args.feedback_json}")
         if previous_draft:
             print(f"{log} Loaded previous draft for rewrite ({len(previous_draft.split())} words)")
+        if revision_mode:
+            reason_suffix = f" ({revision_mode_reason})" if revision_mode_reason else ""
+            print(f"{log} Revision mode: {revision_mode}{reason_suffix}")
+            persist_revision_mode_to_approval_json(
+                args.feedback_json,
+                revision_mode,
+                revision_mode_reason or "manual override" if args.revision_mode else revision_mode_reason,
+            )
         if not approval_feedback:
             print(f"{log} Warning: No Slack feedback found in {args.feedback_json}")
 
@@ -154,7 +170,7 @@ def main() -> None:
                 model_used = endpoint_model
                 print(f"{log} Using dedicated endpoint model: {model_used}")
 
-            prompt = build_prompt(
+            prompt = build_draft_prompt(
                 read_text(PROMPT_PATH),
                 selected_sources,
                 read_text(STYLE_NOTES_PATH),
@@ -162,6 +178,7 @@ def main() -> None:
                 author_credentials,
                 approval_feedback,
                 previous_draft,
+                revision_mode,
             )
             if args.no_validation_retry:
                 draft, generation_report = generate_with_together(
@@ -178,6 +195,8 @@ def main() -> None:
                     author_name=author_name,
                     author_credentials=author_credentials,
                 )
+            if revision_mode:
+                generation_report["revision_mode"] = revision_mode
             generation_report["endpoint_management_used"] = use_endpoint
             if use_endpoint:
                 generation_report["endpoint_session_seconds"] = round(
