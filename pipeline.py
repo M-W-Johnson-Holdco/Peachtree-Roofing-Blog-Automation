@@ -4,7 +4,7 @@ Implementation order:
 1. Search with Tavily.
 2. Evaluate sources with Together AI.
 3. Write a draft with Together AI.
-4. Slack approval request.
+4. Slack approval request (optional).
 5. Post after approval.
 """
 
@@ -32,20 +32,31 @@ def main() -> None:
     parser.add_argument(
         "--mock",
         action="store_true",
-        help="Run evaluate.py and write.py in mock mode after a successful search stage.",
+        help="Run evaluate.py and write_serverless.py in mock mode after a successful search stage.",
     )
     parser.add_argument(
         "--send-to-slack",
         action="store_true",
-        help="Post the generated draft to Slack for approval after write.py completes.",
+        help="Post the generated draft to Slack for approval after writing completes.",
+    )
+    parser.add_argument(
+        "--search",
+        choices=("all_roofing", "strict", "less_strict"),
+        default="all_roofing",
+        help="Search script to run (default: search_all_roofing.py).",
     )
     args = parser.parse_args()
 
     python = sys.executable
-    run_stage([python, "search.py"], "search")
+    search_scripts = {
+        "all_roofing": "search_all_roofing.py",
+        "strict": "search.py",
+        "less_strict": "search_less_strict.py",
+    }
+    run_stage([python, search_scripts[args.search]], "search")
 
     evaluate_command = [python, "evaluate.py"]
-    write_command = [python, "write.py"]
+    write_command = [python, "write_serverless.py"]
     if args.mock:
         evaluate_command.append("--mock")
         write_command.append("--mock")

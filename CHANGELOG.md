@@ -2,6 +2,8 @@
 
 Use this file to record every meaningful project change: code edits, API decisions, workflow updates, prompt changes, test results, and blockers.
 
+**Project rule:** After any meaningful code or workflow change, add a new dated entry at the top of the log (below this section). Agents and contributors should update `CHANGELOG.md` in the same PR or edit session as the change.
+
 ## Entry Template
 
 ```md
@@ -22,6 +24,148 @@ Tested:
 Notes / next step:
 - 
 ```
+
+## 2026-06-01 - GEO blog prompt v2 with Quick Answer block
+
+Changed:
+- Replaced `prompts/blog.txt` with stricter GEO template: pre-write checks, news-anchored opening, Quick Answer block, question-style H2 examples, neighborhood vulnerability section, historical storm reference, FAQ 3–5 sentences.
+- Updated `validate_draft()` to count opening words before the Quick Answer block only; added `has_quick_answer_block` automated check.
+- Aligned retry checklist and validation hints in `write_common.py`.
+
+Why:
+- Improve AI-citable structure and reduce mismatch between prompt and automated validation (Quick Answer was inflating opening word count).
+
+Files touched:
+- `prompts/blog.txt`
+- `src/peachtree_blog/write_common.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (prompt/validation change only).
+
+Notes / next step:
+- First draft may need 2–3 validation passes until the model reliably hits Quick Answer + 8 FAQs; watch `*-validation.json` for new failures.
+
+## 2026-06-04 - Add GPT-OSS 120B to write_serverless and approve_listen model menu
+
+Changed:
+- Added `openai/gpt-oss-120b` as menu option 4 for `write_serverless.py` and `approve_listen.py` (shared `SERVERLESS_MODEL_CHOICES`).
+- Added Together catalog pricing for GPT-OSS 120B in `write_common.py` cost summary.
+
+Why:
+- Gives a budget-friendly 120B-class alternative for A/B testing against Qwen 235B tput.
+
+Files touched:
+- `src/peachtree_blog/write/write_serverless.py`
+- `src/peachtree_blog/write_common.py`
+- `CHANGELOG.md`
+
+## 2026-06-04 - Default serverless writer model to Qwen3 235B tput
+
+Changed:
+- `write_serverless` menu option 1 and `DEFAULT_SERVERLESS_MODEL` are now `Qwen/Qwen3-235B-A22B-Instruct-2507-tput` (397B is option 2).
+- `approve_listen.py` inherits the same default via `resolve_writing_model()` (non-interactive and `--model` omitted).
+
+Why:
+- Prefer faster, lower-cost throughput model for routine drafts and Slack rewrites.
+
+Files touched:
+- `src/peachtree_blog/write/write_serverless.py`
+- `src/peachtree_blog/approve/approve_listen.py`
+- `CHANGELOG.md`
+
+## 2026-06-04 - Fix approve_listen rewrite_model TypeError
+
+Changed:
+- Restored `rewrite_model` on `listen()`, `handle_message()`, and `regenerate_from_feedback()` in `approve.py` (passes `--model` to `write_serverless.py` on Slack auto-rewrite).
+
+Why:
+- `approve_listen.py` passed `rewrite_model=` after the src move, but `approve.py` had been restored from git without that parameter — posting to Slack succeeded, then `listen()` crashed.
+
+Files touched:
+- `src/peachtree_blog/approve/approve.py`
+- `CHANGELOG.md`
+
+Tested:
+- Verified `listen` accepts `rewrite_model` keyword via import inspect
+
+## 2026-06-04 - Restore detailed Together cost summary in write_serverless logs
+
+Changed:
+- Added `print_generation_cost_summary()` in `write_common.py` — prints model, elapsed time, API call count, token in/out/total, and estimated USD (input/output breakdown).
+- `save_draft_outputs()` uses the helper again after each run (including multi-attempt validation retries).
+- Added Together catalog pricing for `Qwen/Qwen3-235B-A22B-Instruct-2507-tput`.
+
+Why:
+- Terminal summary had regressed to minimal output when pricing was missing or fields were sparse; reviewers want token and dollar visibility like before.
+
+Files touched:
+- `src/peachtree_blog/write_common.py`
+- `CHANGELOG.md`
+
+Tested:
+- Python syntax check on `write_common.py`
+
+## 2026-06-04 - Reorganize application code under src/peachtree_blog
+
+Changed:
+- Moved Python modules into `src/peachtree_blog/` with subpackages: `search/`, `evaluate/`, `write/`, `approve/`, `tools/`.
+- Added `paths.py` for repo-root paths (`PROJECT_ROOT`, `prompts/`, `output/`, etc.).
+- Root-level `*.py` files are thin CLI shims via `_entry.py` (same commands as before: `python write_serverless.py`, etc.).
+- Added `pyproject.toml` for optional editable install (`pip install -e .`).
+- Updated `pipeline.py` to default search stage to `search_all_roofing.py` with `--search strict|less_strict` override.
+- Restored and relocated modules that had been deleted locally (`write_common.py`, `approve.py`, `write.py`, search variants).
+
+Why:
+- Cleaner project layout as the pipeline grows; keeps data (`output/`, `prompts/`) at repo root.
+
+Files touched:
+- `src/peachtree_blog/**`
+- `_entry.py`, `pyproject.toml`, `pipeline.py`, root CLI shims
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- `python -m py_compile` on shims and package imports
+- `python write_serverless.py --help`, `python search_all_roofing.py --help`
+
+## 2026-06-04 - Unified serverless writer model menu and approval rewrite wiring
+
+Changed:
+- `write_serverless.py` prompts for model choice (Qwen3.5 397B, Llama 3.3 70B, Qwen3 235B tput) or accepts `--model` / menu number.
+- Slack rewrites inherit model from prior draft `*-validation.json` when using `--feedback-json`.
+- `approve_listen.py` picks rewrite model at startup and passes it to `listen(rewrite_model=...)`.
+- Removed separate `write_serverless_llama70b.py`, `write_serverless_qwen397b.py`, `approve_listen_llama70b.py`, `approve_listen_qwen397b.py`.
+- `approve.py` accepts optional `rewrite_model` for subprocess rewrites.
+
+Why:
+- One writer entry point instead of parallel scripts per model; approval still uses matching model on feedback.
+
+Files touched:
+- `write_serverless.py` (now under `src/peachtree_blog/write/`)
+- `approve_listen.py`, `approve.py`
+- `write_common.py` (235B tput pricing)
+- `CHANGELOG.md`
+
+Tested:
+- Import smoke test for `SERVERLESS_MODEL_CHOICES`
+
+## 2026-06-04 - search_all_roofing 50-credit cap and write_serverless import fix
+
+Changed:
+- `search_all_roofing.py` defaults to 50 Tavily credits max (`--max-credits`); trims query plan and stops at runtime cap.
+- Fixed missing `run_with_progress` import in `write_common.py` (from `cli_progress`).
+
+Why:
+- Lower weekly search spend than ~80 credits; unblock draft generation after `NameError`.
+
+Files touched:
+- `search_all_roofing.py`
+- `write_common.py`
+- `CHANGELOG.md`
+
+Tested:
+- Verified plan trim: 8 queries → 5 queries for 50-credit budget
 
 ## 2026-06-03 - Reduce Tavily credits with query rotation and mid-stage early exit
 

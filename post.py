@@ -1,12 +1,10 @@
-"""Predictive Sales AI posting client.
+#!/usr/bin/env python3
+"""CLI entry: publish approved draft (placeholder)."""
+from __future__ import annotations
 
-This remains a placeholder until the PSAI API details are confirmed.
-"""
+import _entry  # noqa: F401
 
-
-def main() -> None:
-    raise NotImplementedError("post.py needs Predictive Sales AI API details before implementation.")
-
+from peachtree_blog.post import main
 
 if __name__ == "__main__":
     main()

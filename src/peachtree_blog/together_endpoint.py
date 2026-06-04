@@ -8,6 +8,8 @@ as a billing safety net if cleanup fails.
 
 from __future__ import annotations
 
+from peachtree_blog.paths import PROJECT_ROOT
+
 import os
 import time
 from contextlib import contextmanager
@@ -16,10 +18,9 @@ from typing import Any, Iterator
 
 from dotenv import load_dotenv
 
-from cli_progress import StatusTicker, format_duration, progress_enabled, progress_interval_seconds
+from peachtree_blog.cli_progress import StatusTicker, format_duration, progress_enabled, progress_interval_seconds
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent
 
 READY_STATES = frozenset({"STARTED"})
 STOPPED_STATES = frozenset({"STOPPED"})

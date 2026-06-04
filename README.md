@@ -6,6 +6,41 @@ The finished pipeline is intended to run every Monday morning through GitHub Act
 
 Current build status: the project scaffold exists, the Tavily web search module is in progress, and the later evaluation, writing, approval, and posting modules are still placeholders.
 
+## Project layout
+
+```
+blog-automation/
+├── src/peachtree_blog/          # Application code
+│   ├── paths.py                 # Repo root + output/prompt paths
+│   ├── used_sources.py          # Shared source URL tracking
+│   ├── cli_progress.py          # Terminal progress helpers
+│   ├── draft_pdf.py             # Markdown → PDF
+│   ├── write_common.py          # Prompts, validation, Together helpers
+│   ├── together_endpoint.py     # Optional dedicated endpoint management
+│   ├── search/                  # Tavily search stages
+│   ├── evaluate/                # Source scoring
+│   ├── write/                   # Draft generation
+│   ├── approve/                 # Slack approval + listener
+│   └── tools/                   # clean_output, etc.
+├── pipeline.py                  # Run search → evaluate → write
+├── write_serverless.py          # Root CLI shims (same commands as before)
+├── search_all_roofing.py
+├── evaluate.py
+├── approve_listen.py
+├── prompts/                     # LLM prompt templates
+├── feedback/                    # Standing style notes
+├── output/                      # Generated JSON, drafts, approvals (gitignored)
+└── scripts/                     # Shell helpers
+```
+
+Root-level `*.py` files are thin entry points that load `src/` and delegate to `peachtree_blog`. Your existing commands (`python write_serverless.py`, etc.) still work.
+
+Optional editable install:
+
+```bash
+pip install -e .
+```
+
 ## Webscraping
 
 The first stage of the pipeline lives in `search.py`. This module searches the web for recent Metro Atlanta topics that could support a useful roofing blog post.

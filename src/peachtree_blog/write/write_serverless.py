@@ -1,4 +1,4 @@
-"""Generate a blog draft with Together serverless Qwen3.5 397B A17B.
+"""Generate a blog draft with a selectable Together serverless model.
 
 Standalone serverless writer — does not import write.py or together_endpoint.py.
 Ignores `TOGETHER_DEDICATED_ENDPOINT_ID` in `.env`.
@@ -6,35 +6,44 @@ Ignores `TOGETHER_DEDICATED_ENDPOINT_ID` in `.env`.
 Saves Markdown, validation JSON, and a PDF (via `draft_pdf.py`) into `output/drafts/drafts_md/`,
 `output/drafts/drafts_pdf/`, and `output/drafts/drafts_json/` by default. Use `--no-pdf` to skip PDF export.
 
-Run live:
-    python write_serverless_qwen397b.py
+Run live (interactive model menu):
+    python write_serverless.py
+
+Pick a model without the menu:
+    python write_serverless.py --model 2
+    python write_serverless.py --model Qwen/Qwen3.5-397B-A17B
 
 Run without Together credits:
-    python write_serverless_qwen397b.py --mock
+    python write_serverless.py --mock
 """
 
 from __future__ import annotations
 
+from peachtree_blog.paths import PROJECT_ROOT
+
 import argparse
+import json
 import os
+import sys
 import time
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 
-from write_common import (
+from peachtree_blog.write_common import (
     DEFAULT_AUTHOR_CREDENTIALS,
     DEFAULT_AUTHOR_NAME,
     DEFAULT_INPUT_PATH,
     DEFAULT_OUTPUT_DIR,
     DEFAULT_VALIDATION_MAX_ATTEMPTS,
-    PROJECT_ROOT,
     PROMPT_PATH,
     REVISION_MODES,
     STYLE_NOTES_PATH,
     build_generation_report,
     build_draft_prompt,
     clear_drafts_directory,
+    draft_validation_json_path,
     generate_mock_draft,
     generate_validated_draft,
     generate_with_together,
@@ -43,23 +52,146 @@ from write_common import (
     persist_revision_mode_to_approval_json,
     read_text,
     remove_draft_artifacts,
+    resolve_replace_draft_path,
     save_draft_outputs,
     select_sources_for_draft,
     tag_generation_report,
     write_log_prefix,
 )
 
-SERVERLESS_WRITING_MODEL = "Qwen/Qwen3.5-397B-A17B"
-WRITE_RUNNER = "write_serverless_qwen397b.py"
+WRITE_RUNNER = "write_serverless.py"
+
+SERVERLESS_MODEL_CHOICES: list[dict[str, str]] = [
+    {
+        "label": "Qwen3 235B A22B Instruct 2507 (throughput) — fast, budget MoE (default)",
+        "model_id": "Qwen/Qwen3-235B-A22B-Instruct-2507-tput",
+    },
+    {
+        "label": "Qwen3.5 397B A17B — strongest instruction following",
+        "model_id": "Qwen/Qwen3.5-397B-A17B",
+    },
+    {
+        "label": "Llama 3.3 70B Instruct Turbo — faster, lower cost",
+        "model_id": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    },
+    {
+        "label": "OpenAI GPT-OSS 120B — strong cost/quality balance",
+        "model_id": "openai/gpt-oss-120b",
+    },
+]
+
+DEFAULT_SERVERLESS_MODEL = "Qwen/Qwen3-235B-A22B-Instruct-2507-tput"
+
+
+def is_interactive_terminal() -> bool:
+    return sys.stdin.isatty() and sys.stdout.isatty()
+
+
+def print_model_menu() -> None:
+    print("\nWhich model would you like to write the blog draft?\n")
+    for index, choice in enumerate(SERVERLESS_MODEL_CHOICES, start=1):
+        print(f"  {index}. {choice['label']}")
+    print()
+
+
+def prompt_model_choice() -> str:
+    print_model_menu()
+    while True:
+        raw = input("Enter number: ").strip()
+        if not raw.isdigit():
+            print("Please enter a number from the list.")
+            continue
+        index = int(raw)
+        if 1 <= index <= len(SERVERLESS_MODEL_CHOICES):
+            return SERVERLESS_MODEL_CHOICES[index - 1]["model_id"]
+        print(f"Please enter a number between 1 and {len(SERVERLESS_MODEL_CHOICES)}.")
+
+
+def model_id_from_choice_number(value: str) -> str | None:
+    if not value.isdigit():
+        return None
+    index = int(value)
+    if 1 <= index <= len(SERVERLESS_MODEL_CHOICES):
+        return SERVERLESS_MODEL_CHOICES[index - 1]["model_id"]
+    return None
+
+
+def model_label(model_id: str) -> str:
+    for choice in SERVERLESS_MODEL_CHOICES:
+        if choice["model_id"] == model_id:
+            return choice["label"]
+    return model_id
+
+
+def infer_model_from_feedback_json(feedback_json: Path) -> str | None:
+    if not feedback_json.is_file():
+        return None
+
+    with feedback_json.open("r", encoding="utf-8") as handle:
+        record: dict[str, Any] = json.load(handle)
+
+    draft_path = resolve_replace_draft_path(record)
+    if not draft_path:
+        return None
+
+    validation_path = draft_validation_json_path(draft_path)
+    if not validation_path.is_file():
+        return None
+
+    with validation_path.open("r", encoding="utf-8") as handle:
+        validation = json.load(handle)
+
+    generation = validation.get("generation", {})
+    if not isinstance(generation, dict):
+        return None
+
+    model_used = str(generation.get("model_used") or "").strip()
+    if model_used and model_used != "mock":
+        return model_used
+    return None
+
+
+def resolve_writing_model(
+    model_arg: str | None,
+    *,
+    feedback_json: Path | None = None,
+    interactive: bool | None = None,
+) -> str:
+    if model_arg:
+        from_number = model_id_from_choice_number(model_arg)
+        if from_number:
+            return from_number
+        return model_arg
+
+    if feedback_json:
+        inherited = infer_model_from_feedback_json(feedback_json)
+        if inherited:
+            print(f"[write_serverless] Using model from previous draft: {model_label(inherited)}")
+            return inherited
+
+    use_prompt = interactive if interactive is not None else is_interactive_terminal()
+    if use_prompt:
+        chosen = prompt_model_choice()
+        print(f"[write_serverless] Selected: {model_label(chosen)}\n")
+        return chosen
+
+    return DEFAULT_SERVERLESS_MODEL
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Generate a GEO blog draft with Together serverless Qwen3.5 397B A17B.",
+        description="Generate a GEO blog draft with a selectable Together serverless model.",
     )
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT_PATH)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
-    parser.add_argument("--model", default=SERVERLESS_WRITING_MODEL)
+    parser.add_argument(
+        "--model",
+        help=(
+            "Together model ID or menu number (1–"
+            f"{len(SERVERLESS_MODEL_CHOICES)}). "
+            "Omit for an interactive prompt when running in a terminal."
+        ),
+    )
     parser.add_argument(
         "--source-strategy",
         choices=("auto", "best", "combine"),
@@ -111,6 +243,14 @@ def main() -> None:
         os.environ["WRITE_NO_PROGRESS"] = "1"
 
     log = write_log_prefix()
+    model_used = resolve_writing_model(
+        args.model,
+        feedback_json=args.feedback_json,
+        interactive=False if args.mock else None,
+    )
+    if not args.mock:
+        print(f"{log} Writing model: {model_label(model_used)}")
+
     rewrite_context = load_approval_rewrite_context(args.feedback_json)
     approval_feedback = rewrite_context["approval_feedback"]
     previous_draft = rewrite_context["previous_draft"]
@@ -171,7 +311,6 @@ def main() -> None:
         )
         tag_generation_report(generation_report, mode="mock")
     else:
-        model_used = args.model
         prompt = build_draft_prompt(
             read_text(PROMPT_PATH),
             selected_sources,

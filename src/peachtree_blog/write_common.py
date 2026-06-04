@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from peachtree_blog.paths import PROJECT_ROOT
+
 import json
 import os
 import re
@@ -12,12 +14,12 @@ from typing import Any
 
 from dotenv import load_dotenv
 
-from cli_progress import run_with_progress
-from used_sources import normalize_source_url, record_used_sources, sources_used_payload, used_source_urls
-from draft_pdf import save_draft_pdf
+from peachtree_blog.cli_progress import run_with_progress
+from peachtree_blog.used_sources import normalize_source_url, record_used_sources, sources_used_payload, used_source_urls
+from peachtree_blog.draft_pdf import save_draft_pdf
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+
 DEFAULT_INPUT_PATH = PROJECT_ROOT / "output" / "sources" / "kept_sources.json"
 PROMPT_PATH = PROJECT_ROOT / "prompts" / "blog.txt"
 STYLE_NOTES_PATH = PROJECT_ROOT / "feedback" / "style_notes.txt"
@@ -35,6 +37,8 @@ DEFAULT_AUTHOR_CREDENTIALS = "Licensed Roofing Contractor, Metro Atlanta"
 TOGETHER_MODEL_PRICING_PER_MILLION: dict[str, dict[str, float]] = {
     "meta-llama/Llama-3.3-70B-Instruct-Turbo": {"input": 1.04, "output": 1.04},
     "Qwen/Qwen3.5-397B-A17B": {"input": 0.60, "output": 3.60},
+    "Qwen/Qwen3-235B-A22B-Instruct-2507-tput": {"input": 0.20, "output": 0.60},
+    "openai/gpt-oss-120b": {"input": 0.15, "output": 0.60},
     "Qwen/Qwen2.5-7B-Instruct-Turbo": {"input": 0.30, "output": 0.30},
     "Qwen/Qwen2.5-72B-Instruct-Turbo": {"input": 0.90, "output": 0.90},
 }
@@ -67,6 +71,7 @@ GENERIC_OPENERS = [
     "In today's world",
     "As a homeowner",
     "When it comes to",
+    "Storm season is here",
 ]
 
 SOURCE_STRATEGIES = ("auto", "best", "combine")
@@ -445,15 +450,16 @@ def select_sources_for_draft(
 def validation_checklist_block(author_name: str, author_credentials: str) -> str:
     return (
         "- One H1 title at the top.\n"
-        "- Opening paragraph before the first ## is 50-120 words and answer-first.\n"
+        "- Opening paragraph before the Quick Answer block is 50-120 words, answer-first, news-anchored.\n"
+        "- Quick Answer block after opening with **The short answer:**, **Who this affects:**, **What to do:**, **Timeline:**.\n"
         "- Every ## heading is a question ending with ?, except the exact heading `## FAQ`.\n"
         "- At least one markdown comparison table.\n"
         "- Exactly 3-5 inline citations formatted `(Source: Outlet Name, Month Year)`.\n"
         "- At least 6 named Metro Atlanta locations woven into the prose.\n"
-        "- Exactly 8 FAQ questions as ### H3 headings under `## FAQ`.\n"
+        "- Exactly 8 FAQ questions as ### H3 headings under `## FAQ` (answers 3-5 sentences each).\n"
         f'- Exact author byline: "Written by {author_name}, {author_credentials}. Peachtree Roofing & Exteriors serves homeowners across Metro Atlanta."\n'
         '- Exact CTA: "Contact Peachtree Roofing & Exteriors for a free inspection."\n'
-        "- No generic openers such as In today's world, As a homeowner, or When it comes to."
+        "- No generic openers such as In today's world, As a homeowner, When it comes to, or Storm season is here."
     )
 
 
@@ -489,7 +495,8 @@ def build_first_draft_prompt(
         "- Do not invent facts, statistics, dates, credentials, review counts, project counts, or license numbers.\n"
         "- Use exactly 3 to 5 cited statistics from the provided sources.\n"
         "- Keep all headings and FAQ questions in question format.\n"
-        "- Use the exact FAQ format: ## FAQ, then exactly eight H3 question headings and paragraph answers.\n"
+        "- Use the exact FAQ format: ## FAQ, then exactly eight H3 question headings and 3-5 sentence answers.\n"
+        "- After the opening paragraph, include the Quick Answer block with all four labeled lines.\n"
         "- Do not format the author byline as a heading.\n"
         "- Pass every automated validation check:\n"
         f"{indented_checklist}\n"
@@ -970,20 +977,38 @@ def count_faq_pairs(markdown: str) -> int:
     return len(re.findall(r"^#{3,6}\s+\S.*\?", faq_section, flags=re.MULTILINE))
 
 
+def extract_opening_paragraph(markdown: str) -> str:
+    """First paragraph only — excludes Quick Answer block and body H2s."""
+    body_without_title = re.sub(r"^# .+\n+", "", markdown).strip()
+    before_first_h2 = re.split(r"\n^##\s+", body_without_title, maxsplit=1, flags=re.MULTILINE)[0]
+    if "**The short answer:**" in before_first_h2:
+        return before_first_h2.split("**The short answer:**", maxsplit=1)[0].strip()
+    return before_first_h2.split("\n\n", maxsplit=1)[0].strip()
+
+
+def has_quick_answer_block(markdown: str) -> bool:
+    labels = (
+        r"\*\*The short answer:\*\*",
+        r"\*\*Who this affects:\*\*",
+        r"\*\*What to do:\*\*",
+        r"\*\*Timeline:\*\*",
+    )
+    return all(re.search(label, markdown, flags=re.IGNORECASE) for label in labels)
+
+
 def validate_draft(markdown: str) -> dict[str, Any]:
     h2s = re.findall(r"^##\s+(.+)$", markdown, flags=re.MULTILINE)
     citations = re.findall(r"\(Source:\s*[^)]+\)", markdown)
     tables = bool(re.search(r"^\|.+\|\s*$", markdown, flags=re.MULTILINE))
     locations = sorted({loc for loc in METRO_LOCATIONS if re.search(rf"\b{re.escape(loc)}\b", markdown)})
-    body_without_title = re.sub(r"^# .+\n+", "", markdown).strip()
-    opening_match = re.split(r"\n\s*\n|^##\s+", body_without_title, maxsplit=1, flags=re.MULTILINE)
-    opening_text = opening_match[0] if opening_match else ""
+    opening_text = extract_opening_paragraph(markdown)
     opening_words = len(opening_text.split())
     generic_openers = [phrase for phrase in GENERIC_OPENERS if phrase.lower() in markdown[:250].lower()]
 
     checks = {
         "has_h1": bool(re.search(r"^#\s+\S", markdown, flags=re.MULTILINE)),
         "answer_first_opening_roughly_50_to_120_words": 50 <= opening_words <= 120,
+        "has_quick_answer_block": has_quick_answer_block(markdown),
         "all_h2_headings_are_questions": bool(h2s) and all(h2.strip().endswith("?") or h2.strip().lower() == "faq" for h2 in h2s),
         "has_comparison_table": tables,
         "citation_count_3_to_5": 3 <= len(citations) <= 5,
@@ -1011,7 +1036,11 @@ DEFAULT_VALIDATION_MAX_ATTEMPTS = 3
 VALIDATION_CHECK_HINTS: dict[str, str] = {
     "has_h1": "Start with one H1 title line: `# Your Title Here`.",
     "answer_first_opening_roughly_50_to_120_words": (
-        "The opening paragraph before the first ## must be 50-120 words, answer-first, with no fluff."
+        "The opening paragraph before the Quick Answer block must be 50-120 words, news-anchored, answer-first."
+    ),
+    "has_quick_answer_block": (
+        "Immediately after the opening paragraph, include **The short answer:**, **Who this affects:**, "
+        "**What to do:**, and **Timeline:** on separate lines."
     ),
     "all_h2_headings_are_questions": (
         "Every ## H2 heading must be a question ending with ?, except the exact heading `## FAQ`."
@@ -1024,13 +1053,13 @@ VALIDATION_CHECK_HINTS: dict[str, str] = {
         "Name at least 6 Metro Atlanta locations naturally in the prose, such as Atlanta, Cobb, Marietta, Decatur, Sandy Springs, and Gwinnett."
     ),
     "faq_exactly_8": (
-        "Under the exact heading `## FAQ`, include exactly 8 H3 question headings ending with ? and 2-4 sentence answers."
+        "Under the exact heading `## FAQ`, include exactly 8 H3 question headings ending with ? and 3-5 sentence answers."
     ),
     "has_final_cta": (
         'End with this exact sentence: "Contact Peachtree Roofing & Exteriors for a free inspection."'
     ),
     "no_generic_openers": (
-        "Do not use generic openers such as In today's world, As a homeowner, or When it comes to in the first paragraph."
+        "Do not use generic openers such as In today's world, As a homeowner, When it comes to, or Storm season is here in the first paragraph."
     ),
 }
 
@@ -1114,6 +1143,78 @@ def merge_generation_reports(reports: list[dict[str, Any]]) -> dict[str, Any]:
         }
 
     return merged
+
+
+def _format_token_count(value: int | None) -> str:
+    if value is None:
+        return "n/a"
+    return f"{value:,}"
+
+
+def print_generation_cost_summary(
+    generation_report: dict[str, Any],
+    *,
+    model_used: str,
+    log_prefix: str | None = None,
+) -> None:
+    """Print Together token usage and estimated USD cost after a draft run."""
+    log = log_prefix or write_log_prefix()
+    mode = str(generation_report.get("mode") or "").strip()
+
+    if mode == "mock" or model_used == "mock":
+        elapsed = generation_report.get("elapsed_seconds")
+        if elapsed is not None:
+            print(f"{log} Generation time: {elapsed}s (mock — no Together API usage)")
+        else:
+            print(f"{log} Mock run — no Together API tokens or cost")
+        return
+
+    print(f"{log} Model: {generation_report.get('model_used', model_used)}")
+
+    elapsed = generation_report.get("elapsed_seconds")
+    api_calls = generation_report.get("validation_attempts") or generation_report.get("validation_attempt")
+    if elapsed is not None:
+        call_note = f" ({api_calls} API call{'s' if api_calls != 1 else ''})" if api_calls else ""
+        print(f"{log} Generation time: {elapsed}s{call_note}")
+
+    if generation_report.get("validation_passed") is False:
+        print(f"{log} Validation passed on generation: no (see validation JSON)")
+    elif generation_report.get("validation_passed") is True:
+        print(f"{log} Validation passed on generation: yes")
+
+    usage = generation_report.get("usage") or {}
+    if usage:
+        print(
+            f"{log} Tokens: "
+            f"{_format_token_count(usage.get('prompt_tokens'))} in / "
+            f"{_format_token_count(usage.get('completion_tokens'))} out / "
+            f"{_format_token_count(usage.get('total_tokens'))} total"
+        )
+        cached = int(usage.get("cached_tokens") or 0)
+        if cached:
+            print(f"{log} Cached input tokens: {_format_token_count(cached)}")
+
+    cost_block = generation_report.get("estimated_cost_usd") or {}
+    token_cost = cost_block.get("tokens") or {}
+    total_usd = token_cost.get("total")
+    if total_usd is not None:
+        input_usd = float(token_cost.get("input") or 0)
+        output_usd = float(token_cost.get("output") or 0)
+        print(
+            f"{log} Estimated inference cost: ${total_usd:.4f} USD "
+            f"(input ${input_usd:.4f}, output ${output_usd:.4f})"
+        )
+    elif usage:
+        note = token_cost.get("note") or "No catalog pricing for this model."
+        print(f"{log} Estimated inference cost: unavailable — {note}")
+
+    endpoint_cost = cost_block.get("endpoint") or {}
+    if endpoint_cost.get("total") is not None:
+        print(f"{log} Estimated endpoint uptime cost: ${endpoint_cost['total']:.4f} USD")
+
+    combined = cost_block.get("combined_total")
+    if combined is not None:
+        print(f"{log} Estimated combined cost: ${combined:.4f} USD")
 
 
 def generate_validated_draft(
@@ -1288,18 +1389,11 @@ def save_draft_outputs(
     save_json(report, report_path, log_prefix=log)
 
     print(f"{log} Validation passed: {report['passed']}")
-    if generation_report.get("elapsed_seconds") is not None:
-        print(f"{log} Generation time: {generation_report['elapsed_seconds']}s")
-        print(f"{log} Model: {generation_report.get('model_used', model_used)}")
-    token_cost = (generation_report.get("estimated_cost_usd") or {}).get("tokens", {})
-    if token_cost.get("total") is not None:
-        print(f"{log} Estimated token cost: ${token_cost['total']:.4f} USD")
-    endpoint_cost = (generation_report.get("estimated_cost_usd") or {}).get("endpoint", {})
-    if endpoint_cost.get("total") is not None:
-        print(f"{log} Estimated endpoint uptime cost: ${endpoint_cost['total']:.4f} USD")
-    combined = (generation_report.get("estimated_cost_usd") or {}).get("combined_total")
-    if combined is not None:
-        print(f"{log} Estimated combined cost: ${combined:.4f} USD")
+    print_generation_cost_summary(
+        generation_report,
+        model_used=model_used,
+        log_prefix=log,
+    )
     if not report["passed"]:
         failed = [name for name, passed in report["checks"].items() if not passed]
         print(f"{log} Failed checks: {', '.join(failed)}")

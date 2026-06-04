@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from peachtree_blog.paths import PROJECT_ROOT
+
 import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+
 DEFAULT_USED_SOURCES_PATH = PROJECT_ROOT / "output" / "sources" / "used_sources.json"
 
 
