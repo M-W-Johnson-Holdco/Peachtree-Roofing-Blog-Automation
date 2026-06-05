@@ -14,12 +14,14 @@ src/__pycache__/
 .pip_test/
 
 # Output drafts (not tracked in git — stored in Google Drive)
-output/
+#output/
 
 # macOS
 .DS_Store
 
 # Editor
-.vscode/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
 .idea/
 *.swp

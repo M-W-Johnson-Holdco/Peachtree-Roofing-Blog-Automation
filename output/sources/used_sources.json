@@ -1,0 +1,42 @@
+{
+  "updated_at": "2026-06-05T18:57:14.872663+00:00",
+  "source_count": 3,
+  "sources": [
+    {
+      "url": "https://markets.ft.com/data/announce/detail?dockey=600-202606031451PR_NEWS_USPRX____CL75458-1",
+      "normalized_url": "https://markets.ft.com/data/announce/detail",
+      "domain": "markets.ft.com",
+      "title": "Georgia Power encourages customers to prepare for hurricane season \u2013 Company Announcement - Financial Times",
+      "strategy_cluster": "storm_damage",
+      "first_used_at": "2026-06-05T17:38:42.939453+00:00",
+      "last_used_at": "2026-06-05T18:13:16.967576+00:00",
+      "last_draft_path": "/Users/peachtreeroofing/Desktop/projects/Peachtree-Roofing-Blog-Automation/output/drafts/drafts_md/2026-06-05-141316-metro-atlanta-roof-prep-hurricane-flash-flood-guide.md",
+      "last_runner": "peachtree_blog.pipeline.write_serverless",
+      "use_count": 5
+    },
+    {
+      "url": "https://nypost.com/2026/05/29/us-news/tropical-storms-trigger-flash-flood-threat-across-southeast-as-heavy-rains-bring-drought-relief/",
+      "normalized_url": "https://nypost.com/2026/05/29/us-news/tropical-storms-trigger-flash-flood-threat-across-southeast-as-heavy-rains-bring-drought-relief",
+      "domain": "nypost.com",
+      "title": "Tropical storms trigger flash flood threat across Southeast as heavy rains bring drought relief",
+      "strategy_cluster": "storm_damage",
+      "first_used_at": "2026-06-05T17:38:42.939453+00:00",
+      "last_used_at": "2026-06-05T18:13:16.967576+00:00",
+      "last_draft_path": "/Users/peachtreeroofing/Desktop/projects/Peachtree-Roofing-Blog-Automation/output/drafts/drafts_md/2026-06-05-141316-metro-atlanta-roof-prep-hurricane-flash-flood-guide.md",
+      "last_runner": "peachtree_blog.pipeline.write_serverless",
+      "use_count": 5
+    },
+    {
+      "url": "https://www.businessinsider.com/top-worst-states-hurricane-damage-risk-2026-5",
+      "normalized_url": "https://businessinsider.com/top-worst-states-hurricane-damage-risk-2026-5",
+      "domain": "businessinsider.com",
+      "title": "The top 15 states at risk of hurricane damage include some surprises - Business Insider",
+      "strategy_cluster": "roof_safety",
+      "first_used_at": "2026-06-05T18:34:34.425326+00:00",
+      "last_used_at": "2026-06-05T18:57:14.872566+00:00",
+      "last_draft_path": "/Users/peachtreeroofing/Desktop/projects/Peachtree-Roofing-Blog-Automation/output/drafts/drafts_md/2026-06-05-145714-how-alpharetta-homeowners-can-shield-their-roofs-from-hurric.md",
+      "last_runner": "peachtree_blog.pipeline.write_serverless",
+      "use_count": 4
+    }
+  ]
+}

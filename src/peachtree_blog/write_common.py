@@ -642,9 +642,7 @@ def get_together_client():
 
     api_key = os.getenv("TOGETHER_API_KEY")
     if not api_key:
-        raise EnvironmentError(
-            "TOGETHER_API_KEY is not set. Add it to .env, or run write_serverless with --mock."
-        )
+        raise EnvironmentError("TOGETHER_API_KEY is not set. Add it to .env.")
 
     return Together(api_key=api_key)
 
@@ -744,6 +742,76 @@ def build_generation_report(
     return report
 
 
+THINKING_LEAK_MARKERS = (
+    "thinking process:",
+    "analyze the request:",
+    "verify internal checks",
+)
+
+
+def model_prefers_reasoning_disabled(model: str) -> bool:
+    """Hybrid Together models that default to thinking/reasoning before answering."""
+    normalized = model.lower()
+    return any(
+        marker in normalized
+        for marker in (
+            "qwen3.5",
+            "qwen3.6",
+            "glm-5",
+            "kimi-k2",
+            "nemotron-3-ultra",
+            "deepseek-v4",
+            "cogito-v2",
+        )
+    )
+
+
+def together_chat_completion_kwargs(model: str) -> dict[str, Any]:
+    """Disable thinking for hybrid models so blog drafts land in `content`."""
+    if not model_prefers_reasoning_disabled(model):
+        return {}
+
+    return {
+        "reasoning": {"enabled": False},
+        "chat_template_kwargs": {"enable_thinking": False},
+    }
+
+
+def strip_embedded_thinking_blocks(text: str) -> str:
+    think_block = re.compile(
+        rf"{'<'}think{'>'}.*?{'<'}/think{'>'}",
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+    redacted_block = re.compile(
+        rf"{'<'}redacted_thinking{'>'}.*?{'<'}/redacted_thinking{'>'}",
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+    cleaned = think_block.sub("", text).strip()
+    return redacted_block.sub("", cleaned).strip()
+
+
+def extract_markdown_draft(text: str) -> str:
+    """Keep blog Markdown and drop leaked planning/thinking preambles."""
+    cleaned = strip_embedded_thinking_blocks(text.strip())
+    if not cleaned:
+        return ""
+
+    h1_match = re.search(r"^#\s+\S", cleaned, flags=re.MULTILINE)
+    if h1_match:
+        return cleaned[h1_match.start() :].strip()
+
+    preview = cleaned[:300].lower()
+    if any(marker in preview for marker in THINKING_LEAK_MARKERS):
+        return ""
+
+    return cleaned
+
+
+def extract_assistant_draft(message: Any) -> str:
+    content = str(getattr(message, "content", None) or "").strip()
+    return extract_markdown_draft(content)
+
+
 def generate_with_together(
     prompt: str,
     model: str,
@@ -756,18 +824,26 @@ def generate_with_together(
             "role": "system",
             "content": (
                 "You are a senior home-services content strategist. "
-                "Return only the complete Markdown blog draft."
+                "Return only the complete Markdown blog draft starting with one H1 title line. "
+                "Do not include planning notes, analysis, or a thinking process."
             ),
         },
         {"role": "user", "content": prompt},
     ]
 
     def call_model(active_model: str):
+        extra_kwargs = together_chat_completion_kwargs(active_model)
+        if extra_kwargs:
+            print(
+                f"{write_log_prefix()} Disabled reasoning/thinking for {active_model} "
+                "(draft-only response)."
+            )
         return client.chat.completions.create(
             model=active_model,
             messages=messages,
             temperature=0.35,
             max_tokens=3400,
+            **extra_kwargs,
         )
 
     estimated_seconds = float(os.getenv("WRITE_GENERATION_ESTIMATE_SECONDS", "180"))
@@ -810,66 +886,14 @@ def generate_with_together(
         usage=usage,
     )
 
-    return response.choices[0].message.content.strip(), metadata
+    draft = extract_assistant_draft(response.choices[0].message)
+    if not draft:
+        print(
+            f"{write_log_prefix()} Warning: Model returned planning/thinking text with no "
+            "Markdown draft; validation will retry."
+        )
 
-
-def generate_mock_draft(sources: list[dict[str, Any]], author_name: str, author_credentials: str) -> str:
-    primary = sources[0] if sources else {}
-    angle = primary.get("recommended_angle") or "What should Metro Atlanta homeowners check before roof repairs?"
-    title = angle.rstrip("?")
-
-    return f"""# {title}
-
-Metro Atlanta homeowners should treat recent roof-safety and insurance news as a reminder to inspect vulnerable roof areas before small issues become expensive claims. Start with visible damage, roof penetrations, attic moisture, and policy details. If you see active leaks, displaced flashing, storm damage, or unsafe exterior conditions, document the issue with photos and schedule a licensed inspection before authorizing repairs.
-
-## What changed in Atlanta roofing and home insurance news?
-
-Recent local reporting points to two practical concerns: building safety and rising home insurance costs. FOX 5 Atlanta reported an unsafe Midtown Atlanta high-rise inspection (Source: FOX 5 Atlanta, May 2026). 11Alive shared Consumer Reports guidance that older roofs and storm damage can affect insurance costs (Source: 11Alive, May 2026). Consumer Reports also found home insurance costs rose an average of 24% over three years (Source: Consumer Reports, May 2026).
-
-## What should homeowners inspect first?
-
-Start with the roof areas most likely to leak: pipe boots, chimney flashing, valleys, skylights, gutters, and attic decking. Homeowners in Fulton, DeKalb, Cobb, Gwinnett, Cherokee, and Chamblee should also check for storm debris, soft decking, and ceiling stains after heavy rain.
-
-| Area to check | What to look for | Why it matters |
-|---|---|---|
-| Pipe boots | Cracked rubber or lifted sealant | Common leak entry point |
-| Flashing | Gaps, rust, or displaced metal | Lets wind-driven rain enter |
-| Attic decking | Dark stains or soft wood | Shows hidden moisture |
-
-## How can roof condition affect insurance costs?
-
-Roof age and storm-damage history can affect premiums and claim outcomes. Some insurers add surcharges of 10 to 20 percent or more for older roofs (Source: 11Alive, May 2026).
-
-## FAQ
-
-### Should I inspect my roof after a storm in Atlanta?
-Yes. Check visible roof surfaces, gutters, attic decking, and ceiling stains within 48 to 72 hours.
-
-### Can an older roof raise home insurance costs?
-Yes. Some insurers apply surcharges when roof age increases claim risk.
-
-### What should I photograph before filing a claim?
-Photograph exterior damage, interior stains, attic moisture, and any fallen limbs or debris.
-
-### Do I need a roofer before calling insurance?
-You can call insurance first, but a written inspection helps you understand the damage before an adjuster visit.
-
-### Which Metro Atlanta areas see storm-related roof issues?
-Fulton, DeKalb, Cobb, Gwinnett, Cherokee, Sandy Springs, Decatur, and Marietta all see wind and rain exposure.
-
-### What roof areas leak most often?
-Pipe boots, flashing, valleys, skylights, and poorly draining gutters are common leak points.
-
-### Should I replace my roof just because it is old?
-Not always. If the damage is isolated and decking is sound, repair may be enough.
-
-### When should I call Peachtree Roofing & Exteriors?
-Call when you see leaks, storm damage, missing shingles, soft decking, or insurance questions tied to roof condition.
-
-Written by {author_name}, {author_credentials}. Peachtree Roofing & Exteriors serves homeowners across Metro Atlanta.
-
-Contact Peachtree Roofing & Exteriors for a free inspection.
-"""
+    return draft, metadata
 
 
 def draft_subdirs(output_dir: Path = DEFAULT_OUTPUT_DIR) -> tuple[Path, Path, Path]:
@@ -1159,15 +1183,6 @@ def print_generation_cost_summary(
 ) -> None:
     """Print Together token usage and estimated USD cost after a draft run."""
     log = log_prefix or write_log_prefix()
-    mode = str(generation_report.get("mode") or "").strip()
-
-    if mode == "mock" or model_used == "mock":
-        elapsed = generation_report.get("elapsed_seconds")
-        if elapsed is not None:
-            print(f"{log} Generation time: {elapsed}s (mock — no Together API usage)")
-        else:
-            print(f"{log} Mock run — no Together API tokens or cost")
-        return
 
     print(f"{log} Model: {generation_report.get('model_used', model_used)}")
 
@@ -1215,6 +1230,70 @@ def print_generation_cost_summary(
     combined = cost_block.get("combined_total")
     if combined is not None:
         print(f"{log} Estimated combined cost: ${combined:.4f} USD")
+
+
+def format_generation_slack_lines(
+    validation_report: dict[str, Any],
+    *,
+    model_display: str | None = None,
+    model_line_label: str = "Model",
+) -> list[str]:
+    """Format model, timing, tokens, and cost for Slack approval posts."""
+    generation = validation_report.get("generation")
+    if not isinstance(generation, dict):
+        return []
+
+    model_id = str(generation.get("model_used") or validation_report.get("model") or "").strip()
+    if not model_id:
+        return []
+
+    lines = [f"• {model_line_label}: {model_display or model_id}"]
+
+    elapsed = generation.get("elapsed_seconds")
+    api_calls = generation.get("validation_attempts") or generation.get("validation_attempt")
+    if elapsed is not None:
+        call_note = ""
+        if api_calls:
+            call_note = f" ({api_calls} API call{'s' if api_calls != 1 else ''})"
+        lines.append(f"• Generation time: {elapsed}s{call_note}")
+
+    usage = generation.get("usage") or {}
+    if usage:
+        lines.append(
+            "• Tokens: "
+            f"{_format_token_count(usage.get('prompt_tokens'))} in / "
+            f"{_format_token_count(usage.get('completion_tokens'))} out / "
+            f"{_format_token_count(usage.get('total_tokens'))} total"
+        )
+
+    token_cost = (generation.get("estimated_cost_usd") or {}).get("tokens") or {}
+    total_usd = token_cost.get("total")
+    if total_usd is not None:
+        input_usd = float(token_cost.get("input") or 0)
+        output_usd = float(token_cost.get("output") or 0)
+        lines.append(
+            f"• Est. inference cost: ${float(total_usd):.4f} USD "
+            f"(input ${input_usd:.4f}, output ${output_usd:.4f})"
+        )
+
+    if generation.get("validation_passed") is True:
+        attempt = generation.get("validation_attempt")
+        if attempt:
+            lines.append(f"• Validation: passed on attempt {attempt}")
+        else:
+            lines.append("• Validation: passed")
+    elif generation.get("validation_passed") is False:
+        lines.append("• Validation: failed (see validation JSON)")
+
+    revision_mode = generation.get("revision_mode")
+    if revision_mode:
+        lines.append(f"• Revision mode: {revision_mode}")
+
+    source_count = validation_report.get("source_count")
+    if source_count is not None:
+        lines.append(f"• Sources used: {source_count}")
+
+    return lines
 
 
 def generate_validated_draft(
@@ -1402,7 +1481,6 @@ def save_draft_outputs(
         selected_sources,
         draft_path=draft_path,
         runner=write_runner_name(),
-        mode=str(generation_report.get("mode") or ""),
     )
     if recorded:
         print(f"{log} Recorded {len(recorded)} used source URL(s) in output/sources/used_sources.json")

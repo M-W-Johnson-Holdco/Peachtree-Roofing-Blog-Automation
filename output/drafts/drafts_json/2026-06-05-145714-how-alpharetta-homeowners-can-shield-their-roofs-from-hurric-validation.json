@@ -1,0 +1,100 @@
+{
+  "passed": false,
+  "checks": {
+    "has_h1": true,
+    "answer_first_opening_roughly_50_to_120_words": true,
+    "has_quick_answer_block": true,
+    "all_h2_headings_are_questions": true,
+    "has_comparison_table": true,
+    "citation_count_3_to_5": false,
+    "location_count_at_least_6": true,
+    "faq_exactly_8": true,
+    "has_author_byline": true,
+    "has_final_cta": true,
+    "no_generic_openers": true
+  },
+  "h2_headings": [
+    "Which Alpharetta, Roswell, Marietta, and Decatur Neighborhoods Have the Highest Roof Vulnerability to Hurricane Winds?  ",
+    "How Do Roof Age and Material Influence Hurricane Resilience in Buckhead and Midtown?  ",
+    "What Immediate Steps Should Atlanta Homeowners Take When a Hurricane Warning Is Issued?  ",
+    "What Are the Cost\u2011Effective Repair vs. Replacement Options for Roofs in Different Metro Atlanta Neighborhoods?  ",
+    "FAQ  "
+  ],
+  "citation_count": 1,
+  "opening_word_count": 53,
+  "locations_found": [
+    "Alpharetta",
+    "Atlanta",
+    "Buckhead",
+    "Cobb",
+    "Decatur",
+    "Marietta",
+    "Midtown",
+    "Roswell",
+    "Sandy Springs"
+  ],
+  "faq_count": 8,
+  "generic_openers_found": [],
+  "generated_at": "2026-06-05T14:57:14.658508",
+  "source_count": 1,
+  "available_source_count": 2,
+  "source_selection": {
+    "strategy": "auto",
+    "mode": "best",
+    "reason": "Auto mode selected one source because the kept sources point to different blog angles or strategy clusters.",
+    "available_source_count": 2,
+    "selected_source_count": 1,
+    "selected_titles": [
+      "The top 15 states at risk of hurricane damage include some surprises - Business Insider"
+    ],
+    "available_titles": [
+      "The top 15 states at risk of hurricane damage include some surprises - Business Insider",
+      "Georgia Brokers and Agents Alarmed After Court Ruling Expands Liability for Them - Insurance Journal"
+    ]
+  },
+  "model": "openai/gpt-oss-120b",
+  "generation": {
+    "model_requested": "openai/gpt-oss-120b",
+    "model_used": "openai/gpt-oss-120b",
+    "model_returned_by_api": "openai/gpt-oss-120b",
+    "elapsed_seconds": 106.58,
+    "endpoint_management_used": false,
+    "usage": {
+      "prompt_tokens": 10067,
+      "completion_tokens": 9325,
+      "total_tokens": 19392,
+      "cached_tokens": 0
+    },
+    "estimated_cost_usd": {
+      "tokens": {
+        "total": 0.007105,
+        "input": 0.00151,
+        "output": 0.005595,
+        "currency": "USD",
+        "pricing_per_million_tokens": {
+          "input": 0.15,
+          "output": 0.6
+        },
+        "pricing_source": "together_catalog"
+      }
+    },
+    "validation_attempt": 3,
+    "validation_passed": false,
+    "validation_attempts": 3,
+    "runner": "peachtree_blog.pipeline.write_serverless",
+    "mode": "serverless"
+  },
+  "draft_path": "/Users/peachtreeroofing/Desktop/projects/Peachtree-Roofing-Blog-Automation/output/drafts/drafts_md/2026-06-05-145714-how-alpharetta-homeowners-can-shield-their-roofs-from-hurric.md",
+  "sources_used": [
+    {
+      "url": "https://www.businessinsider.com/top-worst-states-hurricane-damage-risk-2026-5",
+      "normalized_url": "https://businessinsider.com/top-worst-states-hurricane-damage-risk-2026-5",
+      "domain": "businessinsider.com",
+      "title": "The top 15 states at risk of hurricane damage include some surprises - Business Insider",
+      "strategy_cluster": "roof_safety"
+    }
+  ],
+  "validation_attempts": 3,
+  "validation_passed_on_generation": false,
+  "pdf_path": "/Users/peachtreeroofing/Desktop/projects/Peachtree-Roofing-Blog-Automation/output/drafts/drafts_pdf/2026-06-05-145714-how-alpharetta-homeowners-can-shield-their-roofs-from-hurric.pdf"
+}

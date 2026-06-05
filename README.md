@@ -46,7 +46,6 @@ python pipeline.py
 
 ```bash
 python pipeline.py --all
-python pipeline.py --all --mock
 python pipeline.py --all --send-to-slack
 ```
 
@@ -54,8 +53,8 @@ python pipeline.py --all --send-to-slack
 
 ```bash
 python pipeline.py --stage search
-python pipeline.py --stage evaluate --mock
-python pipeline.py --stage write --mock
+python pipeline.py --stage evaluate
+python pipeline.py --stage write
 ```
 
 **Run a module directly** (after `pip install -e .` or `export PYTHONPATH=src`):
@@ -298,19 +297,13 @@ TOGETHER_EVALUATION_MODEL=Qwen/Qwen2.5-7B-Instruct-Turbo
 7. Writes all scored sources to `output/sources/evaluated_sources.json`.
 8. Writes sources with `weighted_score >= 6.0` to `output/sources/kept_sources.json`.
 
-Run live evaluation with:
+Run evaluation with:
 
 ```bash
 conda run -n blog-automation python -m peachtree_blog.pipeline.evaluate
 ```
 
-Run a no-credit local test with:
-
-```bash
-conda run -n blog-automation python -m peachtree_blog.pipeline.evaluate --mock
-```
-
-Mock mode is only for testing file flow and obvious filtering. The live Together evaluation should be stricter and more context-aware.
+Requires `TOGETHER_API_KEY` in `.env`.
 
 ## Blog Writing
 
@@ -347,7 +340,7 @@ Interactive terminal runs show a model menu (default: Qwen3 235B tput). Serverle
 Each `*-validation.json` file includes a `generation` object:
 
 - `runner` — `peachtree_blog.pipeline.write_serverless`
-- `mode` — `serverless`, `dedicated`, or `mock`
+- `mode` — `serverless` or `dedicated`
 - `model_used` — Together model billed for inference
 - `elapsed_seconds` — API generation time
 - `usage` — prompt/completion/total tokens from Together
@@ -430,12 +423,6 @@ You can override this behavior:
 ```bash
 conda run -n blog-automation python -m peachtree_blog.pipeline.write_serverless --source-strategy best
 conda run -n blog-automation python -m peachtree_blog.pipeline.write_serverless --source-strategy combine
-```
-
-Run a no-credit local test with:
-
-```bash
-conda run -n blog-automation python -m peachtree_blog.pipeline.write_serverless --mock
 ```
 
 ### Draft Validation
@@ -568,13 +555,7 @@ conda run -n blog-automation python -m peachtree_blog.pipeline.approve_listen li
 To run the normal pipeline and post the created draft to Slack:
 
 ```bash
-conda run -n blog-automation python pipeline.py --send-to-slack
-```
-
-For a no-credit pipeline test that posts the mock draft:
-
-```bash
-conda run -n blog-automation python pipeline.py --mock --send-to-slack
+conda run -n blog-automation python pipeline.py --all --send-to-slack
 ```
 
 ## Cleaning Test Output

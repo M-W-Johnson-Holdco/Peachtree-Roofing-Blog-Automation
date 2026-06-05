@@ -6,11 +6,8 @@ Peachtree's GEO blog strategy, and writes:
 - `output/sources/evaluated_sources.json` for all scored sources
 - `output/sources/kept_sources.json` for sources worth sending to write_serverless
 
-Run live:
+Run:
     python -m peachtree_blog.pipeline.evaluate
-
-Run without Together credits:
-    python -m peachtree_blog.pipeline.evaluate --mock
 """
 
 from __future__ import annotations
@@ -24,8 +21,6 @@ import json
 import os
 import re
 import time
-from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
 
@@ -60,96 +55,6 @@ SCORE_KEYS = [
     "semantic_relevance",
 ]
 
-LOCAL_TERMS = {
-    "atlanta",
-    "metro atlanta",
-    "georgia",
-    "fulton",
-    "dekalb",
-    "cobb",
-    "gwinnett",
-    "cherokee",
-    "henry",
-    "buckhead",
-    "midtown",
-    "marietta",
-    "alpharetta",
-    "dunwoody",
-    "woodstock",
-    "east cobb",
-    "vinings",
-    "chamblee",
-    "sandy springs",
-    "roswell",
-    "decatur",
-    "lawrenceville",
-    "smyrna",
-}
-
-ROOFING_TERMS = {
-    "roof",
-    "roofing",
-    "shingle",
-    "gutter",
-    "siding",
-    "exterior",
-    "storm",
-    "hail",
-    "wind",
-    "thunderstorm",
-    "tornado",
-    "insurance",
-    "claim",
-    "deductible",
-    "rcv",
-    "acv",
-    "building code",
-    "permit",
-    "hoa",
-    "fire",
-    "damage",
-    "inspection",
-    "safety",
-    "structural",
-    "hvac",
-    "flashing",
-    "attic",
-    "ventilation",
-}
-
-PRIORITY_DOMAINS = {
-    "fox5atlanta.com",
-    "wsbtv.com",
-    "ajc.com",
-    "11alive.com",
-    "weather.gov",
-    "legis.ga.gov",
-    "dca.ga.gov",
-}
-
-SECONDARY_DOMAINS = {
-    "cbs46.com",
-    "atlantan.com",
-    "mdjonline.com",
-    "gwinnettdailypost.com",
-    "rockdalenewtoncitizen.com",
-    "accesswdun.com",
-    "reporternewspapers.net",
-    "northside-neighbor.com",
-}
-
-
-def source_authority_score(source: dict[str, Any]) -> int:
-    domain = str(source.get("domain", "")).lower()
-    if bool(source.get("priority_source")) or domain in PRIORITY_DOMAINS:
-        return 9
-    if bool(source.get("secondary_source")) or domain in SECONDARY_DOMAINS:
-        return 7
-    if bool(source.get("official_source")):
-        return 8
-    return 5
-
-
 def load_json(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         raise FileNotFoundError(f"Input file not found: {path}")
@@ -172,64 +77,6 @@ def save_json(data: list[dict[str, Any]], path: Path) -> None:
 
 def load_prompt() -> str:
     return PROMPT_PATH.read_text(encoding="utf-8")
-
-
-def source_text(source: dict[str, Any]) -> str:
-    return " ".join(
-        [
-            str(source.get("title", "")),
-            str(source.get("url", "")),
-            str(source.get("domain", "")),
-            str(source.get("content", "")),
-            str(source.get("strategy_cluster", "")),
-            str(source.get("pillar_topic", "")),
-        ]
-    ).lower()
-
-
-def parse_published_date(value: str) -> datetime | None:
-    if not value:
-        return None
-
-    try:
-        parsed = parsedate_to_datetime(value)
-    except (TypeError, ValueError):
-        try:
-            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError:
-            return None
-
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-
-    return parsed.astimezone(timezone.utc)
-
-
-def recency_score(published_date: str) -> int:
-    parsed = parse_published_date(published_date)
-    if not parsed:
-        return 5
-
-    age_days = (datetime.now(timezone.utc) - parsed).days
-    if age_days <= 7:
-        return 10
-    if age_days <= 14:
-        return 5
-    return 1
-
-
-def contains_any(text: str, terms: set[str]) -> bool:
-    for term in terms:
-        normalized = term.lower()
-        if " " in normalized:
-            if normalized in text:
-                return True
-            continue
-
-        if re.search(rf"(?<![a-z0-9]){re.escape(normalized)}(?![a-z0-9])", text):
-            return True
-
-    return False
 
 
 def source_int(value: Any, default: int = 0) -> int:
@@ -273,76 +120,6 @@ def metadata_adjustments(source: dict[str, Any]) -> dict[str, Any]:
         "weighted_score_adjustment": adjustment,
         "hard_reject_reasons": hard_reject_reasons,
     }
-
-
-def mock_evaluate_source(source: dict[str, Any]) -> dict[str, Any]:
-    """Local scoring for plumbing tests when no Together key is available."""
-    text = source_text(source)
-    title_url_text = " ".join(
-        [
-            str(source.get("title", "")),
-            str(source.get("url", "")),
-        ]
-    ).lower()
-    early_article_text = " ".join(
-        [
-            str(source.get("title", "")),
-            str(source.get("url", "")),
-            str(source.get("content", ""))[:900],
-        ]
-    ).lower()
-
-    headline_has_topic = contains_any(title_url_text, ROOFING_TERMS)
-    early_article_has_topic = contains_any(early_article_text, ROOFING_TERMS)
-    headline_has_local = contains_any(title_url_text, LOCAL_TERMS)
-    article_has_local = contains_any(text, LOCAL_TERMS)
-
-    scores = {
-        "local_relevance": 9 if headline_has_local else 7 if article_has_local else 2,
-        "roofing_relevance": 8 if headline_has_topic else 5 if early_article_has_topic else 1,
-        "recency": recency_score(str(source.get("published_date", ""))),
-        "source_authority": source_authority_score(source),
-        "actionability": 8
-        if contains_any(early_article_text, {"inspection", "damage", "claim", "insurance", "permit", "safety"})
-        else 3,
-        "territory_alignment": max(1, min(10, source_int(source.get("territory_alignment_score"), 5))),
-        "semantic_relevance": max(1, min(10, source_int(source.get("semantic_relevance_score"), 5))),
-    }
-    weighted_score = round(
-        scores["local_relevance"] * 0.24
-        + scores["roofing_relevance"] * 0.24
-        + scores["recency"] * 0.14
-        + scores["source_authority"] * 0.08
-        + scores["actionability"] * 0.10
-        + scores["territory_alignment"] * 0.10
-        + scores["semantic_relevance"] * 0.10,
-        2,
-    )
-    adjustments = metadata_adjustments(source)
-    adjusted_weighted_score = round(
-        max(1.0, min(10.0, weighted_score + adjustments["weighted_score_adjustment"])),
-        2,
-    )
-
-    keep = adjusted_weighted_score >= KEEP_THRESHOLD and not adjustments["hard_reject_reasons"]
-    reason = (
-        "Mock score keeps this source because it is local, recent, authoritative, and strategy-relevant."
-        if keep
-        else "Mock score rejects this source because it does not clearly support a Metro Atlanta roofing blog angle."
-    )
-
-    return normalize_evaluation(
-        {
-            "title": source.get("title", ""),
-            "url": source.get("url", ""),
-            "scores": scores,
-            "weighted_score": weighted_score,
-            "keep": keep,
-            "reason": reason,
-            "recommended_angle": build_fallback_angle(source),
-        },
-        source,
-    )
 
 
 def build_prompt(prompt_template: str, source: dict[str, Any]) -> str:
@@ -399,9 +176,7 @@ def get_together_client():
 
     api_key = os.getenv("TOGETHER_API_KEY")
     if not api_key:
-        raise EnvironmentError(
-            "TOGETHER_API_KEY is not set. Add it to .env, or run `python evaluate.py --mock`."
-        )
+        raise EnvironmentError("TOGETHER_API_KEY is not set. Add it to .env.")
 
     return Together(api_key=api_key)
 
@@ -519,25 +294,12 @@ def normalize_evaluation(evaluation: dict[str, Any], source: dict[str, Any]) -> 
 def evaluate_sources(
     sources: list[dict[str, Any]],
     *,
-    mock: bool = False,
     model: str = DEFAULT_MODEL,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    started = time.perf_counter()
-
     if not sources:
-        return [], {"model_used": model if not mock else "mock", "mode": "mock" if mock else "evaluate"}
+        return [], {"model_used": model, "mode": "evaluate"}
 
-    if mock:
-        evaluated = [mock_evaluate_source(source) for source in sources]
-        report = {
-            "model_requested": model,
-            "model_used": "mock",
-            "mode": "mock",
-            "elapsed_seconds": round(time.perf_counter() - started, 2),
-            "api_calls": 0,
-        }
-        return evaluated, report
-
+    started = time.perf_counter()
     load_dotenv(PROJECT_ROOT / ".env")
     client = get_together_client()
     prompt_template = load_prompt()
@@ -628,18 +390,13 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT_PATH)
     parser.add_argument("--kept-output", type=Path, default=DEFAULT_KEPT_PATH)
     parser.add_argument("--model", default=os.getenv("TOGETHER_EVALUATION_MODEL", DEFAULT_MODEL))
-    parser.add_argument("--mock", action="store_true", help="Use local heuristic scoring instead of Together AI.")
     args = parser.parse_args()
 
     sources = load_json(args.input)
     print(f"[evaluate] Loaded {len(sources)} source candidates from {args.input}")
+    print(f"[evaluate] Evaluation model: {args.model}")
 
-    if args.mock:
-        print("[evaluate] Evaluation model: mock (local heuristics, no Together API)")
-    else:
-        print(f"[evaluate] Evaluation model: {args.model}")
-
-    evaluated, run_report = evaluate_sources(sources, mock=args.mock, model=args.model)
+    evaluated, run_report = evaluate_sources(sources, model=args.model)
     evaluated.sort(key=lambda item: item["weighted_score"], reverse=True)
     kept = ensure_minimum_kept(evaluated)
 
@@ -657,7 +414,7 @@ def main() -> None:
         f"{f', {promoted} promoted by fallback' if promoted else ''})"
     )
 
-    model_used = str(run_report.get("model_used") or ("mock" if args.mock else args.model))
+    model_used = str(run_report.get("model_used") or args.model)
     print_generation_cost_summary(
         run_report,
         model_used=model_used,

@@ -1,0 +1,110 @@
+{
+  "passed": true,
+  "checks": {
+    "has_h1": true,
+    "answer_first_opening_roughly_50_to_120_words": true,
+    "has_quick_answer_block": true,
+    "all_h2_headings_are_questions": true,
+    "has_comparison_table": true,
+    "citation_count_3_to_5": true,
+    "location_count_at_least_6": true,
+    "faq_exactly_8": true,
+    "has_author_byline": true,
+    "has_final_cta": true,
+    "no_generic_openers": true
+  },
+  "h2_headings": [
+    "How Does Saturated Soil in Atlanta Increase Roof Failure Risk?",
+    "Which Gwinnett and DeKalb Neighborhoods Face Highest Flash Flood Threats?",
+    "What Immediate Steps Should Homeowners Take Before the Next Storm?",
+    "How Do Historical Atlanta Storms Compare to Current 2026 Threats?",
+    "What Are the Costs and Timelines for Emergency Roof Repairs in Metro Atlanta?",
+    "Why Is April to September the Critical Window for Roof Inspections?",
+    "FAQ"
+  ],
+  "citation_count": 3,
+  "opening_word_count": 93,
+  "locations_found": [
+    "Atlanta",
+    "Cobb",
+    "DeKalb",
+    "Decatur",
+    "Fulton",
+    "Gwinnett",
+    "Smyrna"
+  ],
+  "faq_count": 8,
+  "generic_openers_found": [],
+  "generated_at": "2026-06-05T14:13:16.665889",
+  "source_count": 2,
+  "available_source_count": 3,
+  "source_selection": {
+    "strategy": "auto",
+    "mode": "combine",
+    "reason": "Auto mode combined sources because multiple strong candidates share the storm_damage strategy cluster.",
+    "available_source_count": 3,
+    "selected_source_count": 2,
+    "selected_titles": [
+      "Georgia Power encourages customers to prepare for hurricane season \u2013 Company Announcement - Financial Times",
+      "Tropical storms trigger flash flood threat across Southeast as heavy rains bring drought relief"
+    ],
+    "available_titles": [
+      "Georgia Power encourages customers to prepare for hurricane season \u2013 Company Announcement - Financial Times",
+      "Tropical storms trigger flash flood threat across Southeast as heavy rains bring drought relief",
+      "The top 15 states at risk of hurricane damage include some surprises - Business Insider"
+    ]
+  },
+  "model": "Qwen/Qwen3.5-397B-A17B",
+  "generation": {
+    "model_requested": "Qwen/Qwen3.5-397B-A17B",
+    "model_used": "Qwen/Qwen3.5-397B-A17B",
+    "model_returned_by_api": "Qwen/Qwen3.5-397B-A17B",
+    "elapsed_seconds": 9.46,
+    "endpoint_management_used": false,
+    "usage": {
+      "prompt_tokens": 3242,
+      "completion_tokens": 2576,
+      "total_tokens": 5818,
+      "cached_tokens": 0
+    },
+    "estimated_cost_usd": {
+      "tokens": {
+        "total": 0.011219,
+        "input": 0.001945,
+        "output": 0.009274,
+        "currency": "USD",
+        "pricing_per_million_tokens": {
+          "input": 0.6,
+          "output": 3.6
+        },
+        "pricing_source": "together_catalog"
+      }
+    },
+    "validation_attempt": 1,
+    "validation_passed": true,
+    "validation_attempts": 1,
+    "revision_mode": "editorial",
+    "runner": "peachtree_blog.pipeline.write_serverless",
+    "mode": "serverless"
+  },
+  "draft_path": "/Users/peachtreeroofing/Desktop/projects/Peachtree-Roofing-Blog-Automation/output/drafts/drafts_md/2026-06-05-141316-metro-atlanta-roof-prep-hurricane-flash-flood-guide.md",
+  "sources_used": [
+    {
+      "url": "https://markets.ft.com/data/announce/detail?dockey=600-202606031451PR_NEWS_USPRX____CL75458-1",
+      "normalized_url": "https://markets.ft.com/data/announce/detail",
+      "domain": "markets.ft.com",
+      "title": "Georgia Power encourages customers to prepare for hurricane season \u2013 Company Announcement - Financial Times",
+      "strategy_cluster": "storm_damage"
+    },
+    {
+      "url": "https://nypost.com/2026/05/29/us-news/tropical-storms-trigger-flash-flood-threat-across-southeast-as-heavy-rains-bring-drought-relief/",
+      "normalized_url": "https://nypost.com/2026/05/29/us-news/tropical-storms-trigger-flash-flood-threat-across-southeast-as-heavy-rains-bring-drought-relief",
+      "domain": "nypost.com",
+      "title": "Tropical storms trigger flash flood threat across Southeast as heavy rains bring drought relief",
+      "strategy_cluster": "storm_damage"
+    }
+  ],
+  "validation_attempts": 1,
+  "validation_passed_on_generation": true,
+  "pdf_path": "/Users/peachtreeroofing/Desktop/projects/Peachtree-Roofing-Blog-Automation/output/drafts/drafts_pdf/2026-06-05-141316-metro-atlanta-roof-prep-hurricane-flash-flood-guide.pdf"
+}

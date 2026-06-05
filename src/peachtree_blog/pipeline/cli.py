@@ -37,33 +37,19 @@ def read_menu_choice() -> int:
         print(f"Please enter a number from 1 to {len(MENU_OPTIONS)}.")
 
 
-def ask_mock() -> bool:
-    raw = input("Use mock mode? [y/N]: ").strip().lower()
-    return raw in {"y", "yes"}
-
-
-def run_menu_choice(choice: int) -> bool:
-    """Run one menu stage. Returns True when approve listen exited via ``e`` (show menu again)."""
+def run_menu_choice(choice: int) -> None:
+    """Run one menu stage, then return so the interactive menu can show again."""
     stage_key = MENU_OPTIONS[choice - 1][0]
-
-    if stage_key == "exit":
-        print("[pipeline] Exiting.")
-        return False
-
-    mock = False
-    if stage_key in {"evaluate", "write"}:
-        mock = ask_mock()
 
     if stage_key == "search":
         run_module("search")
     elif stage_key == "evaluate":
-        run_module("evaluate", *(["--mock"] if mock else ()))
+        run_module("evaluate")
     elif stage_key == "write":
-        run_module("write_serverless", *(["--mock"] if mock else ()))
+        run_module("write_serverless")
     elif stage_key == "approve":
         load_dotenv(PROJECT_ROOT / ".env")
-        return run_approve_post_and_listen(interactive_model_prompt=True)
-    return False
+        run_approve_post_and_listen(interactive_model_prompt=True)
 
 
 def run_interactive_menu() -> None:
@@ -73,19 +59,14 @@ def run_interactive_menu() -> None:
         if MENU_OPTIONS[choice - 1][0] == "exit":
             print("[pipeline] Exiting.")
             return
-        back_to_menu = run_menu_choice(choice)
-        if back_to_menu:
-            continue
-        again = input("\nRun another stage? [y/N]: ").strip().lower()
-        if again not in {"y", "yes"}:
-            return
+        run_menu_choice(choice)
 
 
-def run_full_pipeline(*, mock: bool, send_to_slack: bool) -> None:
+def run_full_pipeline(*, send_to_slack: bool) -> None:
     stages: list[tuple[str, tuple[str, ...]]] = [
         ("search", ()),
-        ("evaluate", ("--mock",) if mock else ()),
-        ("write_serverless", ("--mock",) if mock else ()),
+        ("evaluate", ()),
+        ("write_serverless", ()),
     ]
     if send_to_slack:
         stages.append(("approve_listen", ("post", "--latest")))
@@ -103,11 +84,6 @@ def main(argv: list[str] | None = None) -> None:
         help="Run full pipeline non-interactively: search → evaluate → write (for CI/scripts).",
     )
     parser.add_argument(
-        "--mock",
-        action="store_true",
-        help="With --all: run evaluate and write in mock mode.",
-    )
-    parser.add_argument(
         "--send-to-slack",
         action="store_true",
         help="With --all: post the draft to Slack after writing.",
@@ -120,16 +96,16 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     if args.all:
-        run_full_pipeline(mock=args.mock, send_to_slack=args.send_to_slack)
+        run_full_pipeline(send_to_slack=args.send_to_slack)
         return
 
     if args.stage:
         if args.stage == "search":
             run_module("search")
         elif args.stage == "evaluate":
-            run_module("evaluate", *(["--mock"] if args.mock else ()))
+            run_module("evaluate")
         elif args.stage == "write":
-            run_module("write_serverless", *(["--mock"] if args.mock else ()))
+            run_module("write_serverless")
         elif args.stage == "approve_post":
             run_module("approve_listen", "post", "--latest")
         elif args.stage == "approve_listen":

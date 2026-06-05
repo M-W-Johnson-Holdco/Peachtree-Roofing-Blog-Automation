@@ -1,0 +1,98 @@
+{
+  "passed": true,
+  "checks": {
+    "has_h1": true,
+    "answer_first_opening_roughly_50_to_120_words": true,
+    "has_quick_answer_block": true,
+    "all_h2_headings_are_questions": true,
+    "has_comparison_table": true,
+    "citation_count_3_to_5": true,
+    "location_count_at_least_6": true,
+    "faq_exactly_8": true,
+    "has_author_byline": true,
+    "has_final_cta": true,
+    "no_generic_openers": true
+  },
+  "h2_headings": [
+    "Which Buckhead, Midtown, Decatur, Smyrna, Norcross, and Marietta Neighborhoods Face the Highest Hurricane\u2011Force Roof Risk?",
+    "How Much Does a Hurricane\u2011Proof Roof Upgrade Cost in Metro Atlanta, and Which Option Fits My Neighborhood?",
+    "What Immediate Steps Should I Take to Harden My Roof Before the Next Hurricane?",
+    "FAQ"
+  ],
+  "citation_count": 4,
+  "opening_word_count": 99,
+  "locations_found": [
+    "Alpharetta",
+    "Atlanta",
+    "Buckhead",
+    "Decatur",
+    "Marietta",
+    "Midtown",
+    "Smyrna"
+  ],
+  "faq_count": 8,
+  "generic_openers_found": [],
+  "generated_at": "2026-06-05T14:37:54.116381",
+  "source_count": 1,
+  "available_source_count": 2,
+  "source_selection": {
+    "strategy": "auto",
+    "mode": "best",
+    "reason": "Auto mode selected one source because the kept sources point to different blog angles or strategy clusters.",
+    "available_source_count": 2,
+    "selected_source_count": 1,
+    "selected_titles": [
+      "The top 15 states at risk of hurricane damage include some surprises - Business Insider"
+    ],
+    "available_titles": [
+      "The top 15 states at risk of hurricane damage include some surprises - Business Insider",
+      "Georgia Brokers and Agents Alarmed After Court Ruling Expands Liability for Them - Insurance Journal"
+    ]
+  },
+  "model": "Qwen/Qwen3.5-397B-A17B",
+  "generation": {
+    "model_requested": "Qwen/Qwen3.5-397B-A17B",
+    "model_used": "Qwen/Qwen3.5-397B-A17B",
+    "model_returned_by_api": "Qwen/Qwen3.5-397B-A17B",
+    "elapsed_seconds": 14.22,
+    "endpoint_management_used": false,
+    "usage": {
+      "prompt_tokens": 6899,
+      "completion_tokens": 3717,
+      "total_tokens": 10616,
+      "cached_tokens": 0
+    },
+    "estimated_cost_usd": {
+      "tokens": {
+        "total": 0.017521,
+        "input": 0.004139,
+        "output": 0.013381,
+        "currency": "USD",
+        "pricing_per_million_tokens": {
+          "input": 0.6,
+          "output": 3.6
+        },
+        "pricing_source": "together_catalog"
+      }
+    },
+    "validation_attempt": 2,
+    "validation_passed": true,
+    "validation_attempts": 2,
+    "revision_mode": "editorial",
+    "runner": "peachtree_blog.pipeline.write_serverless",
+    "mode": "serverless"
+  },
+  "draft_path": "/Users/peachtreeroofing/Desktop/projects/Peachtree-Roofing-Blog-Automation/output/drafts/drafts_md/2026-06-05-143754-buckhead-hurricane-ready-roofing-protect-metro-atlanta-homes.md",
+  "sources_used": [
+    {
+      "url": "https://www.businessinsider.com/top-worst-states-hurricane-damage-risk-2026-5",
+      "normalized_url": "https://businessinsider.com/top-worst-states-hurricane-damage-risk-2026-5",
+      "domain": "businessinsider.com",
+      "title": "The top 15 states at risk of hurricane damage include some surprises - Business Insider",
+      "strategy_cluster": "roof_safety"
+    }
+  ],
+  "validation_attempts": 2,
+  "validation_passed_on_generation": true,
+  "pdf_path": "/Users/peachtreeroofing/Desktop/projects/Peachtree-Roofing-Blog-Automation/output/drafts/drafts_pdf/2026-06-05-143754-buckhead-hurricane-ready-roofing-protect-metro-atlanta-homes.pdf"
+}

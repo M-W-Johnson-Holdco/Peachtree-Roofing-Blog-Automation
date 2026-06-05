@@ -8,7 +8,6 @@ Optional dedicated endpoint (replaces former write.py):
 Run:
     python -m peachtree_blog.pipeline.write_serverless
     python -m peachtree_blog.pipeline.write_serverless --model 1
-    python -m peachtree_blog.pipeline.write_serverless --mock
 """
 
 from __future__ import annotations
@@ -42,7 +41,6 @@ from peachtree_blog.write_common import (
     build_draft_prompt,
     clear_drafts_directory,
     draft_validation_json_path,
-    generate_mock_draft,
     generate_validated_draft,
     generate_with_together,
     load_json,
@@ -61,20 +59,20 @@ WRITE_RUNNER = "peachtree_blog.pipeline.write_serverless"
 
 SERVERLESS_MODEL_CHOICES: list[dict[str, str]] = [
     {
-        "label": "Qwen3 235B A22B Instruct 2507 (throughput) — fast, budget MoE (default)",
-        "model_id": "Qwen/Qwen3-235B-A22B-Instruct-2507-tput",
-    },
-    {
         "label": "Qwen3.5 397B A17B — strongest instruction following",
         "model_id": "Qwen/Qwen3.5-397B-A17B",
     },
     {
-        "label": "Llama 3.3 70B Instruct Turbo — faster, lower cost",
-        "model_id": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        "label": "Qwen3 235B A22B Instruct 2507 (throughput) — fast, budget MoE (default)",
+        "model_id": "Qwen/Qwen3-235B-A22B-Instruct-2507-tput",
     },
     {
         "label": "OpenAI GPT-OSS 120B — strong cost/quality balance",
         "model_id": "openai/gpt-oss-120b",
+    },
+    {
+        "label": "Llama 3.3 70B Instruct Turbo — faster, lower cost",
+        "model_id": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
     },
 ]
 
@@ -144,9 +142,7 @@ def infer_model_from_feedback_json(feedback_json: Path) -> str | None:
         return None
 
     model_used = str(generation.get("model_used") or "").strip()
-    if model_used and model_used != "mock":
-        return model_used
-    return None
+    return model_used or None
 
 
 def resolve_writing_model(
@@ -196,7 +192,6 @@ def main() -> None:
         default="auto",
         help="Choose sources for one draft: auto, best, or combine.",
     )
-    parser.add_argument("--mock", action="store_true", help="Write a local mock draft instead of calling Together AI.")
     parser.add_argument(
         "--no-progress",
         action="store_true",
@@ -251,7 +246,7 @@ def main() -> None:
         os.environ["WRITE_NO_PROGRESS"] = "1"
 
     log = write_log_prefix()
-    use_dedicated_endpoint = args.dedicated_endpoint and not args.mock
+    use_dedicated_endpoint = args.dedicated_endpoint
     endpoint_id = os.getenv("TOGETHER_DEDICATED_ENDPOINT_ID", "").strip() if use_dedicated_endpoint else ""
 
     if use_dedicated_endpoint and not endpoint_id:
@@ -259,9 +254,7 @@ def main() -> None:
             "TOGETHER_DEDICATED_ENDPOINT_ID is not set. Add it to .env or omit --dedicated-endpoint."
         )
 
-    if args.mock:
-        model_used = "mock"
-    elif use_dedicated_endpoint:
+    if use_dedicated_endpoint:
         raw_model = args.model or os.getenv("TOGETHER_WRITING_MODEL", DEFAULT_MODEL)
         from_number = model_id_from_choice_number(raw_model) if raw_model else None
         model_used = from_number or raw_model or DEFAULT_MODEL
@@ -325,102 +318,88 @@ def main() -> None:
     author_name = os.getenv("AUTHOR_NAME", DEFAULT_AUTHOR_NAME)
     author_credentials = os.getenv("AUTHOR_CREDENTIALS", DEFAULT_AUTHOR_CREDENTIALS)
 
-    if args.mock:
-        mock_started_at = time.monotonic()
-        draft = generate_mock_draft(selected_sources, author_name, author_credentials)
-        model_used = "mock"
-        generation_report = build_generation_report(
-            model_requested="mock",
-            model_used="mock",
-            model_returned_by_api=None,
-            elapsed_seconds=time.monotonic() - mock_started_at,
-            usage=None,
-            endpoint_management_used=False,
-        )
-        tag_generation_report(generation_report, mode="mock")
-    else:
-        prompt = build_draft_prompt(
-            read_text(PROMPT_PATH),
-            selected_sources,
-            read_text(STYLE_NOTES_PATH),
-            author_name,
-            author_credentials,
-            approval_feedback,
-            previous_draft,
-            revision_mode,
-        )
+    prompt = build_draft_prompt(
+        read_text(PROMPT_PATH),
+        selected_sources,
+        read_text(STYLE_NOTES_PATH),
+        author_name,
+        author_credentials,
+        approval_feedback,
+        previous_draft,
+        revision_mode,
+    )
 
-        if use_dedicated_endpoint:
-            from peachtree_blog.together_endpoint import managed_dedicated_endpoint
+    if use_dedicated_endpoint:
+        from peachtree_blog.together_endpoint import managed_dedicated_endpoint
 
-            endpoint_session_started_at = time.monotonic()
-            with managed_dedicated_endpoint(endpoint_id) as endpoint_model:
-                active_model = model_used
-                if endpoint_model and active_model == DEFAULT_MODEL:
-                    active_model = endpoint_model
-                    model_used = active_model
-                    print(f"{log} Using dedicated endpoint model: {active_model}")
+        endpoint_session_started_at = time.monotonic()
+        with managed_dedicated_endpoint(endpoint_id) as endpoint_model:
+            active_model = model_used
+            if endpoint_model and active_model == DEFAULT_MODEL:
+                active_model = endpoint_model
+                model_used = active_model
+                print(f"{log} Using dedicated endpoint model: {active_model}")
 
-                if args.no_validation_retry:
-                    draft, generation_report = generate_with_together(
-                        prompt,
-                        active_model,
-                        allow_serverless_fallback=False,
-                    )
-                else:
-                    draft, _, generation_report = generate_validated_draft(
-                        prompt,
-                        active_model,
-                        allow_serverless_fallback=False,
-                        max_attempts=args.max_validation_attempts,
-                        author_name=author_name,
-                        author_credentials=author_credentials,
-                    )
-            generation_report["endpoint_management_used"] = True
-            generation_report["endpoint_session_seconds"] = round(
-                time.monotonic() - endpoint_session_started_at,
-                2,
-            )
-            per_minute = os.getenv("TOGETHER_ENDPOINT_COST_PER_MINUTE", "").strip()
-            if per_minute:
-                endpoint_cost = (generation_report["endpoint_session_seconds"] / 60.0) * float(per_minute)
-                generation_report.setdefault("estimated_cost_usd", {})
-                generation_report["estimated_cost_usd"]["endpoint"] = {
-                    "total": round(endpoint_cost, 4),
-                    "currency": "USD",
-                    "cost_per_minute": float(per_minute),
-                    "pricing_source": "env:TOGETHER_ENDPOINT_COST_PER_MINUTE",
-                    "note": "Endpoint uptime cost is separate from token usage.",
-                }
-                token_total = generation_report["estimated_cost_usd"].get("tokens", {}).get("total")
-                if token_total is not None:
-                    generation_report["estimated_cost_usd"]["combined_total"] = round(
-                        token_total + endpoint_cost,
-                        4,
-                    )
-            if revision_mode:
-                generation_report["revision_mode"] = revision_mode
-            tag_generation_report(generation_report, mode="dedicated")
-        else:
             if args.no_validation_retry:
                 draft, generation_report = generate_with_together(
                     prompt,
-                    model_used,
-                    allow_serverless_fallback=True,
+                    active_model,
+                    allow_serverless_fallback=False,
                 )
             else:
                 draft, _, generation_report = generate_validated_draft(
                     prompt,
-                    model_used,
-                    allow_serverless_fallback=True,
+                    active_model,
+                    allow_serverless_fallback=False,
                     max_attempts=args.max_validation_attempts,
                     author_name=author_name,
                     author_credentials=author_credentials,
                 )
-            generation_report["endpoint_management_used"] = False
-            if revision_mode:
-                generation_report["revision_mode"] = revision_mode
-            tag_generation_report(generation_report, mode="serverless")
+        generation_report["endpoint_management_used"] = True
+        generation_report["endpoint_session_seconds"] = round(
+            time.monotonic() - endpoint_session_started_at,
+            2,
+        )
+        per_minute = os.getenv("TOGETHER_ENDPOINT_COST_PER_MINUTE", "").strip()
+        if per_minute:
+            endpoint_cost = (generation_report["endpoint_session_seconds"] / 60.0) * float(per_minute)
+            generation_report.setdefault("estimated_cost_usd", {})
+            generation_report["estimated_cost_usd"]["endpoint"] = {
+                "total": round(endpoint_cost, 4),
+                "currency": "USD",
+                "cost_per_minute": float(per_minute),
+                "pricing_source": "env:TOGETHER_ENDPOINT_COST_PER_MINUTE",
+                "note": "Endpoint uptime cost is separate from token usage.",
+            }
+            token_total = generation_report["estimated_cost_usd"].get("tokens", {}).get("total")
+            if token_total is not None:
+                generation_report["estimated_cost_usd"]["combined_total"] = round(
+                    token_total + endpoint_cost,
+                    4,
+                )
+        if revision_mode:
+            generation_report["revision_mode"] = revision_mode
+        tag_generation_report(generation_report, mode="dedicated")
+    else:
+        if args.no_validation_retry:
+            draft, generation_report = generate_with_together(
+                prompt,
+                model_used,
+                allow_serverless_fallback=True,
+            )
+        else:
+            draft, _, generation_report = generate_validated_draft(
+                prompt,
+                model_used,
+                allow_serverless_fallback=True,
+                max_attempts=args.max_validation_attempts,
+                author_name=author_name,
+                author_credentials=author_credentials,
+            )
+        generation_report["endpoint_management_used"] = False
+        if revision_mode:
+            generation_report["revision_mode"] = revision_mode
+        tag_generation_report(generation_report, mode="serverless")
 
     save_draft_outputs(
         draft=draft,

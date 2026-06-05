@@ -43,6 +43,8 @@ from peachtree_blog.pipeline.write_serverless import model_label, resolve_writin
 from peachtree_blog.write_common import (
     DEFAULT_OUTPUT_DIR,
     draft_pdf_path,
+    draft_validation_json_path,
+    format_generation_slack_lines,
     latest_markdown_draft,
     update_record_revision_mode,
 )
@@ -138,11 +140,25 @@ def title_from_markdown(markdown: str) -> str:
     return "Blog draft"
 
 
+def load_draft_validation_report(draft_path: Path) -> dict[str, Any]:
+    validation_path = draft_validation_json_path(draft_path)
+    if not validation_path.is_file():
+        return {}
+
+    with validation_path.open("r", encoding="utf-8") as handle:
+        data = json.load(handle)
+    return data if isinstance(data, dict) else {}
+
+
 def build_approval_intro(
     title: str,
     relative_path: Path,
     pdf_relative_path: Path,
     rewritten_from: str | None,
+    *,
+    validation_report: dict[str, Any] | None = None,
+    rewrite_model: str | None = None,
+    auto_rewrite: bool = True,
 ) -> str:
     intro = [
         f"*Blog draft ready for approval:* {title}",
@@ -152,6 +168,30 @@ def build_approval_intro(
     ]
     if rewritten_from:
         intro.insert(1, f"Revision generated from `{rewritten_from}`.")
+
+    report = validation_report or {}
+    generation = report.get("generation") if isinstance(report.get("generation"), dict) else {}
+    model_id = str(generation.get("model_used") or report.get("model") or "").strip()
+    model_display = model_label(model_id) if model_id else None
+    generation_heading = "*Rewrite*" if rewritten_from else "*Generation*"
+    model_line_label = "Rewrite model" if rewritten_from else "Model"
+    generation_lines = format_generation_slack_lines(
+        report,
+        model_display=model_display,
+        model_line_label=model_line_label,
+    )
+    if generation_lines:
+        intro.extend([generation_heading, *generation_lines, ""])
+
+    if rewrite_model and not rewritten_from:
+        intro.append("*Slack feedback rewrites*")
+        intro.append(f"• Rewrite model: {model_label(rewrite_model)}")
+        if auto_rewrite:
+            intro.append("• Auto-rewrite: enabled (thread feedback reruns write_serverless)")
+        else:
+            intro.append("• Auto-rewrite: disabled (feedback saved only)")
+        intro.append("")
+
     intro.append("The draft PDF is attached in this thread.")
     intro.append("")
     intro.append("React to this message with :white_check_mark: to approve or :x: to request revisions.")
@@ -191,7 +231,13 @@ def upload_draft_pdf(client: Any, channel: str, thread_ts: str, pdf_path: Path, 
     return False
 
 
-def post_draft(draft_path: Path, rewritten_from: str | None = None) -> Path:
+def post_draft(
+    draft_path: Path,
+    rewritten_from: str | None = None,
+    *,
+    rewrite_model: str | None = None,
+    auto_rewrite: bool = True,
+) -> Path:
     client = get_slack_client()
     channel = get_approval_channel()
     pdf_path = draft_pdf_path(draft_path)
@@ -206,7 +252,16 @@ def post_draft(draft_path: Path, rewritten_from: str | None = None) -> Path:
     title = title_from_markdown(markdown)
     relative_path = draft_path.relative_to(PROJECT_ROOT)
     pdf_relative_path = pdf_path.relative_to(PROJECT_ROOT)
-    text = build_approval_intro(title, relative_path, pdf_relative_path, rewritten_from)
+    validation_report = load_draft_validation_report(draft_path)
+    text = build_approval_intro(
+        title,
+        relative_path,
+        pdf_relative_path,
+        rewritten_from,
+        validation_report=validation_report,
+        rewrite_model=rewrite_model,
+        auto_rewrite=auto_rewrite,
+    )
 
     response = client.chat_postMessage(channel=channel, text=text)
     if not response.get("ok"):
@@ -314,7 +369,6 @@ def append_feedback(path: Path, record: dict[str, Any], user: str, text: str, ev
 def regenerate_from_feedback(
     record_path: Path,
     record: dict[str, Any],
-    mock: bool,
     *,
     rewrite_module_key: str = REWRITE_MODULE_KEY,
     rewrite_model: str | None = None,
@@ -322,8 +376,6 @@ def regenerate_from_feedback(
     rewrite_args: list[str] = ["--feedback-json", str(record_path)]
     if rewrite_model:
         rewrite_args.extend(["--model", rewrite_model])
-    if mock:
-        rewrite_args.append("--mock")
     command = build_module_command(rewrite_module_key, *rewrite_args)
 
     print(f"[approve] Regenerating draft: {' '.join(command)}")
@@ -451,7 +503,6 @@ def handle_message(
     event: dict[str, Any],
     client: Any,
     auto_rewrite: bool,
-    mock: bool,
     bot_user_id: str | None = None,
     *,
     rewrite_module_key: str = REWRITE_MODULE_KEY,
@@ -487,7 +538,6 @@ def handle_message(
         new_draft_path = regenerate_from_feedback(
             path,
             record,
-            mock=mock,
             rewrite_module_key=rewrite_module_key,
             rewrite_model=rewrite_model,
         )
@@ -529,7 +579,6 @@ def _disconnect_socket_client(socket_client: Any) -> None:
 
 def listen(
     auto_rewrite: bool,
-    mock: bool,
     *,
     rewrite_module_key: str = REWRITE_MODULE_KEY,
     rewrite_model: str | None = None,
@@ -567,7 +616,6 @@ def listen(
                 event,
                 web_client,
                 auto_rewrite=auto_rewrite,
-                mock=mock,
                 bot_user_id=bot_user_id,
                 rewrite_module_key=rewrite_module_key,
                 rewrite_model=rewrite_model,
@@ -599,21 +647,20 @@ def listen(
     return user_exit
 
 
-def _resolve_rewrite_model_arg(model: str | None, *, mock: bool) -> str | None:
-    if mock or not model:
+def _resolve_rewrite_model_arg(model: str | None) -> str | None:
+    if not model:
         return None
     return resolve_writing_model(model)
 
 
 def run_approve_post_and_listen(
     *,
-    mock: bool = False,
     auto_rewrite: bool = True,
     rewrite_model: str | None = None,
     interactive_model_prompt: bool = True,
 ) -> bool:
     """Post the latest draft, then listen until the user types ``e`` (+ Enter) in the CLI."""
-    if interactive_model_prompt and not mock:
+    if interactive_model_prompt:
         rewrite_model = resolve_writing_model(rewrite_model)
     if rewrite_model:
         print(f"[approve_listen] Rewrite model: {model_label(rewrite_model)}")
@@ -621,10 +668,13 @@ def run_approve_post_and_listen(
     draft_path = latest_draft_path()
     print(f"[approve_listen] Using latest draft: {draft_path.relative_to(PROJECT_ROOT)}")
     prepare_new_approval_post()
-    post_draft(draft_path)
+    post_draft(
+        draft_path,
+        rewrite_model=rewrite_model,
+        auto_rewrite=auto_rewrite,
+    )
     return listen(
         auto_rewrite=auto_rewrite,
-        mock=mock,
         rewrite_model=rewrite_model,
     )
 
@@ -638,11 +688,6 @@ def _add_listen_flags(parser: argparse.ArgumentParser) -> None:
         "--no-auto-rewrite",
         action="store_true",
         help="Save thread feedback without rerunning write_serverless.",
-    )
-    parser.add_argument(
-        "--mock",
-        action="store_true",
-        help="Use write_serverless --mock when auto-rewriting after feedback.",
     )
 
 
@@ -670,16 +715,14 @@ def main() -> None:
     args = parser.parse_args()
     load_dotenv(PROJECT_ROOT / ".env")
 
-    mock = args.mock
     auto_rewrite = not args.no_auto_rewrite
-    rewrite_model = _resolve_rewrite_model_arg(args.model, mock=mock)
+    rewrite_model = _resolve_rewrite_model_arg(args.model)
 
     if args.command is None:
         run_approve_post_and_listen(
-            mock=mock,
             auto_rewrite=auto_rewrite,
             rewrite_model=rewrite_model,
-            interactive_model_prompt=not mock and not args.model,
+            interactive_model_prompt=not args.model,
         )
         return
 
@@ -694,19 +737,23 @@ def main() -> None:
         else:
             raise SystemExit("Provide a draft path or use --latest.")
 
-        post_draft(draft_path)
+        listen_rewrite_model = rewrite_model
+        if args.then_listen and not listen_rewrite_model:
+            listen_rewrite_model = resolve_writing_model(None)
+        post_draft(
+            draft_path,
+            rewrite_model=listen_rewrite_model if args.then_listen else rewrite_model,
+            auto_rewrite=auto_rewrite,
+        )
         if args.then_listen:
-            if not mock and not args.model:
-                rewrite_model = resolve_writing_model(None)
             listen(
                 auto_rewrite=auto_rewrite,
-                mock=mock,
-                rewrite_model=rewrite_model,
+                rewrite_model=listen_rewrite_model,
             )
     elif args.command == "listen":
-        if not mock and not args.model:
+        if not args.model:
             rewrite_model = resolve_writing_model(None)
-        listen(auto_rewrite=auto_rewrite, mock=mock, rewrite_model=rewrite_model)
+        listen(auto_rewrite=auto_rewrite, rewrite_model=rewrite_model)
 
 
 if __name__ == "__main__":

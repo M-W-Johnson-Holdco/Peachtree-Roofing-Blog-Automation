@@ -25,6 +25,188 @@ Notes / next step:
 - 
 ```
 
+## 2026-06-05 - Slack posts show feedback rewrite model
+
+Changed:
+- Initial approval posts include a *Slack feedback rewrites* block with the Together model chosen for thread feedback auto-rewrites.
+- Revision posts label generation stats under *Rewrite* with `Rewrite model:` instead of generic `Model:`.
+
+Why:
+- Reviewers should see which model will handle feedback rewrites without checking the CLI.
+
+Files touched:
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `src/peachtree_blog/write_common.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (Slack message formatting only).
+
+Notes / next step:
+- Post a draft via approve (option 4) and confirm the rewrite model appears below *Generation*.
+
+## 2026-06-05 - Fix black-box dashes in draft PDFs
+
+Changed:
+- `draft_pdf.normalize_text_for_pdf()` maps Unicode hyphen/dash characters (non-breaking hyphen, en dash, em dash, etc.) to ASCII `-` before xhtml2pdf runs.
+
+Why:
+- Helvetica in xhtml2pdf lacks glyphs for LLM-style `‑` and `—`, which showed as black boxes in Slack PDFs.
+
+Files touched:
+- `src/peachtree_blog/draft_pdf.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (font normalization only).
+
+Notes / next step:
+- Re-run write or regenerate PDF from existing `.md` to refresh `drafts_pdf/` files.
+
+## 2026-06-05 - Slack approval posts include generation cost summary
+
+Changed:
+- `approve_listen` reads each draft's `*-validation.json` and adds a *Generation* block to the Slack post: model, time, tokens, estimated USD cost, validation attempt, revision mode, and source count.
+
+Why:
+- Reviewers can see what a draft cost to produce without opening validation JSON.
+
+Files touched:
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `src/peachtree_blog/write_common.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (Slack message formatting only).
+
+Notes / next step:
+- Post a draft to Slack and confirm the generation block appears under the file paths.
+
+## 2026-06-05 - Disable Qwen3.5 thinking mode for blog drafts
+
+Changed:
+- `generate_with_together()` passes `reasoning={"enabled": False}` and `chat_template_kwargs={"enable_thinking": False}` for hybrid models such as `Qwen/Qwen3.5-397B-A17B`.
+- Added `extract_markdown_draft()` to drop leaked thinking preambles and keep content from the first `#` H1 onward.
+- Raises a clear error if the model still returns planning text with no Markdown draft.
+
+Why:
+- Qwen3.5 defaults to thinking mode and was saving a “Thinking Process” plan instead of the article, failing validation.
+
+Files touched:
+- `src/peachtree_blog/write_common.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (Together API behavior change).
+
+Notes / next step:
+- Re-run write with menu option 1 (Qwen3.5 397B) and confirm validation passes.
+
+## 2026-06-05 - Enable in-editor PDF preview for draft PDFs
+
+Changed:
+- Added `.vscode/extensions.json` recommending `tomoki1207.pdf` (Cursor/OpenVSX) and workspace PDF preview settings.
+- Allow committing `.vscode/extensions.json` and `.vscode/settings.json` via `.gitignore` exception.
+
+Why:
+- `output/drafts/drafts_pdf/*.pdf` are valid PDFs but Cursor opens them as raw text without a PDF viewer extension.
+
+Files touched:
+- `.vscode/extensions.json`
+- `.vscode/settings.json`
+- `.gitignore`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (editor configuration only).
+
+Notes / next step:
+- Install the recommended extension when Cursor prompts, then reopen a draft PDF.
+
+## 2026-06-05 - Order write model menu by size (largest first)
+
+Changed:
+- `SERVERLESS_MODEL_CHOICES` in `write_serverless.py` is now 397B → 235B → 120B → 70B; default model unchanged (`Qwen3 235B tput`, menu option 2).
+
+Why:
+- Show largest models at the top when picking a writer at the terminal.
+
+Files touched:
+- `src/peachtree_blog/pipeline/write_serverless.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (menu order only).
+
+Notes / next step:
+- `--model` menu numbers: 397B = 1, 235B default = 2, 120B = 3, 70B = 4.
+
+## 2026-06-05 - Remove all mock modes
+
+Changed:
+- Removed `--mock`, `generate_mock_draft`, and local template drafting from `write_serverless.py`; write always calls Together AI.
+- Removed mock prompts/flags from `cli.py` and `approve_listen.py`; dropped unused `mode` arg on `record_used_sources`.
+- Evaluate and write both require `TOGETHER_API_KEY`; removed mock docs from `README.md`.
+
+Why:
+- Production pipeline should always use real Together scoring and drafting.
+
+Files touched:
+- `src/peachtree_blog/pipeline/write_serverless.py`
+- `src/peachtree_blog/pipeline/cli.py`
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `src/peachtree_blog/write_common.py`
+- `src/peachtree_blog/used_sources.py`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (flag and dead-code removal).
+
+Notes / next step:
+- Ensure `TOGETHER_API_KEY` is set before evaluate or write runs.
+
+## 2026-06-05 - Remove evaluate mock mode
+
+Changed:
+- Dropped `--mock` and local heuristic scoring from `evaluate.py`; evaluation always calls Together AI.
+- Interactive menu and `pipeline.py --all` no longer offer or pass mock mode for evaluate (write mock unchanged).
+- Removed evaluate `--mock` docs from `README.md`.
+
+Why:
+- Evaluate should always use real Together scoring in normal workflow.
+
+Files touched:
+- `src/peachtree_blog/pipeline/evaluate.py`
+- `src/peachtree_blog/pipeline/cli.py`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (flag removal and dead-code cleanup).
+
+Notes / next step:
+- Ensure `TOGETHER_API_KEY` is set before running evaluate.
+
+## 2026-06-05 - Interactive pipeline menu loops after each stage
+
+Changed:
+- `run_interactive_menu()` returns to the stage picker automatically after search, evaluate, write, or approve finish; only option 5 (Exit) quits.
+- Removed the post-stage `Run another stage? [y/N]` prompt.
+
+Why:
+- Keep `pipeline.py` open for back-to-back runs without restarting the script.
+
+Files touched:
+- `src/peachtree_blog/pipeline/cli.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (menu flow change only).
+
+Notes / next step:
+- Run `python pipeline.py`, complete a stage, confirm the menu reappears.
+
 ## 2026-06-04 - Evaluate stage prints model and token cost summary
 
 Changed:

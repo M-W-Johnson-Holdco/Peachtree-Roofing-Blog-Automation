@@ -5,6 +5,23 @@ from __future__ import annotations
 from io import BytesIO
 from pathlib import Path
 
+# xhtml2pdf/Helvetica only embeds WinAnsi glyphs; Unicode dashes render as black boxes.
+_UNICODE_DASHES = str.maketrans(
+    {
+        "\u2010": "-",  # hyphen
+        "\u2011": "-",  # non-breaking hyphen
+        "\u2012": "-",  # figure dash
+        "\u2013": "-",  # en dash
+        "\u2014": "-",  # em dash
+        "\u2015": "-",  # horizontal bar
+        "\u2212": "-",  # minus sign
+        "\u00ad": "-",  # soft hyphen
+        "\ufe58": "-",  # small em dash
+        "\ufe63": "-",  # small hyphen-minus
+        "\uff0d": "-",  # fullwidth hyphen-minus
+    }
+)
+
 
 PDF_CSS = """
 body {
@@ -48,6 +65,11 @@ th {
 """
 
 
+def normalize_text_for_pdf(text: str) -> str:
+    """Replace Unicode dash variants with ASCII hyphens for PDF font compatibility."""
+    return text.translate(_UNICODE_DASHES)
+
+
 def markdown_to_html(markdown_text: str) -> str:
     try:
         import markdown as markdown_lib
@@ -81,7 +103,7 @@ def save_draft_pdf(markdown_text: str, pdf_path: Path) -> None:
             "`python -m pip install -r requirements.txt`."
         ) from exc
 
-    html = markdown_to_html(markdown_text)
+    html = markdown_to_html(normalize_text_for_pdf(markdown_text))
     pdf_path.parent.mkdir(parents=True, exist_ok=True)
 
     buffer = BytesIO()

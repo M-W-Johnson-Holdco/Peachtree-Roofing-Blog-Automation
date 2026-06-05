@@ -87,13 +87,9 @@ def record_used_sources(
     *,
     draft_path: str | Path,
     runner: str,
-    mode: str,
     path: Path = DEFAULT_USED_SOURCES_PATH,
 ) -> list[dict[str, Any]]:
     """Append or update registry entries for sources used in a draft."""
-    if mode == "mock":
-        return []
-
     now = datetime.now(timezone.utc).isoformat()
     draft_path_str = str(draft_path)
     records = load_used_sources(path)
@@ -151,7 +147,6 @@ def seed_used_sources_from_file(
         data,
         draft_path=draft_path or f"seeded-from:{sources_path.name}",
         runner=runner,
-        mode="live",
         path=path,
     )
     return len(updated)
