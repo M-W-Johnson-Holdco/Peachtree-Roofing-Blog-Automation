@@ -1,21 +1,23 @@
 """
-Standalone less-strict Tavily search for Peachtree's GEO content strategy.
+Broad Metro Atlanta roofing search — keyword match only, 7-day recency gate.
 
-Positive preferred-keyword scoring; minimal hard rejects (sports in title/URL only).
-Runs all five search stages for source variety; default target is 15 results
-within the past 14 days.
+No scoring penalties (sports, politics, duplicate topic, min score). Keeps sources
+that match LOCAL_TERMS + TOPIC_TERMS/CLUSTER_TERMS from the Peachtree GEO strategy.
+Only hard reject besides relevance: older than 7 days (configurable).
 
 Run:
-    python search_less_strict.py
+    python -m peachtree_blog.pipeline.search
 
 Output:
-    output/sources/search_results_less_strict.json
+    output/sources/search_results.json
 
 Required environment:
     TAVILY_API_KEY
 """
 
 from __future__ import annotations
+
+import peachtree_blog._pycache_prefix  # noqa: F401
 
 from peachtree_blog.paths import PROJECT_ROOT
 
@@ -32,13 +34,12 @@ from dotenv import load_dotenv
 from peachtree_blog.used_sources import normalize_source_url, used_source_urls
 
 
-DEFAULT_DAYS_BACK = 7
-DEFAULT_MAX_AGE_DAYS = 14
+DEFAULT_MAX_AGE_DAYS = 7
 DEFAULT_MAX_RESULTS_PER_QUERY = 6
 DEFAULT_TARGET_RESULTS = 15
 DEFAULT_QUERIES_PER_CLUSTER = 2
-DEFAULT_MIN_QUALITY_SCORE = 4.0
-DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "output" / "sources" / "search_results_less_strict.json"
+DEFAULT_MAX_TAVILY_CREDITS = 50
+DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "output" / "sources" / "search_results.json"
 TAVILY_ADVANCED_SEARCH_CREDITS = 2
 
 PRIORITY_SOURCES = [
@@ -545,121 +546,8 @@ SEARCH_STAGES = [
     },
 ]
 
-HOMEOWNER_HEADLINE_TERMS = [
-    "homeowner",
-    "homeowners",
-    "your roof",
-    "your home",
-    "inspect",
-    "inspection",
-    "replace",
-    "repair",
-    "damage",
-    "insurance claim",
-    "deductible",
-    "what to do",
-    "should you",
-    "how to",
-    "warning",
-    "alert",
-    "risk",
-    "protect",
-    "your shingles",
-    "your attic",
-    "your gutters",
-    "your insurance",
-    "your claim",
-    "free inspection",
-    "before the storm",
-    "after the storm",
-    "signs of damage",
-    "need a roofer",
-    "find a roofer",
-    "roof leak",
-    "act now",
-    "don't wait",
-    "time to replace",
-    "when to replace",
-    "is your roof",
-    "roof failing",
-]
 
-ACTIONABILITY_TERMS = [
-    "what to do",
-    "how to",
-    "steps to",
-    "should you",
-    "checklist",
-    "inspect",
-    "call",
-    "contact",
-    "schedule",
-    "before",
-    "after",
-    "warning",
-    "alert",
-    "required",
-    "deadline",
-    "expires",
-    "act now",
-    "immediately",
-    "urgent",
-    "time sensitive",
-    "free estimate",
-    "free inspection",
-    "call a roofer",
-    "hire a contractor",
-    "file a claim",
-    "document damage",
-    "take photos",
-    "before storm season",
-    "storm season prep",
-    "what homeowners should",
-    "steps homeowners",
-    "homeowner checklist",
-    "roof maintenance",
-    "annual inspection",
-    "signs you need",
-]
-
-SEASONAL_WEIGHTS = {
-    1: 0.5,
-    2: 0.5,
-    3: 0.8,
-    4: 1.2,
-    5: 1.5,
-    6: 1.5,
-    7: 1.3,
-    8: 1.3,
-    9: 1.2,
-    10: 0.8,
-    11: 0.5,
-    12: 0.5,
-}
-
-HARD_DISQUALIFY_TERMS = [
-    "sports",
-    "fantasy football",
-    "fantasy",
-    "quarterback",
-    "draft pick",
-    "locked-on",
-    "locked on",
-    "espn",
-    "cbssports",
-]
-
-# Must appear in title or early snippet — priority/official outlets do not bypass this.
-REQUIRED_CORE_TOPIC_TERMS = [
-    "roof",
-    "roofing",
-    "storm",
-    "hail",
-    "wind",
-    "thunderstorm",
-    "tornado",
-    "insurance",
-]
+LOG_PREFIX = "search"
 
 
 def _load_client():
@@ -704,6 +592,23 @@ def _is_official_source(url: str) -> bool:
 
 def estimate_tavily_credits(query_count: int, stage_count: int) -> int:
     return query_count * stage_count * TAVILY_ADVANCED_SEARCH_CREDITS
+
+
+def cap_search_plan_for_credits(
+    plan: list[dict],
+    *,
+    max_credits: int,
+    stage_count: int,
+) -> list[dict]:
+    """Limit active queries so a full multi-stage run stays within the credit budget."""
+    if max_credits <= 0 or not plan or stage_count <= 0:
+        return plan
+
+    max_api_calls = max_credits // TAVILY_ADVANCED_SEARCH_CREDITS
+    max_queries = max(1, max_api_calls // stage_count)
+    if len(plan) <= max_queries:
+        return plan
+    return plan[:max_queries]
 
 
 def build_active_search_plan(
@@ -796,8 +701,7 @@ def _effective_published_date(result: dict) -> datetime | None:
     years = [int(year) for year in re.findall(r"\b(20\d{2})\b", combined)]
     if years:
         year = max(years)
-        current_year = datetime.now(timezone.utc).year
-        if year < current_year:
+        if year < datetime.now(timezone.utc).year:
             return datetime(year, 12, 31, tzinfo=timezone.utc)
 
     return None
@@ -813,7 +717,6 @@ def _content_age_days(result: dict) -> int | None:
 def _is_within_recency_window(result: dict, max_age_days: int = DEFAULT_MAX_AGE_DAYS) -> bool:
     age_days = _content_age_days(result)
     if age_days is None:
-        # News stages rely on Tavily's days filter; broad/official often return evergreen archives.
         if result.get("search_stage") in {"broad_14_day_news", "official_30_day_general"}:
             return False
         return True
@@ -830,64 +733,6 @@ def _article_evidence(result: dict) -> dict[str, str]:
         ]
     ).lower()
     return {"title_url": title_url, "early_content": early_content}
-
-
-def _headline_homeowner_score(result: dict) -> float:
-    matches = _matched_terms(result.get("title", "").lower(), HOMEOWNER_HEADLINE_TERMS)
-    if len(matches) >= 3:
-        return 3.0
-    if len(matches) >= 2:
-        return 2.0
-    if len(matches) >= 1:
-        return 1.0
-    return 0.0
-
-
-def _seasonal_bonus(result: dict) -> float:
-    cluster = result.get("strategy_cluster", "")
-    if cluster not in ("storm_damage", "roof_safety"):
-        return 0.0
-    weight = SEASONAL_WEIGHTS.get(datetime.now().month, 1.0)
-    return round((weight - 1.0) * 3, 2)
-
-
-def _content_depth_score(result: dict) -> float:
-    word_count = len(str(result.get("content", "")).split())
-    if word_count >= 300:
-        return 2.0
-    if word_count >= 150:
-        return 1.0
-    if word_count >= 50:
-        return 0.5
-    return 0.0
-
-
-def _actionability_score(result: dict) -> float:
-    evidence = _article_evidence(result)
-    title_matches = _matched_terms(evidence["title_url"], ACTIONABILITY_TERMS)
-    content_matches = _matched_terms(evidence["early_content"], ACTIONABILITY_TERMS)
-    total = len(set(title_matches + content_matches))
-    if total >= 3:
-        return 2.0
-    if total >= 1:
-        return 1.0
-    return 0.0
-
-
-def _recency_score(result: dict) -> float:
-    age_days = _content_age_days(result)
-    if age_days is None:
-        return 0.5
-
-    if age_days <= 1:
-        return 5.0
-    if age_days <= 3:
-        return 4.0
-    if age_days <= 7:
-        return 3.0
-    if age_days <= 14:
-        return 2.0
-    return 0.0
 
 
 def _normalize_result(item: dict, search_item: dict, stage: dict) -> dict:
@@ -912,106 +757,36 @@ def _normalize_result(item: dict, search_item: dict, stage: dict) -> dict:
     }
 
 
-def _fast_disqualify_raw_item(item: dict) -> bool:
-    title_url = f"{item.get('title', '')} {item.get('url', '')}".lower()
-    return any(_term_matches(title_url, term) for term in HARD_DISQUALIFY_TERMS)
-
-
-def _preferred_keyword_score(result: dict) -> tuple[float, dict[str, object]]:
+def _collect_matched_terms(result: dict) -> dict[str, object]:
     evidence = _article_evidence(result)
+    text = f"{evidence['title_url']} {evidence['early_content']}"
     cluster = result.get("strategy_cluster", "")
     cluster_terms = CLUSTER_TERMS.get(cluster, TOPIC_TERMS)
 
-    local_title = _matched_terms(evidence["title_url"], LOCAL_TERMS)
-    local_early = _matched_terms(evidence["early_content"], LOCAL_TERMS)
-    topic_title = _matched_terms(evidence["title_url"], TOPIC_TERMS)
-    topic_early = _matched_terms(evidence["early_content"], TOPIC_TERMS)
-    cluster_title = _matched_terms(evidence["title_url"], cluster_terms)
-    cluster_early = _matched_terms(evidence["early_content"], cluster_terms)
+    local_terms = sorted(set(_matched_terms(text, LOCAL_TERMS)))
+    topic_terms = sorted(set(_matched_terms(text, TOPIC_TERMS)))
+    cluster_matched = sorted(set(_matched_terms(text, cluster_terms)))
 
-    local_all = sorted(set(local_title + local_early))
-    topic_all = sorted(set(topic_title + topic_early))
-    cluster_all = sorted(set(cluster_title + cluster_early))
-
-    local_score = min(len(local_all) * 1.5, 5.0)
-    if local_title:
-        local_score = min(local_score + 1.0, 6.0)
-
-    topic_score = min(len(topic_all) * 1.0, 5.0)
-    if topic_title:
-        topic_score = min(topic_score + 1.5, 6.0)
-
-    cluster_score = min(len(cluster_all) * 1.25, 4.0)
-    if cluster_title:
-        cluster_score = min(cluster_score + 1.0, 5.0)
-
-    source_score = (
-        3.0
-        if result.get("priority_source")
-        else 2.0
-        if result.get("secondary_source")
-        else 1.0
-        if result.get("official_source")
-        else 0.0
-    )
-    tavily_score = 1.0 if float(result.get("tavily_score") or 0) >= 0.15 else 0.0
-    recency = _recency_score(result)
-    headline = _headline_homeowner_score(result)
-    seasonal = _seasonal_bonus(result)
-    depth = _content_depth_score(result)
-    actionability = _actionability_score(result)
-
-    matched = {
-        "local_terms": local_all,
-        "topic_terms": topic_all,
-        "cluster_terms": cluster_all,
-        "recency_score": recency,
-        "headline_homeowner_score": headline,
-        "seasonal_bonus": seasonal,
-        "content_depth_score": depth,
-        "actionability_score": actionability,
-        "scoring_mode": "preferred_keywords_only",
+    return {
+        "local_terms": local_terms,
+        "topic_terms": topic_terms,
+        "cluster_terms": cluster_matched,
+        "scoring_mode": "roofing_keyword_match_only",
     }
-    score = (
-        local_score
-        + topic_score
-        + cluster_score
-        + source_score
-        + tavily_score
-        + recency
-        + headline
-        + seasonal
-        + depth
-        + actionability
-    )
-    return round(score, 2), matched
 
 
-def _has_core_topic_signal(result: dict) -> bool:
-    evidence = _article_evidence(result)
-    text = f"{evidence['title_url']} {evidence['early_content']}"
-    return bool(_matched_terms(text, REQUIRED_CORE_TOPIC_TERMS))
-
-
-def _relevant_candidate_failure_reason(
-    result: dict,
-    *,
-    min_quality_score: float,
-    quality_score: float,
-    matched: dict[str, object],
-    max_age_days: int,
-) -> str | None:
-    if _fast_disqualify_raw_item({"title": result.get("title", ""), "url": result.get("url", "")}):
-        return "sports_disqualified"
+def _relevance_failure_reason(result: dict, matched: dict[str, object], max_age_days: int) -> str | None:
     if not _is_within_recency_window(result, max_age_days):
         return "outside_recency_window"
     if not matched["local_terms"]:
         return "missing_local_terms"
-    if not _has_core_topic_signal(result):
-        return "missing_core_topic_signal"
-    if quality_score < min_quality_score:
-        return "low_quality_score"
+    if not matched["topic_terms"] and not matched["cluster_terms"]:
+        return "missing_roofing_topic"
     return None
+
+
+def _match_score(matched: dict[str, object]) -> float:
+    return float(len(matched["local_terms"]) + len(matched["topic_terms"]) + len(matched["cluster_terms"]))
 
 
 def _ingest_tavily_items(
@@ -1021,18 +796,12 @@ def _ingest_tavily_items(
     stage: dict,
     results_by_url: dict[str, dict],
     blocked_urls: set[str],
-    min_quality_score: float,
     max_age_days: int,
-) -> tuple[int, int, dict[str, int]]:
+) -> tuple[int, dict[str, int]]:
     skipped_used = 0
-    fast_disqualified = 0
     pipeline_rejects: dict[str, int] = {}
 
     for item in raw_items:
-        if _fast_disqualify_raw_item(item):
-            fast_disqualified += 1
-            continue
-
         url = str(item.get("url", "")).strip()
         if not url:
             continue
@@ -1042,24 +811,13 @@ def _ingest_tavily_items(
             continue
 
         result = _normalize_result(item, search_item, stage)
-        quality_score, matched = _preferred_keyword_score(result)
-        result["search_quality_score"] = quality_score
+        matched = _collect_matched_terms(result)
         result["matched_terms"] = matched
-        result["recency_score"] = matched["recency_score"]
-        result["headline_homeowner_score"] = matched["headline_homeowner_score"]
-        result["seasonal_bonus"] = matched["seasonal_bonus"]
-        result["content_depth_score"] = matched["content_depth_score"]
-        result["actionability_score"] = matched["actionability_score"]
-        result["scoring_mode"] = matched["scoring_mode"]
+        result["search_quality_score"] = _match_score(matched)
         result["content_age_days"] = _content_age_days(result)
+        result["scoring_mode"] = matched["scoring_mode"]
 
-        failure = _relevant_candidate_failure_reason(
-            result,
-            min_quality_score=min_quality_score,
-            quality_score=quality_score,
-            matched=matched,
-            max_age_days=max_age_days,
-        )
+        failure = _relevance_failure_reason(result, matched, max_age_days)
         if failure:
             pipeline_rejects[failure] = pipeline_rejects.get(failure, 0) + 1
             continue
@@ -1068,20 +826,18 @@ def _ingest_tavily_items(
         if not existing or result["search_quality_score"] > existing["search_quality_score"]:
             results_by_url[url] = result
 
-    return skipped_used, fast_disqualified, pipeline_rejects
+    return skipped_used, pipeline_rejects
 
 
 def _sort_results(results: list[dict]) -> list[dict]:
     return sorted(
         results,
         key=lambda result: (
-            result.get("recency_score", 0),
             result.get("content_age_days") is not None,
             -(result.get("content_age_days") or 9999),
             result["search_quality_score"],
             result["priority_source"],
             result.get("secondary_source", False),
-            result.get("official_source", False),
             result["tavily_score"],
         ),
         reverse=True,
@@ -1090,17 +846,15 @@ def _sort_results(results: list[dict]) -> list[dict]:
 
 def search_roofing_news(
     max_results_per_query: int = DEFAULT_MAX_RESULTS_PER_QUERY,
-    days_back: int = DEFAULT_DAYS_BACK,
-    target_results: int = DEFAULT_TARGET_RESULTS,
+    target_results: int | None = DEFAULT_TARGET_RESULTS,
     *,
     max_age_days: int = DEFAULT_MAX_AGE_DAYS,
+    max_tavily_credits: int = DEFAULT_MAX_TAVILY_CREDITS,
     skip_used_sources: bool = True,
-    min_quality_score: float = DEFAULT_MIN_QUALITY_SCORE,
     queries_per_cluster: int = DEFAULT_QUERIES_PER_CLUSTER,
     use_all_queries: bool = False,
     rotation_week: int | None = None,
 ) -> list[dict]:
-    """Run all five search stages; return up to target_results kept candidates."""
     load_dotenv(PROJECT_ROOT / ".env")
     client = _load_client()
 
@@ -1108,46 +862,57 @@ def search_roofing_news(
     if skip_used_sources:
         blocked_urls = used_source_urls()
         if blocked_urls:
-            print(f"[search_less_strict] Skipping {len(blocked_urls)} previously used source URL(s)")
+            print(f"[{LOG_PREFIX}] Skipping {len(blocked_urls)} previously used source URL(s)")
 
     active_plan = build_active_search_plan(
         queries_per_cluster=queries_per_cluster,
         use_all_queries=use_all_queries,
         rotation_week=rotation_week,
     )
+    planned_query_count = len(active_plan)
+    active_plan = cap_search_plan_for_credits(
+        active_plan,
+        max_credits=max_tavily_credits,
+        stage_count=len(SEARCH_STAGES),
+    )
     query_count = len(active_plan)
-    max_credits = estimate_tavily_credits(query_count, len(SEARCH_STAGES))
+    planned_credits = estimate_tavily_credits(planned_query_count, len(SEARCH_STAGES))
+    max_credits = min(planned_credits, max_tavily_credits)
     week_number = rotation_week or datetime.now(timezone.utc).isocalendar().week
+    target_note = target_results if target_results is not None else "all"
+    trim_note = ""
+    if query_count < planned_query_count:
+        trim_note = f", trimmed {planned_query_count}→{query_count} queries for {max_tavily_credits}-credit cap"
     print(
-        f"[search_less_strict] Plan: {query_count} active queries "
+        f"[{LOG_PREFIX}] Plan: {query_count} active queries "
         f"({queries_per_cluster}/cluster, ISO week {week_number}) "
         f"from {len(SEARCH_PLAN)} total across {len(SEARCH_STAGES)} stages "
-        f"(target {target_results}, max age {max_age_days}d, min score {min_quality_score}, "
-        f"max ~{max_credits} credits)"
+        f"(target {target_note}, max age {max_age_days}d, max ~{max_credits} credits{trim_note})"
     )
 
     results_by_url: dict[str, dict] = {}
-    stages = [
-        {
-            **stage,
-            "days": min(
-                days_back if stage["name"] == "priority_7_day_news" else stage["days"],
-                max_age_days,
-            ),
-            "max_results_per_query": max_results_per_query,
-        }
-        for stage in SEARCH_STAGES
-    ]
+    stages = [{**stage, "days": max_age_days, "max_results_per_query": max_results_per_query} for stage in SEARCH_STAGES]
     queries_run = 0
     skipped_used_sources = 0
-    fast_disqualified = 0
     pipeline_rejects: dict[str, int] = {}
+    credit_limit_reached = False
 
     for stage_index, stage in enumerate(stages):
-        print(f"[search_less_strict] Running stage: {stage['name']}")
+        if credit_limit_reached:
+            break
+        print(f"[{LOG_PREFIX}] Running stage: {stage['name']}")
         is_last_stage = stage_index == len(stages) - 1
 
         for search_item in active_plan:
+            credits_after_call = (queries_run + 1) * TAVILY_ADVANCED_SEARCH_CREDITS
+            if credits_after_call > max_tavily_credits:
+                print(
+                    f"[{LOG_PREFIX}] Tavily credit cap ({max_tavily_credits}) reached — "
+                    "stopping search"
+                )
+                credit_limit_reached = True
+                break
+
             query = search_item["query"]
             try:
                 response = client.search(
@@ -1162,33 +927,37 @@ def search_roofing_news(
                 )
                 queries_run += 1
             except Exception as exc:
-                print(f"[search_less_strict] Query failed for {query!r}: {exc}")
+                print(f"[{LOG_PREFIX}] Query failed for {query!r}: {exc}")
                 continue
 
-            skipped, disqualified, stage_rejects = _ingest_tavily_items(
+            skipped, stage_rejects = _ingest_tavily_items(
                 response.get("results", []),
                 search_item=search_item,
                 stage=stage,
                 results_by_url=results_by_url,
                 blocked_urls=blocked_urls,
-                min_quality_score=min_quality_score,
                 max_age_days=max_age_days,
             )
             skipped_used_sources += skipped
-            fast_disqualified += disqualified
             for reason, count in stage_rejects.items():
                 pipeline_rejects[reason] = pipeline_rejects.get(reason, 0) + count
 
-            if is_last_stage and len(results_by_url) >= target_results:
+            if (
+                target_results is not None
+                and is_last_stage
+                and len(results_by_url) >= target_results
+            ):
                 print(
-                    f"[search_less_strict] Target of {target_results} reached mid-stage — "
+                    f"[{LOG_PREFIX}] Target of {target_results} reached mid-stage — "
                     f"skipping remaining queries in {stage['name']}"
                 )
                 break
 
-        print(f"[search_less_strict] Stage {stage['name']} total kept so far: {len(results_by_url)}")
+        print(f"[{LOG_PREFIX}] Stage {stage['name']} total kept so far: {len(results_by_url)}")
 
-    results = _sort_results(list(results_by_url.values()))[:target_results]
+    results = _sort_results(list(results_by_url.values()))
+    if target_results is not None:
+        results = results[:target_results]
 
     credits_used = queries_run * TAVILY_ADVANCED_SEARCH_CREDITS
     skipped_note = f", skipped {skipped_used_sources} previously used" if skipped_used_sources else ""
@@ -1197,17 +966,15 @@ def search_roofing_news(
         reject_summary = ", ".join(
             f"{reason}={count}" for reason, count in sorted(pipeline_rejects.items())
         )
-        reject_note = f"; pipeline rejects ({reject_summary})"
-    if fast_disqualified:
-        reject_note += f"; fast rejects {fast_disqualified}"
+        reject_note = f"; rejects ({reject_summary})"
 
     domains = sorted({result["domain"] for result in results})
     print(
-        f"[search_less_strict] Found {len(results)} unique results "
+        f"[{LOG_PREFIX}] Found {len(results)} unique results "
         f"from {query_count} active queries "
         f"({queries_run} API calls, ~{credits_used} Tavily credits{skipped_note}{reject_note})"
     )
-    print(f"[search_less_strict] Domains ({len(domains)}): {', '.join(domains)}")
+    print(f"[{LOG_PREFIX}] Domains ({len(domains)}): {', '.join(domains)}")
 
     return results
 
@@ -1227,7 +994,7 @@ def save_results(results: list[dict], path: str | Path = DEFAULT_OUTPUT_PATH) ->
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8") as f:
         json.dump(_json_safe(results), f, indent=2)
-    print(f"[search_less_strict] Results saved to {output_path}")
+    print(f"[{LOG_PREFIX}] Results saved to {output_path}")
     return output_path
 
 
@@ -1235,74 +1002,60 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Standalone less-strict Metro Atlanta roofing news search."
+        description="Broad Metro Atlanta roofing search — 7-day recency, keyword match only."
     )
     parser.add_argument(
         "--target-results",
         type=int,
         default=DEFAULT_TARGET_RESULTS,
-        help=f"Max results to keep (default: {DEFAULT_TARGET_RESULTS}).",
+        help=f"Max results to keep; use 0 for no cap (default: {DEFAULT_TARGET_RESULTS}).",
     )
-    parser.add_argument("--days-back", type=int, default=DEFAULT_DAYS_BACK)
     parser.add_argument(
         "--max-age-days",
         type=int,
         default=DEFAULT_MAX_AGE_DAYS,
         help=f"Reject sources older than this many days (default: {DEFAULT_MAX_AGE_DAYS}).",
     )
+    parser.add_argument(
+        "--max-credits",
+        type=int,
+        default=DEFAULT_MAX_TAVILY_CREDITS,
+        help=f"Stop after this many Tavily credits (default: {DEFAULT_MAX_TAVILY_CREDITS}).",
+    )
     parser.add_argument("--max-results-per-query", type=int, default=DEFAULT_MAX_RESULTS_PER_QUERY)
     parser.add_argument("--include-used-sources", action="store_true")
-    parser.add_argument(
-        "--min-quality-score",
-        type=float,
-        default=DEFAULT_MIN_QUALITY_SCORE,
-        help=f"Minimum preferred-keyword score (default: {DEFAULT_MIN_QUALITY_SCORE}).",
-    )
     parser.add_argument("--queries-per-cluster", type=int, default=DEFAULT_QUERIES_PER_CLUSTER)
     parser.add_argument("--all-queries", action="store_true")
     parser.add_argument("--rotation-week", type=int)
     args = parser.parse_args()
 
+    target = None if args.target_results == 0 else args.target_results
+
     print("=" * 60)
-    print("Peachtree Blog Pipeline - search_less_strict.py (standalone)")
+    print("Peachtree Blog Pipeline - search.py")
     print(
-        f"Target {args.target_results} results | search window {args.days_back}d | "
-        f"keep within {args.max_age_days}d | min score {args.min_quality_score} | all 5 stages"
+        f"Target {target or 'all'} results | keep within {args.max_age_days}d | "
+        f"roofing + local keyword match | no score penalties"
     )
     print("=" * 60)
 
     try:
         results = search_roofing_news(
             max_results_per_query=args.max_results_per_query,
-            days_back=args.days_back,
-            target_results=args.target_results,
+            target_results=target,
             max_age_days=args.max_age_days,
+            max_tavily_credits=args.max_credits,
             skip_used_sources=not args.include_used_sources,
-            min_quality_score=args.min_quality_score,
             queries_per_cluster=args.queries_per_cluster,
             use_all_queries=args.all_queries,
             rotation_week=args.rotation_week,
         )
     except (EnvironmentError, RuntimeError) as exc:
-        print(f"\n[search_less_strict] Setup needed: {exc}")
+        print(f"\n[{LOG_PREFIX}] Setup needed: {exc}")
         raise SystemExit(1) from exc
 
+    save_results(results)
     if not results:
-        save_results(results)
-        print("\n[!] No results kept. Try --min-quality-score 3 or --days-back 14.")
+        print("\n[!] No results kept. Try --include-used-sources or --all-queries.")
     else:
-        print("\nResults:\n")
-        for i, result in enumerate(results, 1):
-            age = result.get("content_age_days")
-            age_label = f"{age}d old" if age is not None else "date unknown"
-            published = result.get("published_date") or "unknown"
-            print(f"  {i}. [{result['domain']}] {result['title']}")
-            print(f"     {result['url']}")
-            print(
-                f"     Score: {result['search_quality_score']} | Stage: {result['search_stage']} | "
-                f"Published: {published} ({age_label})"
-            )
-            print()
-
-        save_results(results)
-        print(f"\n[search_less_strict] Done — {len(results)} results saved for evaluate.py")
+        print(f"\n[{LOG_PREFIX}] Done — {len(results)} results saved")

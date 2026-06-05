@@ -25,7 +25,205 @@ Notes / next step:
 - 
 ```
 
-## 2026-06-01 - GEO blog prompt v2 with Quick Answer block
+## 2026-06-04 - Evaluate stage prints model and token cost summary
+
+Changed:
+- `evaluate.py` accumulates Together token usage across all source scores and prints model, timing, tokens, and estimated USD cost via `print_generation_cost_summary` (same helper as `write_serverless`).
+- Logs evaluation model at start (`--mock` vs live model ID).
+
+Why:
+- Match write-stage visibility when scoring sources so evaluation spend is obvious per run.
+
+Files touched:
+- `src/peachtree_blog/pipeline/evaluate.py`
+- `CHANGELOG.md`
+
+Tested:
+- `python -m peachtree_blog.pipeline.evaluate --mock` — cost summary shows mock / elapsed time.
+
+Notes / next step:
+- Live Together run shows per-source API call count in the timing line.
+
+## 2026-06-04 - Remove legacy approve/search/write/evaluate package dirs
+
+Changed:
+- Deleted empty `src/peachtree_blog/{approve,search,write,evaluate}/` leftovers from pre-pipeline layout.
+- `pipeline.py` calls `remove_legacy_package_dirs()` on startup so those folders are not left behind.
+- Subprocess env sets `PYTHONPYCACHEPREFIX` explicitly (only `src/__pycache__/` for bytecode).
+
+Files touched:
+- `src/peachtree_blog/paths.py`, `pipeline.py`, `pipeline/runner.py`, `CHANGELOG.md`
+
+Tested:
+- `python pipeline.py --help` — only `pipeline/`, `tools/`, and `src/__pycache__/` remain.
+
+## 2026-06-04 - Centralize Python bytecode cache under src/__pycache__/
+
+Changed:
+- `configure_bytecode_cache()` in `paths.py` sets `PYTHONPYCACHEPREFIX` to `src/__pycache__/` (auto-runs on import).
+- Pipeline entry points and subprocess env use the same setting; `.gitignore` includes `src/__pycache__/`.
+- Removed stale `evaluate/`, `search/`, etc. folders that only held old `__pycache__`.
+
+Why:
+- Avoid many `__pycache__` directories beside each package folder.
+
+Files touched:
+- `src/peachtree_blog/paths.py`, `pipeline.py`, `pipeline/runner.py`, `.gitignore`, scripts
+
+Tested:
+- After `python pipeline.py --help`, only `src/__pycache__/` exists (no per-package `__pycache__`).
+
+Notes / next step:
+- Safe to delete `src/__pycache__/` anytime; set `PEACHTREE_DISABLE_CENTRAL_PYCACHE=1` to restore default Python behavior.
+
+## 2026-06-04 - Move pipeline stages into src/peachtree_blog/pipeline/
+
+Changed:
+- Moved `search.py`, `evaluate.py`, `write_serverless.py`, `approve_listen.py` into `src/peachtree_blog/pipeline/`.
+- Moved `pipeline_cli.py` → `pipeline/cli.py`, `cli_runner.py` → `pipeline/runner.py`.
+- Updated module paths (`peachtree_blog.pipeline.*`), root `pipeline.py`, scripts, README.
+
+Why:
+- Keep all stage scripts in one directory instead of separate search/evaluate/write/approve folders.
+
+Files touched:
+- `src/peachtree_blog/pipeline/` (new layout)
+- Removed empty `search/`, `evaluate/`, `write/`, `approve/` packages
+- `pipeline.py`, `pyproject.toml`, `README.md`, scripts, `write_common.py`, `CHANGELOG.md`
+
+Tested:
+- `python pipeline.py --help`, `python -m peachtree_blog.pipeline.search --help`
+
+## 2026-06-04 - Merge write.py into standalone write_serverless.py
+
+Changed:
+- Moved dedicated-endpoint generation into `write_serverless.py` behind `--dedicated-endpoint`; deleted `write.py`.
+- Default runs stay serverless (model menu); pipeline unchanged.
+- `scripts/write_with_endpoint.sh` calls `write_serverless --dedicated-endpoint`.
+- Removed `write` module key from `cli_runner`.
+
+Why:
+- Single writer module; same pattern as approve_listen consolidation.
+
+Files touched:
+- `src/peachtree_blog/write/write_serverless.py` (deleted `write.py`)
+- `src/peachtree_blog/cli_runner.py`, `write_common.py`, `together_endpoint.py`, scripts, `CHANGELOG.md`
+
+Tested:
+- `python -m py_compile` on `write_serverless.py`.
+
+## 2026-06-04 - Merge approve.py into standalone approve_listen.py
+
+Changed:
+- Moved all Slack post/listen/rewrite logic into `approve_listen.py`; deleted `approve.py`.
+- CLI: default run posts latest + listens; subcommands `post` and `listen` retained.
+- `cli_runner` and pipeline use only `peachtree_blog.approve.approve_listen`.
+
+Why:
+- Single approval module; no parent/child split between approve and approve_listen.
+
+Files touched:
+- `src/peachtree_blog/approve/approve_listen.py` (deleted `approve.py`)
+- `src/peachtree_blog/cli_runner.py`, `pipeline_cli.py`, `README.md`, `CHANGELOG.md`
+
+Tested:
+- `python -m py_compile` on `approve_listen.py` and `pipeline_cli.py`.
+
+## 2026-06-04 - Approve listen: type e to return to pipeline menu
+
+Changed:
+- `listen()` polls CLI stdin; typing `e` + Enter disconnects Slack Socket Mode and exits cleanly (no Ctrl+C).
+- Pipeline menu runs approve in-process so exiting listen returns directly to stage selection.
+- `approve_listen.run_approve_post_and_listen()` shared by CLI module and pipeline.
+
+Why:
+- Stay in one terminal session: approve → listen → `e` → pick search/evaluate/write again.
+
+Files touched:
+- `src/peachtree_blog/approve/approve.py`, `approve_listen.py`, `pipeline_cli.py`, `CHANGELOG.md`
+
+Tested:
+- Not run (requires Slack credentials and interactive terminal).
+
+## 2026-06-04 - Remove package __init__.py files
+
+Changed:
+- Deleted all `__init__.py` under `src/peachtree_blog/` (namespace packages; no code used them).
+- Set `namespaces = true` in `pyproject.toml` so `pip install -e .` still discovers packages.
+
+Why:
+- Files were docstring-only markers; `PROJECT_ROOT` is imported from `peachtree_blog.paths` everywhere.
+
+Files touched:
+- `src/peachtree_blog/**/__init__.py` (removed)
+- `pyproject.toml`, `CHANGELOG.md`
+
+Tested:
+- `python pipeline.py --help`, `python -m peachtree_blog.search.search --help`, import smoke test.
+
+## 2026-06-04 - Consolidate search into search.py only
+
+Changed:
+- Moved `search_all_roofing.py` implementation into `search.py` (broad roofing search, 50-credit cap, keyword match).
+- Default search output: `output/sources/search_results.json` (evaluate default input updated).
+- Removed `search_all_roofing.py`, `search_less_strict.py`, `search_strict.py`.
+- Pipeline and `cli_runner` use single `search` module key; dropped `--search strict|less_strict`.
+
+Why:
+- One search entry point; pipeline menu and evaluate align on the same output file.
+
+Files touched:
+- `src/peachtree_blog/search/search.py`
+- `src/peachtree_blog/cli_runner.py`, `src/peachtree_blog/pipeline_cli.py`
+- `src/peachtree_blog/evaluate/evaluate.py`, `README.md`, `CHANGELOG.md`
+
+Tested:
+- `python -m peachtree_blog.search.search --help`
+
+Notes / next step:
+- Re-run search if you still have only `search_results_all_roofing.json` from older runs.
+
+## 2026-06-04 - pipeline.py defaults to interactive stage menu
+
+Changed:
+- `python pipeline.py` now shows a numbered menu (Search, Evaluate, Write, Approve, Exit) instead of running the full pipeline.
+- Full non-interactive run moved to `python pipeline.py --all` (GitHub Actions weekly workflow updated).
+
+Why:
+- Match local workflow: pick one stage at a time rather than auto-running search through write.
+
+Files touched:
+- `src/peachtree_blog/pipeline_cli.py`, `pipeline.py`, `.github/workflows/weekly.yml`, `README.md`, `CHANGELOG.md`
+
+Tested:
+- `python pipeline.py --help`
+
+## 2026-06-04 - Pipeline from src; remove root CLI shims
+
+Changed:
+- Rebuilt `pipeline.py` to run stages via `python -m peachtree_blog.*` (`cli_runner.py`, `pipeline_cli.py`).
+- Added `python pipeline.py --menu` interactive stage picker (search variants, evaluate, write, approve, clean, full pipeline).
+- Added `python pipeline.py --stage` for single-stage runs; `peachtree-pipeline` console script after `pip install -e .`.
+- Removed root shim files (`evaluate.py`, `write_serverless.py`, `search*.py`, `approve*.py`, `_entry.py`, etc.).
+- Slack auto-rewrites invoke `peachtree_blog.write.write_serverless` via module subprocess with `PYTHONPATH=src`.
+
+Why:
+- One orchestrator and no duplicate entry points; real code lives only under `src/peachtree_blog/`.
+
+Files touched:
+- `pipeline.py`, `src/peachtree_blog/pipeline_cli.py`, `src/peachtree_blog/cli_runner.py`
+- `src/peachtree_blog/approve/approve.py`
+- `pyproject.toml`, `README.md`, `.github/workflows/weekly.yml`, `.github/workflows/approve.yml`
+- Deleted root shims listed above
+- `CHANGELOG.md`
+
+Tested:
+- `python pipeline.py --help`
+
+Notes / next step:
+- Use `python pipeline.py --menu` locally; update any personal scripts that called root `*.py` shims to `python -m` paths above.
+
+## 2026-06-04 - GEO blog prompt v2 with Quick Answer block
 
 Changed:
 - Replaced `prompts/blog.txt` with stricter GEO template: pre-write checks, news-anchored opening, Quick Answer block, question-style H2 examples, neighborhood vulnerability section, historical storm reference, FAQ 3–5 sentences.

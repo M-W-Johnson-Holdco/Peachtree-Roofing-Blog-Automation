@@ -1,4 +1,4 @@
-"""Shared blog draft generation helpers for write.py and write_serverless.py."""
+"""Shared blog draft generation helpers for write_serverless.py."""
 
 from __future__ import annotations
 
@@ -76,12 +76,12 @@ GENERIC_OPENERS = [
 
 SOURCE_STRATEGIES = ("auto", "best", "combine")
 WRITE_RUNNER_ENV = "WRITE_RUNNER"
-DEFAULT_WRITE_RUNNER = "write.py"
+DEFAULT_WRITE_RUNNER = "peachtree_blog.pipeline.write_serverless"
 
 
 def write_log_prefix() -> str:
     runner = os.getenv(WRITE_RUNNER_ENV, DEFAULT_WRITE_RUNNER)
-    if runner.endswith("write_serverless.py"):
+    if "write_serverless" in runner:
         return "[write_serverless]"
     return "[write]"
 
@@ -643,7 +643,7 @@ def get_together_client():
     api_key = os.getenv("TOGETHER_API_KEY")
     if not api_key:
         raise EnvironmentError(
-            "TOGETHER_API_KEY is not set. Add it to .env, or run `python write.py --mock`."
+            "TOGETHER_API_KEY is not set. Add it to .env, or run write_serverless with --mock."
         )
 
     return Together(api_key=api_key)
@@ -941,7 +941,7 @@ def latest_markdown_draft(output_dir: Path = DEFAULT_OUTPUT_DIR) -> Path:
     expected_pdf = draft_pdf_path(latest)
     raise FileNotFoundError(
         f"No PDF found for the latest draft under {output_dir}. "
-        f"Expected {expected_pdf}. Run write.py or write_serverless.py first."
+        f"Expected {expected_pdf}. Run write_serverless first."
     )
 
 

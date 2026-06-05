@@ -1,22 +1,23 @@
-"""Slack approval workflow for generated blog drafts.
+"""Slack approval workflow for generated blog drafts (standalone module).
 
-Commands:
-    python approve.py post --latest
-    python approve.py post output/drafts/drafts_md/example.md
-    python approve.py listen
+Default (post latest draft + listen):
+    python -m peachtree_blog.pipeline.approve_listen
 
-Posting uploads the existing PDF from `output/drafts/drafts_pdf/` (matching stem as the `.md`
-file in `output/drafts/drafts_md/`). Run `write.py` or `write_serverless.py` first to generate the PDF.
+Subcommands:
+    python -m peachtree_blog.pipeline.approve_listen post --latest
+    python -m peachtree_blog.pipeline.approve_listen post --latest --then-listen
+    python -m peachtree_blog.pipeline.approve_listen listen
 
-Required environment for posting:
-    SLACK_APPROVAL_BOT_TOKEN
-    SLACK_APPROVAL_CHANNEL
+While listening, type ``e`` + Enter to stop and return to the ``pipeline.py`` menu.
 
-Required environment for Socket Mode listening:
-    SLACK_APPROVAL_TOKEN
+Posting uploads the existing PDF from `output/drafts/drafts_pdf/`. Run write first.
+
+Required: SLACK_APPROVAL_BOT_TOKEN, SLACK_APPROVAL_CHANNEL, SLACK_APPROVAL_TOKEN (listen).
 """
 
 from __future__ import annotations
+
+import peachtree_blog._pycache_prefix  # noqa: F401
 
 from peachtree_blog.paths import PROJECT_ROOT
 
@@ -25,12 +26,20 @@ import json
 import os
 import subprocess
 import sys
+import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
 
+from peachtree_blog.pipeline.runner import (
+    DEFAULT_REWRITE_MODULE_KEY,
+    build_module_command,
+    pipeline_subprocess_env,
+)
+from peachtree_blog.pipeline.write_serverless import model_label, resolve_writing_model
 from peachtree_blog.write_common import (
     DEFAULT_OUTPUT_DIR,
     draft_pdf_path,
@@ -42,7 +51,7 @@ from peachtree_blog.write_common import (
 
 DEFAULT_DRAFT_DIR = DEFAULT_OUTPUT_DIR
 DEFAULT_APPROVAL_DIR = PROJECT_ROOT / "output" / "approvals"
-REWRITE_SCRIPT = "write_serverless.py"
+REWRITE_MODULE_KEY = DEFAULT_REWRITE_MODULE_KEY
 APPROVE_REACTIONS = {"white_check_mark", "heavy_check_mark"}
 REJECT_REACTIONS = {"x", "negative_squared_cross_mark"}
 IGNORE_MESSAGE_SUBTYPES = {
@@ -190,7 +199,7 @@ def post_draft(draft_path: Path, rewritten_from: str | None = None) -> Path:
         raise FileNotFoundError(
             f"No PDF found for {draft_path.relative_to(PROJECT_ROOT)}. "
             f"Expected {pdf_path.relative_to(PROJECT_ROOT)}. "
-            "Run write.py or write_serverless.py first."
+            "Run write_serverless first."
         )
 
     markdown = draft_path.read_text(encoding="utf-8")
@@ -307,19 +316,20 @@ def regenerate_from_feedback(
     record: dict[str, Any],
     mock: bool,
     *,
-    rewrite_script: str = REWRITE_SCRIPT,
+    rewrite_module_key: str = REWRITE_MODULE_KEY,
     rewrite_model: str | None = None,
 ) -> Path:
-    command = [sys.executable, rewrite_script, "--feedback-json", str(record_path)]
+    rewrite_args: list[str] = ["--feedback-json", str(record_path)]
     if rewrite_model:
-        command.extend(["--model", rewrite_model])
+        rewrite_args.extend(["--model", rewrite_model])
     if mock:
-        command.append("--mock")
+        rewrite_args.append("--mock")
+    command = build_module_command(rewrite_module_key, *rewrite_args)
 
     print(f"[approve] Regenerating draft: {' '.join(command)}")
-    completed = subprocess.run(command, cwd=PROJECT_ROOT)
+    completed = subprocess.run(command, cwd=PROJECT_ROOT, env=pipeline_subprocess_env())
     if completed.returncode != 0:
-        raise RuntimeError(f"{rewrite_script} failed with exit code {completed.returncode}")
+        raise RuntimeError(f"{rewrite_module_key} failed with exit code {completed.returncode}")
 
     new_draft_path = latest_draft_path()
     record["status"] = "revision_generated"
@@ -444,7 +454,7 @@ def handle_message(
     mock: bool,
     bot_user_id: str | None = None,
     *,
-    rewrite_script: str = REWRITE_SCRIPT,
+    rewrite_module_key: str = REWRITE_MODULE_KEY,
     rewrite_model: str | None = None,
 ) -> None:
     if not is_human_thread_reply(event, bot_user_id):
@@ -478,7 +488,7 @@ def handle_message(
             path,
             record,
             mock=mock,
-            rewrite_script=rewrite_script,
+            rewrite_module_key=rewrite_module_key,
             rewrite_model=rewrite_model,
         )
         new_record_path = post_draft(new_draft_path, rewritten_from=str(path.relative_to(PROJECT_ROOT)))
@@ -489,13 +499,41 @@ def handle_message(
         )
 
 
+LISTEN_EXIT_COMMAND = "e"
+LISTEN_EXIT_HINT = (
+    f"[approve] Type {LISTEN_EXIT_COMMAND!r} + Enter to stop listening and return to the pipeline menu."
+)
+
+
+def _watch_stdin_for_exit(stop_event: threading.Event) -> None:
+    """Background thread: exit listen loop when the user types ``e`` (+ Enter)."""
+    try:
+        for line in sys.stdin:
+            if line.strip().lower() == LISTEN_EXIT_COMMAND:
+                stop_event.set()
+                return
+    except (EOFError, KeyboardInterrupt):
+        stop_event.set()
+
+
+def _disconnect_socket_client(socket_client: Any) -> None:
+    for method_name in ("disconnect", "close"):
+        method = getattr(socket_client, method_name, None)
+        if callable(method):
+            try:
+                method()
+            except Exception:
+                pass
+            return
+
+
 def listen(
     auto_rewrite: bool,
     mock: bool,
     *,
-    rewrite_script: str = REWRITE_SCRIPT,
+    rewrite_module_key: str = REWRITE_MODULE_KEY,
     rewrite_model: str | None = None,
-) -> None:
+) -> bool:
     try:
         from slack_sdk.socket_mode import SocketModeClient
         from slack_sdk.socket_mode.response import SocketModeResponse
@@ -531,57 +569,119 @@ def listen(
                 auto_rewrite=auto_rewrite,
                 mock=mock,
                 bot_user_id=bot_user_id,
-                rewrite_script=rewrite_script,
+                rewrite_module_key=rewrite_module_key,
                 rewrite_model=rewrite_model,
             )
 
     socket_client.socket_mode_request_listeners.append(process)
     print("[approve] Listening for Slack approval reactions and feedback...")
+    if sys.stdin.isatty():
+        print(LISTEN_EXIT_HINT)
     socket_client.connect()
 
-    import time
+    stop_event = threading.Event()
+    watcher: threading.Thread | None = None
+    if sys.stdin.isatty():
+        watcher = threading.Thread(target=_watch_stdin_for_exit, args=(stop_event,), daemon=True)
+        watcher.start()
 
-    while True:
-        time.sleep(60)
+    try:
+        while not stop_event.is_set():
+            time.sleep(0.25)
+    finally:
+        _disconnect_socket_client(socket_client)
+
+    user_exit = stop_event.is_set()
+    if user_exit and sys.stdin.isatty():
+        print("[approve] Stopped listening (returning to pipeline menu).")
+    else:
+        print("[approve] Stopped listening.")
+    return user_exit
+
+
+def _resolve_rewrite_model_arg(model: str | None, *, mock: bool) -> str | None:
+    if mock or not model:
+        return None
+    return resolve_writing_model(model)
+
+
+def run_approve_post_and_listen(
+    *,
+    mock: bool = False,
+    auto_rewrite: bool = True,
+    rewrite_model: str | None = None,
+    interactive_model_prompt: bool = True,
+) -> bool:
+    """Post the latest draft, then listen until the user types ``e`` (+ Enter) in the CLI."""
+    if interactive_model_prompt and not mock:
+        rewrite_model = resolve_writing_model(rewrite_model)
+    if rewrite_model:
+        print(f"[approve_listen] Rewrite model: {model_label(rewrite_model)}")
+
+    draft_path = latest_draft_path()
+    print(f"[approve_listen] Using latest draft: {draft_path.relative_to(PROJECT_ROOT)}")
+    prepare_new_approval_post()
+    post_draft(draft_path)
+    return listen(
+        auto_rewrite=auto_rewrite,
+        mock=mock,
+        rewrite_model=rewrite_model,
+    )
+
+
+def _add_listen_flags(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--model",
+        help="Together model ID or write_serverless menu number for Slack auto-rewrites.",
+    )
+    parser.add_argument(
+        "--no-auto-rewrite",
+        action="store_true",
+        help="Save thread feedback without rerunning write_serverless.",
+    )
+    parser.add_argument(
+        "--mock",
+        action="store_true",
+        help="Use write_serverless --mock when auto-rewriting after feedback.",
+    )
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Post and process Slack approval requests for blog drafts.")
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    parser = argparse.ArgumentParser(
+        description="Slack approval: post blog drafts and listen for reactions/feedback.",
+    )
+    subparsers = parser.add_subparsers(dest="command")
 
     post_parser = subparsers.add_parser("post", help="Post a draft to Slack for approval.")
     post_parser.add_argument("draft", nargs="?", type=Path, help="Draft Markdown path to post.")
-    post_parser.add_argument("--latest", action="store_true", help="Post the latest Markdown draft from output/drafts.")
+    post_parser.add_argument("--latest", action="store_true", help="Post the latest Markdown draft.")
     post_parser.add_argument(
         "--then-listen",
         action="store_true",
-        help="After posting, start the Socket Mode listener for reactions and feedback.",
+        help="After posting, start the Socket Mode listener.",
     )
-    post_parser.add_argument(
-        "--no-auto-rewrite",
-        action="store_true",
-        help="When used with --then-listen, save feedback without rerunning write_serverless.py.",
-    )
-    post_parser.add_argument(
-        "--mock",
-        action="store_true",
-        help="When used with --then-listen, use write_serverless.py --mock for auto-rewrites.",
-    )
+    _add_listen_flags(post_parser)
 
-    listen_parser = subparsers.add_parser("listen", help="Listen for Slack reactions and feedback with Socket Mode.")
-    listen_parser.add_argument(
-        "--no-auto-rewrite",
-        action="store_true",
-        help="Save feedback but do not rerun write_serverless.py automatically.",
-    )
-    listen_parser.add_argument(
-        "--mock",
-        action="store_true",
-        help="Use write_serverless.py --mock when auto-rewriting.",
-    )
+    listen_parser = subparsers.add_parser("listen", help="Listen for Slack reactions and feedback.")
+    _add_listen_flags(listen_parser)
+
+    _add_listen_flags(parser)
 
     args = parser.parse_args()
     load_dotenv(PROJECT_ROOT / ".env")
+
+    mock = args.mock
+    auto_rewrite = not args.no_auto_rewrite
+    rewrite_model = _resolve_rewrite_model_arg(args.model, mock=mock)
+
+    if args.command is None:
+        run_approve_post_and_listen(
+            mock=mock,
+            auto_rewrite=auto_rewrite,
+            rewrite_model=rewrite_model,
+            interactive_model_prompt=not mock and not args.model,
+        )
+        return
 
     if args.command == "post":
         prepare_new_approval_post()
@@ -596,9 +696,17 @@ def main() -> None:
 
         post_draft(draft_path)
         if args.then_listen:
-            listen(auto_rewrite=not args.no_auto_rewrite, mock=args.mock)
+            if not mock and not args.model:
+                rewrite_model = resolve_writing_model(None)
+            listen(
+                auto_rewrite=auto_rewrite,
+                mock=mock,
+                rewrite_model=rewrite_model,
+            )
     elif args.command == "listen":
-        listen(auto_rewrite=not args.no_auto_rewrite, mock=args.mock)
+        if not mock and not args.model:
+            rewrite_model = resolve_writing_model(None)
+        listen(auto_rewrite=auto_rewrite, mock=mock, rewrite_model=rewrite_model)
 
 
 if __name__ == "__main__":

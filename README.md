@@ -17,28 +17,55 @@ blog-automation/
 │   ├── draft_pdf.py             # Markdown → PDF
 │   ├── write_common.py          # Prompts, validation, Together helpers
 │   ├── together_endpoint.py     # Optional dedicated endpoint management
-│   ├── search/                  # Tavily search stages
-│   ├── evaluate/                # Source scoring
-│   ├── write/                   # Draft generation
-│   ├── approve/                 # Slack approval + listener
+│   ├── pipeline/                # search, evaluate, write_serverless, approve_listen, cli, runner
 │   └── tools/                   # clean_output, etc.
-├── pipeline.py                  # Run search → evaluate → write
-├── write_serverless.py          # Root CLI shims (same commands as before)
-├── search_all_roofing.py
-├── evaluate.py
-├── approve_listen.py
+├── pipeline.py                  # Entry: interactive menu (``--all`` for full run)
 ├── prompts/                     # LLM prompt templates
 ├── feedback/                    # Standing style notes
 ├── output/                      # Generated JSON, drafts, approvals (gitignored)
 └── scripts/                     # Shell helpers
 ```
 
-Root-level `*.py` files are thin entry points that load `src/` and delegate to `peachtree_blog`. Your existing commands (`python write_serverless.py`, etc.) still work.
+### Running stages
 
-Optional editable install:
+From the repo root, install once (recommended for `conda run` and `python -m`):
 
 ```bash
 pip install -e .
+```
+
+Or set `export PYTHONPATH=src` for ad-hoc runs without installing.
+
+**Interactive menu** (default — pick search, evaluate, write, or approve):
+
+```bash
+python pipeline.py
+```
+
+**Full pipeline** (search → evaluate → write, non-interactive — CI/scripts):
+
+```bash
+python pipeline.py --all
+python pipeline.py --all --mock
+python pipeline.py --all --send-to-slack
+```
+
+**Single stage**:
+
+```bash
+python pipeline.py --stage search
+python pipeline.py --stage evaluate --mock
+python pipeline.py --stage write --mock
+```
+
+**Run a module directly** (after `pip install -e .` or `export PYTHONPATH=src`):
+
+```bash
+python -m peachtree_blog.pipeline.search
+python -m peachtree_blog.pipeline.evaluate
+python -m peachtree_blog.pipeline.write_serverless
+python -m peachtree_blog.pipeline.approve_listen
+python -m peachtree_blog.tools.clean_output
 ```
 
 ## Webscraping
@@ -98,23 +125,23 @@ The search plan is organized around the four topical territories from the strate
 Run it with:
 
 ```bash
-conda run -n blog-automation python search.py
+conda run -n blog-automation python -m peachtree_blog.pipeline.search
 ```
 
 Useful flags:
 
 ```bash
 # Default: 8 rotating queries (2/cluster), early stop at 10 results (~8–32 credits typical)
-conda run -n blog-automation python search.py
+conda run -n blog-automation python -m peachtree_blog.pipeline.search
 
 # Full 27-query plan (higher credit usage)
-conda run -n blog-automation python search.py --all-queries
+conda run -n blog-automation python -m peachtree_blog.pipeline.search --all-queries
 
 # Keep searching until 25 candidates are found (default is 10)
-conda run -n blog-automation python search.py --target-results 25
+conda run -n blog-automation python -m peachtree_blog.pipeline.search --target-results 25
 
 # Run every stage and every query regardless of target (~80–270 credits)
-conda run -n blog-automation python search.py --all-stages --all-queries
+conda run -n blog-automation python -m peachtree_blog.pipeline.search --all-stages --all-queries
 ```
 
 ### Priority Sources
@@ -210,7 +237,7 @@ Candidates must reach `--min-quality-score` (default: 7.5) to be kept. Lower it 
 
 ### Used Source Registry
 
-When `write.py` or `write_serverless.py` saves a draft, the selected source URLs are appended to:
+When `write_serverless.py` saves a draft, the selected source URLs are appended to:
 
 ```text
 output/sources/used_sources.json
@@ -228,7 +255,7 @@ conda run -n blog-automation python used_sources.py --list
 conda run -n blog-automation python used_sources.py --seed output/sources/kept_sources.json
 
 # Allow previously used URLs again for one search run
-conda run -n blog-automation python search.py --include-used-sources
+conda run -n blog-automation python -m peachtree_blog.pipeline.search --include-used-sources
 ```
 
 Mock writes do not update the registry.
@@ -274,20 +301,20 @@ TOGETHER_EVALUATION_MODEL=Qwen/Qwen2.5-7B-Instruct-Turbo
 Run live evaluation with:
 
 ```bash
-conda run -n blog-automation python evaluate.py
+conda run -n blog-automation python -m peachtree_blog.pipeline.evaluate
 ```
 
 Run a no-credit local test with:
 
 ```bash
-conda run -n blog-automation python evaluate.py --mock
+conda run -n blog-automation python -m peachtree_blog.pipeline.evaluate --mock
 ```
 
 Mock mode is only for testing file flow and obvious filtering. The live Together evaluation should be stricter and more context-aware.
 
 ## Blog Writing
 
-The third stage of the pipeline lives in `write.py`. This module turns evaluated source candidates into a Markdown blog draft.
+The third stage lives in `write_serverless.py`. It turns evaluated source candidates into a Markdown blog draft.
 
 ### API Used
 
@@ -305,23 +332,21 @@ You can override that model in `.env`:
 TOGETHER_WRITING_MODEL=Qwen/Qwen2.5-7B-Instruct-Turbo
 ```
 
-If Together rejects an overridden model because it requires a dedicated endpoint, `write.py` retries once with the serverless fallback model (unless a dedicated endpoint is configured).
+Serverless mode retries with a fallback model if Together rejects the chosen model (unless `--dedicated-endpoint` is used).
 
-### Serverless writing (recommended)
-
-For pay-per-token drafting without dedicated endpoint spin-up, use `write_serverless.py`:
+### Serverless writing (default)
 
 ```bash
-conda run -n blog-automation python write_serverless.py
+conda run -n blog-automation python -m peachtree_blog.pipeline.write_serverless
 ```
 
-This always uses Together serverless `meta-llama/Llama-3.3-70B-Instruct-Turbo` and ignores `TOGETHER_DEDICATED_ENDPOINT_ID` in `.env`.
+Interactive terminal runs show a model menu (default: Qwen3 235B tput). Serverless mode ignores `TOGETHER_DEDICATED_ENDPOINT_ID` unless you pass `--dedicated-endpoint`.
 
 ### Generation metadata in validation JSON
 
-Both `write.py` and `write_serverless.py` save a `generation` object in each `*-validation.json` file:
+Each `*-validation.json` file includes a `generation` object:
 
-- `runner` — `write.py` or `write_serverless.py`
+- `runner` — `peachtree_blog.pipeline.write_serverless`
 - `mode` — `serverless`, `dedicated`, or `mock`
 - `model_used` — Together model billed for inference
 - `elapsed_seconds` — API generation time
@@ -339,7 +364,7 @@ TOGETHER_DEDICATED_ENDPOINT_ID=endpoint-c2a48674-9ec7-45b3-ac30-0f25f2ad9462
 TOGETHER_WRITING_MODEL=your-username/Qwen/Qwen2.5-72B-Instruct-Turbo-suffix
 ```
 
-When `TOGETHER_DEDICATED_ENDPOINT_ID` is set, `write.py` automatically:
+With `--dedicated-endpoint` and `TOGETHER_DEDICATED_ENDPOINT_ID` in `.env`, the writer:
 
 1. Starts the endpoint and waits until it is ready.
 2. Generates the draft.
@@ -350,9 +375,9 @@ Endpoint startup uses two timeouts:
 - `TOGETHER_ENDPOINT_DEPLOY_TIMEOUT` (default 40 min): hardware provisioning while state is `PENDING`. Shows elapsed time only, no percent bar.
 - `TOGETHER_ENDPOINT_START_TIMEOUT` (default 15 min): becoming ready while state is `STARTING`. The percent bar uses this budget only after deploy completes.
 
-While running in a terminal, `write.py` shows live progress bars with elapsed time and estimated percent, updating every 5 seconds during endpoint start/stop and draft generation. Disable with `--no-progress` or `WRITE_NO_PROGRESS=1`.
+While running in a terminal, the writer shows live progress bars during endpoint start/stop and draft generation. Disable with `--no-progress` or `WRITE_NO_PROGRESS=1`.
 
-`pipeline.py` and `approve.py` call `write.py` directly, so they inherit this behavior.
+`pipeline.py` and `approve_listen.py` call the writer module directly for Slack rewrites.
 
 One-time setup with the Together CLI:
 
@@ -370,7 +395,7 @@ bash scripts/write_with_endpoint.sh
 
 ### How Writing Works
 
-`write.py` currently:
+`write_serverless.py`:
 
 1. Reads kept sources from `output/sources/kept_sources.json`.
 2. Loads the blog-writing prompt from `prompts/blog.txt`.
@@ -381,15 +406,21 @@ bash scripts/write_with_endpoint.sh
 7. Saves a matching PDF to `output/drafts/drafts_pdf/YYYY-MM-DD-HHMMSS-title-slug.pdf`.
 8. Saves a validation report to `output/drafts/drafts_json/YYYY-MM-DD-HHMMSS-title-slug-validation.json`.
 
-`write_serverless.py` keeps existing drafts in those subdirectories and adds new timestamped files each run. Approval rewrites delete only the replaced draft's three files. Use `--clear-drafts` on `write_serverless.py` to wipe all draft subdirectories before writing. `write.py` still clears `output/drafts/` by default unless `--keep-drafts` is passed. Use `--no-pdf` to skip PDF export.
+By default, existing drafts are kept; new runs add timestamped files. Approval rewrites delete only the replaced draft's three files. Use `--clear-drafts` to wipe draft subdirectories before writing. With `--dedicated-endpoint`, use `--keep-drafts` to skip the pre-run clear. Use `--no-pdf` to skip PDF export.
 
-Run live writing with:
+Run live writing:
 
 ```bash
-conda run -n blog-automation python write.py
+conda run -n blog-automation python -m peachtree_blog.pipeline.write_serverless
 ```
 
-By default, `write.py` uses `--source-strategy auto`. Auto mode creates one draft by either:
+Dedicated endpoint:
+
+```bash
+conda run -n blog-automation python -m peachtree_blog.pipeline.write_serverless --dedicated-endpoint
+```
+
+Default `--source-strategy auto` creates one draft by either:
 
 - combining sources when multiple strong sources support the same strategy cluster and blog angle
 - choosing the strongest source when kept sources point to different topics
@@ -397,19 +428,19 @@ By default, `write.py` uses `--source-strategy auto`. Auto mode creates one draf
 You can override this behavior:
 
 ```bash
-conda run -n blog-automation python write.py --source-strategy best
-conda run -n blog-automation python write.py --source-strategy combine
+conda run -n blog-automation python -m peachtree_blog.pipeline.write_serverless --source-strategy best
+conda run -n blog-automation python -m peachtree_blog.pipeline.write_serverless --source-strategy combine
 ```
 
 Run a no-credit local test with:
 
 ```bash
-conda run -n blog-automation python write.py --mock
+conda run -n blog-automation python -m peachtree_blog.pipeline.write_serverless --mock
 ```
 
 ### Draft Validation
 
-After generation, `write.py` checks the draft for core GEO requirements:
+After generation, the writer checks the draft for core GEO requirements:
 
 - H1 title exists.
 - Opening paragraph is roughly 50-120 words.
@@ -426,7 +457,7 @@ The validator is intentionally strict. A failed validation does not mean the fil
 
 ## Slack Approval
 
-The approval stage lives in `approve.py`. It can post the newest generated draft to Slack, save an approval record under `output/approvals/`, and listen for approval reactions and thread feedback.
+The approval stage lives in `approve_listen.py`. It can post the newest generated draft to Slack, save an approval record under `output/approvals/`, and listen for approval reactions and thread feedback.
 
 ### Slack App Setup
 
@@ -443,8 +474,8 @@ im:history
 mpim:history
 ```
 
-When a PDF exists beside the draft (the default from `write.py` or `write_serverless.py`),
-`approve.py post` uploads that existing PDF to Slack. It does not generate or modify files
+When a PDF exists beside the draft (the default from `write_serverless.py`),
+`approve_listen post` uploads that existing PDF to Slack. It does not generate or modify files
 in `output/drafts/`.
 
 Use only the history scopes that match where the approval message will be posted. A public channel needs `channels:history`; a private channel needs `groups:history`; a group DM needs `mpim:history`.
@@ -479,13 +510,13 @@ SLACK_APPROVAL_CHANNEL=C1234567890
 Post the latest generated draft to Slack:
 
 ```bash
-conda run -n blog-automation python approve.py post --latest
+conda run -n blog-automation python -m peachtree_blog.pipeline.approve_listen post --latest
 ```
 
 Or post a specific draft:
 
 ```bash
-conda run -n blog-automation python approve.py post output/drafts/drafts_md/example.md
+conda run -n blog-automation python -m peachtree_blog.pipeline.approve_listen post output/drafts/drafts_md/example.md
 ```
 
 The message asks reviewers to react with `:white_check_mark:` to approve or `:x:` to request revisions on the **intro message** (not the PDF thread reply). The bot pre-adds those reactions so reviewers can click one to register their decision.
@@ -499,13 +530,13 @@ output/approvals/YYYY-MM-DD-HHMMSS-title-slug.json
 To post and immediately start listening for reactions in one command:
 
 ```bash
-conda run -n blog-automation python approve.py post --latest --then-listen
+conda run -n blog-automation python -m peachtree_blog.pipeline.approve_listen post --latest --then-listen
 ```
 
 Or use the shortcut:
 
 ```bash
-conda run -n blog-automation python approve_listen.py
+conda run -n blog-automation python -m peachtree_blog.pipeline.approve_listen
 ```
 
 ### Listen For Approval
@@ -515,7 +546,7 @@ Reactions are only processed while the listener is running. Start it in a separa
 Run the Socket Mode listener:
 
 ```bash
-conda run -n blog-automation python approve.py listen
+conda run -n blog-automation python -m peachtree_blog.pipeline.approve_listen listen
 ```
 
 When a reviewer reacts with `:white_check_mark:` on the **intro message** (not the PDF thread reply), the approval JSON status changes to `approved` and the bot replies in the thread.
@@ -523,13 +554,13 @@ When a reviewer reacts with `:white_check_mark:` on the **intro message** (not t
 When a reviewer reacts with `:x:`, the bot asks for feedback in the Slack thread. The next human thread reply is saved into the approval JSON and `write_serverless.py` is rerun with:
 
 ```bash
-python write_serverless.py --feedback-json output/approvals/example.json
+python -m peachtree_blog.pipeline.write_serverless --feedback-json output/approvals/example.json
 ```
 
 The revised draft is then posted back to Slack for another approval round. To collect feedback without automatically rewriting, run:
 
 ```bash
-conda run -n blog-automation python approve.py listen --no-auto-rewrite
+conda run -n blog-automation python -m peachtree_blog.pipeline.approve_listen listen --no-auto-rewrite
 ```
 
 ### Pipeline Posting
@@ -553,13 +584,13 @@ Generated files under `output/` can be removed before a fresh test run.
 Dry run:
 
 ```bash
-conda run -n blog-automation python clean_output.py
+conda run -n blog-automation python -m peachtree_blog.tools.clean_output
 ```
 
 Actually delete generated output files:
 
 ```bash
-conda run -n blog-automation python clean_output.py --yes
+conda run -n blog-automation python -m peachtree_blog.tools.clean_output --yes
 ```
 
 The cleanup script only targets files under the project-level `output/` directory.

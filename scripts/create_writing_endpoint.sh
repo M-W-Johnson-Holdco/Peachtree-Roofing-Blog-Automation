@@ -39,4 +39,4 @@ echo "Add these values to .env:"
 echo "  TOGETHER_DEDICATED_ENDPOINT_ID=<endpoint ID from output above>"
 echo "  TOGETHER_WRITING_MODEL=<deployed model name from output above>"
 echo
-echo "Then run: python write.py"
+echo "Then run: PYTHONPATH=src python -m peachtree_blog.pipeline.write_serverless --dedicated-endpoint"

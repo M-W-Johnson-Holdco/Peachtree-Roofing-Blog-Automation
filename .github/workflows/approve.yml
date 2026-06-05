@@ -22,7 +22,8 @@ jobs:
         run: python -m pip install -r requirements.txt
       - name: Handle approval
         env:
+          PYTHONPATH: src
           PSAI_API_KEY: ${{ secrets.PSAI_API_KEY }}
           PSAI_API_URL: ${{ secrets.PSAI_API_URL }}
           PSAI_SITE_ID: ${{ secrets.PSAI_SITE_ID }}
-        run: python post.py
+        run: python -m peachtree_blog.post

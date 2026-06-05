@@ -1,6 +1,6 @@
 # Peachtree Blog — Running Style Feedback Log
 # Format: [YYYY-MM-DD] KEEP/CHANGE: note
-# This file is read by write.py and injected into the blog prompt as recent editor feedback.
+# This file is read by write_serverless and injected into the blog prompt as recent editor feedback.
 
 # --- Seed notes (pre-launch) ---
 [2026-05-26] KEEP: Answer-first openings — strong for GEO, keep leading with the direct answer

@@ -22,5 +22,9 @@ dependencies = [
     "xhtml2pdf==0.2.17",
 ]
 
+[project.scripts]
+peachtree-pipeline = "peachtree_blog.pipeline.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
+namespaces = true

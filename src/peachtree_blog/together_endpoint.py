@@ -1,6 +1,6 @@
 """Start and stop Together AI dedicated endpoints around inference runs.
 
-When `TOGETHER_DEDICATED_ENDPOINT_ID` is set, `write.py` uses this module to
+When using `--dedicated-endpoint`, write_serverless uses this module to
 start the endpoint before generation and stop it afterward, even if generation
 fails. Set Together's endpoint auto-shutdown (inactive timeout) to 10-30 minutes
 as a billing safety net if cleanup fails.
@@ -82,7 +82,7 @@ def check_terminal_failure(endpoint_id: str, state: str, data: dict[str, Any] | 
         raise RuntimeError(
             f"Together endpoint {endpoint_id} entered {state} state. "
             f"Reason: {reason} "
-            "Check the Together dashboard, then rerun write.py."
+            "Check the Together dashboard, then rerun write_serverless --dedicated-endpoint."
         )
 
 

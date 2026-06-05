@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start a Together dedicated endpoint, run write.py, then stop the endpoint.
+# Start a Together dedicated endpoint, run write_serverless, then stop the endpoint.
 # Requires the Together CLI (`tg`) and TOGETHER_DEDICATED_ENDPOINT_ID in .env.
 
 set -euo pipefail
@@ -21,7 +21,7 @@ if [[ -z "$ENDPOINT_ID" ]]; then
 fi
 
 if ! command -v tg >/dev/null 2>&1; then
-  echo "[write_with_endpoint] Together CLI (tg) not found. Install it or run: python write.py" >&2
+  echo "[write_with_endpoint] Together CLI (tg) not found. Install it or run write_serverless --dedicated-endpoint" >&2
   exit 1
 fi
 
@@ -35,4 +35,6 @@ cleanup() {
 trap cleanup EXIT
 
 export TOGETHER_SKIP_ENDPOINT_MANAGEMENT=1
-python write.py "$@"
+export PYTHONPYCACHEPREFIX="${PYTHONPYCACHEPREFIX:-$(pwd)/src/__pycache__}"
+export PYTHONPATH=src
+python -m peachtree_blog.pipeline.write_serverless --dedicated-endpoint "$@"

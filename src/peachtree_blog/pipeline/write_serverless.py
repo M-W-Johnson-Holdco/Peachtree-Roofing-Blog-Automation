@@ -1,23 +1,19 @@
-"""Generate a blog draft with a selectable Together serverless model.
+"""Generate a GEO blog draft with Together AI (standalone writer module).
 
-Standalone serverless writer — does not import write.py or together_endpoint.py.
-Ignores `TOGETHER_DEDICATED_ENDPOINT_ID` in `.env`.
+Default: serverless models with an interactive menu (ignores `TOGETHER_DEDICATED_ENDPOINT_ID`).
 
-Saves Markdown, validation JSON, and a PDF (via `draft_pdf.py`) into `output/drafts/drafts_md/`,
-`output/drafts/drafts_pdf/`, and `output/drafts/drafts_json/` by default. Use `--no-pdf` to skip PDF export.
+Optional dedicated endpoint (replaces former write.py):
+    python -m peachtree_blog.pipeline.write_serverless --dedicated-endpoint
 
-Run live (interactive model menu):
-    python write_serverless.py
-
-Pick a model without the menu:
-    python write_serverless.py --model 2
-    python write_serverless.py --model Qwen/Qwen3.5-397B-A17B
-
-Run without Together credits:
-    python write_serverless.py --mock
+Run:
+    python -m peachtree_blog.pipeline.write_serverless
+    python -m peachtree_blog.pipeline.write_serverless --model 1
+    python -m peachtree_blog.pipeline.write_serverless --mock
 """
 
 from __future__ import annotations
+
+import peachtree_blog._pycache_prefix  # noqa: F401
 
 from peachtree_blog.paths import PROJECT_ROOT
 
@@ -26,6 +22,7 @@ import json
 import os
 import sys
 import time
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +32,7 @@ from peachtree_blog.write_common import (
     DEFAULT_AUTHOR_CREDENTIALS,
     DEFAULT_AUTHOR_NAME,
     DEFAULT_INPUT_PATH,
+    DEFAULT_MODEL,
     DEFAULT_OUTPUT_DIR,
     DEFAULT_VALIDATION_MAX_ATTEMPTS,
     PROMPT_PATH,
@@ -59,7 +57,7 @@ from peachtree_blog.write_common import (
     write_log_prefix,
 )
 
-WRITE_RUNNER = "write_serverless.py"
+WRITE_RUNNER = "peachtree_blog.pipeline.write_serverless"
 
 SERVERLESS_MODEL_CHOICES: list[dict[str, str]] = [
     {
@@ -235,6 +233,16 @@ def main() -> None:
         action="store_true",
         help="Generate once without retrying failed validation checks.",
     )
+    parser.add_argument(
+        "--dedicated-endpoint",
+        action="store_true",
+        help="Use TOGETHER_DEDICATED_ENDPOINT_ID from .env (managed start/stop). Default is serverless only.",
+    )
+    parser.add_argument(
+        "--keep-drafts",
+        action="store_true",
+        help="With --dedicated-endpoint: do not clear output/drafts before writing.",
+    )
     args = parser.parse_args()
 
     os.environ["WRITE_RUNNER"] = WRITE_RUNNER
@@ -243,12 +251,28 @@ def main() -> None:
         os.environ["WRITE_NO_PROGRESS"] = "1"
 
     log = write_log_prefix()
-    model_used = resolve_writing_model(
-        args.model,
-        feedback_json=args.feedback_json,
-        interactive=False if args.mock else None,
-    )
-    if not args.mock:
+    use_dedicated_endpoint = args.dedicated_endpoint and not args.mock
+    endpoint_id = os.getenv("TOGETHER_DEDICATED_ENDPOINT_ID", "").strip() if use_dedicated_endpoint else ""
+
+    if use_dedicated_endpoint and not endpoint_id:
+        raise SystemExit(
+            "TOGETHER_DEDICATED_ENDPOINT_ID is not set. Add it to .env or omit --dedicated-endpoint."
+        )
+
+    if args.mock:
+        model_used = "mock"
+    elif use_dedicated_endpoint:
+        raw_model = args.model or os.getenv("TOGETHER_WRITING_MODEL", DEFAULT_MODEL)
+        from_number = model_id_from_choice_number(raw_model) if raw_model else None
+        model_used = from_number or raw_model or DEFAULT_MODEL
+        print(f"{log} Dedicated endpoint mode: {endpoint_id}")
+        print(f"{log} Writing model: {model_used}")
+    else:
+        model_used = resolve_writing_model(
+            args.model,
+            feedback_json=args.feedback_json,
+            interactive=True,
+        )
         print(f"{log} Writing model: {model_label(model_used)}")
 
     rewrite_context = load_approval_rewrite_context(args.feedback_json)
@@ -273,7 +297,11 @@ def main() -> None:
         if not approval_feedback:
             print(f"{log} Warning: No Slack feedback found in {args.feedback_json}")
 
-    if args.clear_drafts:
+    if use_dedicated_endpoint and not args.keep_drafts:
+        removed = clear_drafts_directory(args.output_dir)
+        if removed:
+            print(f"{log} Cleared {len(removed)} file(s) from {args.output_dir}")
+    elif args.clear_drafts:
         removed = clear_drafts_directory(args.output_dir)
         if removed:
             print(f"{log} Cleared {len(removed)} file(s) from {args.output_dir}")
@@ -321,25 +349,78 @@ def main() -> None:
             previous_draft,
             revision_mode,
         )
-        if args.no_validation_retry:
-            draft, generation_report = generate_with_together(
-                prompt,
-                model_used,
-                allow_serverless_fallback=True,
+
+        if use_dedicated_endpoint:
+            from peachtree_blog.together_endpoint import managed_dedicated_endpoint
+
+            endpoint_session_started_at = time.monotonic()
+            with managed_dedicated_endpoint(endpoint_id) as endpoint_model:
+                active_model = model_used
+                if endpoint_model and active_model == DEFAULT_MODEL:
+                    active_model = endpoint_model
+                    model_used = active_model
+                    print(f"{log} Using dedicated endpoint model: {active_model}")
+
+                if args.no_validation_retry:
+                    draft, generation_report = generate_with_together(
+                        prompt,
+                        active_model,
+                        allow_serverless_fallback=False,
+                    )
+                else:
+                    draft, _, generation_report = generate_validated_draft(
+                        prompt,
+                        active_model,
+                        allow_serverless_fallback=False,
+                        max_attempts=args.max_validation_attempts,
+                        author_name=author_name,
+                        author_credentials=author_credentials,
+                    )
+            generation_report["endpoint_management_used"] = True
+            generation_report["endpoint_session_seconds"] = round(
+                time.monotonic() - endpoint_session_started_at,
+                2,
             )
+            per_minute = os.getenv("TOGETHER_ENDPOINT_COST_PER_MINUTE", "").strip()
+            if per_minute:
+                endpoint_cost = (generation_report["endpoint_session_seconds"] / 60.0) * float(per_minute)
+                generation_report.setdefault("estimated_cost_usd", {})
+                generation_report["estimated_cost_usd"]["endpoint"] = {
+                    "total": round(endpoint_cost, 4),
+                    "currency": "USD",
+                    "cost_per_minute": float(per_minute),
+                    "pricing_source": "env:TOGETHER_ENDPOINT_COST_PER_MINUTE",
+                    "note": "Endpoint uptime cost is separate from token usage.",
+                }
+                token_total = generation_report["estimated_cost_usd"].get("tokens", {}).get("total")
+                if token_total is not None:
+                    generation_report["estimated_cost_usd"]["combined_total"] = round(
+                        token_total + endpoint_cost,
+                        4,
+                    )
+            if revision_mode:
+                generation_report["revision_mode"] = revision_mode
+            tag_generation_report(generation_report, mode="dedicated")
         else:
-            draft, _, generation_report = generate_validated_draft(
-                prompt,
-                model_used,
-                allow_serverless_fallback=True,
-                max_attempts=args.max_validation_attempts,
-                author_name=author_name,
-                author_credentials=author_credentials,
-            )
-        generation_report["endpoint_management_used"] = False
-        if revision_mode:
-            generation_report["revision_mode"] = revision_mode
-        tag_generation_report(generation_report, mode="serverless")
+            if args.no_validation_retry:
+                draft, generation_report = generate_with_together(
+                    prompt,
+                    model_used,
+                    allow_serverless_fallback=True,
+                )
+            else:
+                draft, _, generation_report = generate_validated_draft(
+                    prompt,
+                    model_used,
+                    allow_serverless_fallback=True,
+                    max_attempts=args.max_validation_attempts,
+                    author_name=author_name,
+                    author_credentials=author_credentials,
+                )
+            generation_report["endpoint_management_used"] = False
+            if revision_mode:
+                generation_report["revision_mode"] = revision_mode
+            tag_generation_report(generation_report, mode="serverless")
 
     save_draft_outputs(
         draft=draft,

@@ -1,4 +1,4 @@
-"""Live terminal status lines for long-running write.py stages."""
+"""Live terminal status lines for long-running write_serverless stages."""
 
 from __future__ import annotations
 

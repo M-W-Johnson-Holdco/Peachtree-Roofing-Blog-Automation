@@ -4,16 +4,18 @@ This stage reads `output/sources/search_results.json`, scores each source for
 Peachtree's GEO blog strategy, and writes:
 
 - `output/sources/evaluated_sources.json` for all scored sources
-- `output/sources/kept_sources.json` for sources worth sending to write.py
+- `output/sources/kept_sources.json` for sources worth sending to write_serverless
 
 Run live:
-    python evaluate.py
+    python -m peachtree_blog.pipeline.evaluate
 
 Run without Together credits:
-    python evaluate.py --mock
+    python -m peachtree_blog.pipeline.evaluate --mock
 """
 
 from __future__ import annotations
+
+import peachtree_blog._pycache_prefix  # noqa: F401
 
 from peachtree_blog.paths import PROJECT_ROOT
 
@@ -21,6 +23,7 @@ import argparse
 import json
 import os
 import re
+import time
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
@@ -29,10 +32,15 @@ from typing import Any
 from dotenv import load_dotenv
 
 from peachtree_blog.used_sources import normalize_source_url, source_url, used_source_urls
+from peachtree_blog.write_common import (
+    build_generation_report,
+    extract_usage,
+    print_generation_cost_summary,
+)
 
 
 
-DEFAULT_INPUT_PATH = PROJECT_ROOT / "output" / "sources" / "search_results_all_roofing.json"
+DEFAULT_INPUT_PATH = PROJECT_ROOT / "output" / "sources" / "search_results.json"
 DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "output" / "sources" / "evaluated_sources.json"
 DEFAULT_KEPT_PATH = PROJECT_ROOT / "output" / "sources" / "kept_sources.json"
 PROMPT_PATH = PROJECT_ROOT / "prompts" / "evaluate.txt"
@@ -403,7 +411,7 @@ def evaluate_source_with_together(
     prompt_template: str,
     client: Any,
     model: str,
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], dict[str, int], str | None]:
     response = client.chat.completions.create(
         model=model,
         messages=[
@@ -419,7 +427,10 @@ def evaluate_source_with_together(
     )
     content = response.choices[0].message.content
     evaluation = extract_json_object(content)
-    return normalize_evaluation(evaluation, source)
+    model_returned = getattr(response, "model", None)
+    if model_returned is not None:
+        model_returned = str(model_returned)
+    return normalize_evaluation(evaluation, source), extract_usage(response), model_returned
 
 
 def normalize_score(value: Any) -> int:
@@ -510,23 +521,57 @@ def evaluate_sources(
     *,
     mock: bool = False,
     model: str = DEFAULT_MODEL,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    started = time.perf_counter()
+
     if not sources:
-        return []
+        return [], {"model_used": model if not mock else "mock", "mode": "mock" if mock else "evaluate"}
 
     if mock:
-        return [mock_evaluate_source(source) for source in sources]
+        evaluated = [mock_evaluate_source(source) for source in sources]
+        report = {
+            "model_requested": model,
+            "model_used": "mock",
+            "mode": "mock",
+            "elapsed_seconds": round(time.perf_counter() - started, 2),
+            "api_calls": 0,
+        }
+        return evaluated, report
 
     load_dotenv(PROJECT_ROOT / ".env")
     client = get_together_client()
     prompt_template = load_prompt()
-    evaluated = []
+    evaluated: list[dict[str, Any]] = []
+    total_usage = {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "cached_tokens": 0,
+    }
+    model_returned_by_api: str | None = None
 
     for index, source in enumerate(sources, start=1):
         print(f"[evaluate] Scoring source {index}/{len(sources)}: {source.get('title', 'Untitled')}")
-        evaluated.append(evaluate_source_with_together(source, prompt_template, client, model))
+        item, usage, model_returned = evaluate_source_with_together(
+            source, prompt_template, client, model
+        )
+        evaluated.append(item)
+        for key in total_usage:
+            total_usage[key] += int(usage.get(key) or 0)
+        if model_returned:
+            model_returned_by_api = model_returned
 
-    return evaluated
+    report = build_generation_report(
+        model_requested=model,
+        model_used=model,
+        model_returned_by_api=model_returned_by_api,
+        elapsed_seconds=time.perf_counter() - started,
+        usage=total_usage,
+    )
+    report["mode"] = "evaluate"
+    report["api_calls"] = len(sources)
+    report["validation_attempts"] = len(sources)
+    return evaluated, report
 
 
 def _promote_minimum_kept(item: dict[str, Any]) -> None:
@@ -589,7 +634,12 @@ def main() -> None:
     sources = load_json(args.input)
     print(f"[evaluate] Loaded {len(sources)} source candidates from {args.input}")
 
-    evaluated = evaluate_sources(sources, mock=args.mock, model=args.model)
+    if args.mock:
+        print("[evaluate] Evaluation model: mock (local heuristics, no Together API)")
+    else:
+        print(f"[evaluate] Evaluation model: {args.model}")
+
+    evaluated, run_report = evaluate_sources(sources, mock=args.mock, model=args.model)
     evaluated.sort(key=lambda item: item["weighted_score"], reverse=True)
     kept = ensure_minimum_kept(evaluated)
 
@@ -605,6 +655,13 @@ def main() -> None:
         f"[evaluate] Kept {len(kept)}/{len(evaluated)} sources "
         f"(threshold {KEEP_THRESHOLD}, minimum {MIN_KEPT_SOURCES}"
         f"{f', {promoted} promoted by fallback' if promoted else ''})"
+    )
+
+    model_used = str(run_report.get("model_used") or ("mock" if args.mock else args.model))
+    print_generation_cost_summary(
+        run_report,
+        model_used=model_used,
+        log_prefix="[evaluate]",
     )
 
 

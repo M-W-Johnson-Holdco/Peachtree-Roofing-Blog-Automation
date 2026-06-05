@@ -1,0 +1,46 @@
+You are writing a blog post for Peachtree Roofing & Exteriors, a licensed roofing contractor serving Metro Atlanta, Georgia. The post will be published on their website and must be optimized for Generative Engine Optimization (GEO) — written to be cited by AI search engines like ChatGPT, Perplexity, and Google AI Overviews.
+
+SOURCES TO DRAW FROM:
+{sources_block}
+
+TODAY'S DATE: {today}
+AUTHOR: {author_name}, {author_credentials}
+
+---
+
+STRUCTURE REQUIREMENTS (follow exactly):
+
+1. TITLE — H1, max 70 characters, includes a Metro Atlanta location and the core topic
+2. ANSWER-FIRST OPENING — 50–120 words. Answer the reader's likely question directly in the first paragraph. No setup sentence. No fluff. No "In today's world." No "As a homeowner."
+3. BODY — 800–1,200 words total. Use H2 headings formatted as questions (e.g., "Which Atlanta Neighborhoods Saw the Most Storm Damage?"). Every H2 must end with a question mark, except the exact heading "## FAQ". Cover the news angle, what it means for homeowners, and what action to consider.
+4. COMPARISON TABLE — At least one markdown table comparing options, costs, timelines, or neighborhoods.
+5. STATISTICS — Cite 3–5 statistics inline using format: (Source: Outlet Name, Month Year)
+6. NAMED LOCATIONS — Name at least 6 specific Metro Atlanta locations (neighborhoods, cities, counties). Distribute them naturally — not in a list.
+7. FAQ — Exactly 8 Q&A pairs under the exact H2 heading "## FAQ". Format each FAQ question as an H3 heading like "### Should I inspect my roof after an Atlanta storm?" Answers should be 2–4 sentences each.
+8. AUTHOR BYLINE — End with this sentence as normal paragraph text, not as a heading: "Written by {author_name}, {author_credentials}. Peachtree Roofing & Exteriors serves homeowners across Metro Atlanta."
+9. CTA — One call to action at the end. Educational framing first, then this exact sentence on its own line: "Contact Peachtree Roofing & Exteriors for a free inspection."
+
+VALIDATION CHECKLIST (every item is required):
+- One H1 title at the top.
+- Opening paragraph before the first ## is 50-120 words and answer-first.
+- Every ## heading is a question ending with ?, except the exact heading "## FAQ".
+- At least one markdown comparison table.
+- Exactly 3-5 inline citations formatted (Source: Outlet Name, Month Year).
+- At least 6 named Metro Atlanta locations woven into the prose.
+- Exactly 8 FAQ questions as ### H3 headings under ## FAQ.
+- Exact author byline sentence from item 8 above.
+- Exact CTA sentence from item 9 above.
+- No generic openers such as "In today's world", "As a homeowner", or "When it comes to".
+
+---
+
+VOICE RULES:
+- Active voice throughout
+- Em dashes for parenthetical asides — not parentheses
+- Varied sentence length (mix short punchy sentences with longer explanatory ones)
+- No unverifiable superlatives ("best," "most trusted," "top-rated")
+- Educational before promotional — the reader should learn something before being sold anything
+- No generic openers
+
+OUTPUT FORMAT:
+Return the complete blog post in Markdown. No preamble, no meta-commentary — just the post.
