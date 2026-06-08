@@ -1,83 +1,21 @@
 [
   {
-    "title": "The top 15 states at risk of hurricane damage include some surprises - Business Insider",
-    "url": "https://www.businessinsider.com/top-worst-states-hurricane-damage-risk-2026-5",
-    "strategy_cluster": "roof_safety",
-    "pillar_topic": "Atlanta roof safety, fires, penetrations, structural risk",
-    "trigger_window_hours": 48,
-    "scores": {
-      "local_relevance": 7,
-      "roofing_relevance": 8,
-      "recency": 5,
-      "source_authority": 9,
-      "actionability": 7,
-      "territory_alignment": 8,
-      "semantic_relevance": 6
-    },
-    "model_weighted_score": 7.2,
-    "weighted_score": 7.2,
-    "scoring_adjustments": {
-      "territory_alignment_score": 0,
-      "semantic_relevance_score": 0,
-      "multi_territory_bonus": 0,
-      "off_topic_penalty": 0,
-      "duplicate_topic_penalty": 0,
-      "weighted_score_adjustment": 0.0,
-      "hard_reject_reasons": []
-    },
-    "keep": true,
-    "reason": "Relevant to roof safety and actionability for homeowners in Metro Atlanta.",
-    "recommended_angle": "How can homeowners in Metro Atlanta prepare for hurricane risks and protect their roofs?",
-    "source": {
-      "title": "The top 15 states at risk of hurricane damage include some surprises - Business Insider",
-      "url": "https://www.businessinsider.com/top-worst-states-hurricane-damage-risk-2026-5",
-      "domain": "businessinsider.com",
-      "content": "Number of homes with moderate or greater risk: 768,390\n\nReconstruction cost value: $232.7 billion\n\nMedian home price: $299,000\n\n## 13. Pennsylvania\n\nNumber of homes with moderate or greater risk: 781,797\n\nReconstruction cost value: $360 billion\n\nMedian home price: $308,500\n\n## 12. Connecticut\n\nNumber of homes with moderate or greater risk: 813,066\n\nReconstruction cost value: $426 billion\n\nMedian home price: $445,100\n\n## 11. Georgia\n\nNumber of homes with moderate or greater risk: 836,172\n\nReconstruction cost value: $243.1 billion\n\nMedian home price: $373,700\n\n## 10. Mississippi\n\nNumber of homes with moderate or greater risk: 837,860\n\nReconstruction cost value: $241.8 billion\n\nMedian home price: $265,200\n\n## 9. Virginia\n\nNumber of homes with moderate or greater risk: 1,146,781 [...] As for metropolitan areas, New York City ranks ahead of any Florida city, with a reconstruction cost value of more than $1.9 billion. The metro also has the most homes with a moderate or greater risk of hurricane wind damage.\n\nIn total, more than 32.2 million homes across the United States are at moderate or greater risk from hurricane winds alone, accounting for over $12.26 trillion in reconstruction cost value, according to Cotality.\n\nBelow, see the states where homeowners are at the highest risk of hurricane damage.\n\nMedian home price data is from Redfin.\n\n## 15. Maryland\n\nNumber of homes with moderate or greater risk: 479,881\n\nReconstruction cost value: $179.6 billion\n\nMedian home price: $446,900\n\n## 14. Alabama\n\nNumber of homes with moderate or greater risk: 768,390 [...] Number of homes with moderate or greater risk: 1,146,781\n\nReconstruction cost value: $426.4 billion\n\nMedian home price: $462,400\n\n## 8. South Carolina\n\nNumber of homes with moderate or greater risk: 1,482,345\n\nReconstruction cost value: $476.9 billion\n\nMedian home price: $397,600\n\n## 7. Louisiana\n\nNumber of homes with moderate or greater risk: 1,657,255\n\nReconstruction cost value: $515.7 billion\n\nMedian home price: $260,300\n\n## 6. Massachusetts\n\nNumber of homes with moderate or greater risk: 1,785,383\n\nReconstruction cost value: $1 trillion\n\nMedian home price: $645,400\n\n## 5. New Jersey\n\nNumber of homes with moderate or greater risk: 2,208,651\n\nReconstruction cost value: $1.2 trillion\n\nMedian home price: $545,300\n\n## 4. New York\n\nNumber of homes with moderate or greater risk: 2,213,104",
-      "published_date": "Sat, 30 May 2026 14:33:01 GMT",
-      "tavily_score": 0.04952013,
-      "priority_source": false,
-      "secondary_source": false,
-      "official_source": false,
-      "query": "Atlanta roof collapse structural failure homeowners inspection",
-      "strategy_cluster": "roof_safety",
-      "pillar_topic": "Atlanta roof safety, fires, penetrations, structural risk",
-      "trigger_window_hours": 48,
-      "search_stage": "broad_14_day_news",
-      "search_days": 7,
-      "retrieved_at": "2026-06-05T18:30:31.358625+00:00",
-      "matched_terms": {
-        "local_terms": [
-          "georgia"
-        ],
-        "topic_terms": [
-          "damage",
-          "wind"
-        ],
-        "cluster_terms": [],
-        "scoring_mode": "roofing_keyword_match_only"
-      },
-      "search_quality_score": 3.0,
-      "content_age_days": 6,
-      "scoring_mode": "roofing_keyword_match_only"
-    }
-  },
-  {
     "title": "Georgia Brokers and Agents Alarmed After Court Ruling Expands Liability for Them - Insurance Journal",
     "url": "https://www.insurancejournal.com/news/southeast/2026/06/04/872383.htm",
     "strategy_cluster": "ga_insurance_navigation",
     "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
     "trigger_window_hours": 48,
     "scores": {
-      "local_relevance": 5,
-      "roofing_relevance": 3,
+      "local_relevance": 7,
+      "roofing_relevance": 5,
       "recency": 8,
       "source_authority": 9,
-      "actionability": 4,
-      "territory_alignment": 7,
+      "actionability": 6,
+      "territory_alignment": 8,
       "semantic_relevance": 4
     },
-    "model_weighted_score": 6.0,
-    "weighted_score": 6.0,
+    "model_weighted_score": 6.56,
+    "weighted_score": 6.56,
     "scoring_adjustments": {
       "territory_alignment_score": 0,
       "semantic_relevance_score": 0,
@@ -88,47 +26,111 @@
       "hard_reject_reasons": []
     },
     "keep": true,
-    "reason": "Expands liability for brokers, indirectly affecting roof insurance claims in Georgia.",
-    "recommended_angle": "How does the recent court ruling in Georgia impact homeowners' roof insurance claims?",
+    "reason": "Relevant to insurance brokers and agents, with implications for roofing contractors in Georgia.",
+    "recommended_angle": "How does the recent court ruling in Georgia affect roofing contractors and their insurance policies?",
     "source": {
       "title": "Georgia Brokers and Agents Alarmed After Court Ruling Expands Liability for Them - Insurance Journal",
       "url": "https://www.insurancejournal.com/news/southeast/2026/06/04/872383.htm",
       "domain": "insurancejournal.com",
-      "content": "Here are more articles you may enjoy.\n\nFlorida Supreme Court Posts New Rule on AI Hallucinations in Court Filings\n\nNY Lawmakers Agree to Governor\u2019s Auto Insurance Reforms in New Budget\n\nRoof Costs Soar Even as Claims Decline: Verisk\n\nEntrepreneur\u2019s Suit Says My Safe Florida Home Hurricane Shutters Are Fire Hazards\n\n#### Written By William Rabb\n\nRabb is Southeast Editor for Insurance Journal. He is a long-time newspaper man in the Deep South; also covered workers' comp insurance issues for a trade publication for a few years.\n\n##### Latest Posts:\n\n Florida\u2019s Sypher Insurance Exchange Gets COA and a BBB Strength Rating\n Florida Supreme Court Posts New Rule on AI Hallucinations in Court Filings\n Entrepreneur\u2019s Suit Says My Safe Florida Home Hurricane Shutters Are Fire Hazards [...] The widow, Plummer, settled with HPI. As part of that settlement, HPI assigned its claims against the insurance broker to Plummer. Plummer\u2019s attorneys, from the national firm of Morgan & Morgan, argued that CIA was guilty of negligence and breach of fiduciary duty by failing to obtain a policy or endorsement that would have covered shooting injuries at the store.\n\nA lower court in DeKalb County sided with the insurance broker, finding that the claim was a personal tort, and personal torts are not assignable under Georgia law. The widow appealed, and the appellate judges agreed with her, deciding for the first time in Georgia litigation that the assigned claim was, in fact, a property claim. [...] More From Author\n\n#### Interested in Agencies?\n\nGet automatic alerts for this topic.\n\nEmail This   Subscribe to Newsletter\n\n Categories: Southeast NewsTopics: Agents & Brokers, assigned claims, brokers and agents liability, brokers' errors and omissions policies, Georgia tort reform law 2025, premises liability litigation\n Have a hot lead? Email us at newsdesk@insurancejournal.com\n\n### Insurance Jobs\n\n Large Loss Property Adjuster \u2013 Field Estimating \u2013 Chicago, IL - Chicago, IL\n Property Adjuster \u2013 Field Estimating New Orleans, LA - New Orleans, LA\n Notice of Loss Coordinator \u2013 Auto - Franklin, TN\n Attorney-Represented Bodily Injury Adjuster - Florida, FL\n Claims Adjuster Trainee \u2013 North Carolina - Winston Salem, NC",
+      "content": "More From Author\n\n#### Interested in Agencies?\n\nGet automatic alerts for this topic.\n\nEmail This   Subscribe to Newsletter\n\n Categories: Southeast NewsTopics: Agents & Brokers, assigned claims, brokers and agents liability, brokers' errors and omissions policies, Georgia tort reform law 2025, premises liability litigation\n Have a hot lead? Email us at newsdesk@insurancejournal.com\n\n### Insurance Jobs\n\n Large Loss Property Adjuster \u2013 Field Estimating \u2013 Chicago, IL - Chicago, IL\n Property Adjuster \u2013 Field Estimating New Orleans, LA - New Orleans, LA\n Notice of Loss Coordinator \u2013 Auto - Franklin, TN\n Attorney-Represented Bodily Injury Adjuster - Florida, FL\n Claims Adjuster Trainee \u2013 North Carolina - Winston Salem, NC [...] Here are more articles you may enjoy.\n\nFlorida Supreme Court Posts New Rule on AI Hallucinations in Court Filings\n\nNY Lawmakers Agree to Governor\u2019s Auto Insurance Reforms in New Budget\n\nRoof Costs Soar Even as Claims Decline: Verisk\n\nEntrepreneur\u2019s Suit Says My Safe Florida Home Hurricane Shutters Are Fire Hazards\n\n#### Written By William Rabb\n\nRabb is Southeast Editor for Insurance Journal. He is a long-time newspaper man in the Deep South; also covered workers' comp insurance issues for a trade publication for a few years.\n\n##### Latest Posts:\n\n Florida\u2019s Sypher Insurance Exchange Gets COA and a BBB Strength Rating\n Florida Supreme Court Posts New Rule on AI Hallucinations in Court Filings\n Entrepreneur\u2019s Suit Says My Safe Florida Home Hurricane Shutters Are Fire Hazards [...] The Georgia Supreme Court upheld that decision in 2023.\n\nThe Carmichael rulings triggered panic among insurance carriers in Georgia, and led more insurers to introduce firearms exclusions for thousands of businesses in and around Atlanta, a city with multiple neighborhoods that have been ranked as high in property and violent crimes, according to news reports.",
       "published_date": "Thu, 04 Jun 2026 05:01:50 GMT",
-      "tavily_score": 0.07990414,
+      "tavily_score": 0.07170176,
       "priority_source": false,
       "secondary_source": false,
       "official_source": false,
-      "query": "Georgia actual cash value roof claim homeowners dispute",
+      "query": "Metro Atlanta insurance adjuster roof inspection homeowners",
       "strategy_cluster": "ga_insurance_navigation",
       "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
       "trigger_window_hours": 48,
       "search_stage": "broad_14_day_news",
       "search_days": 7,
-      "retrieved_at": "2026-06-05T18:30:27.462921+00:00",
+      "retrieved_at": "2026-06-08T15:13:36.658226+00:00",
       "matched_terms": {
         "local_terms": [
-          "dekalb",
           "georgia"
         ],
         "topic_terms": [
-          "claim",
           "fire",
           "insurance",
           "roof"
         ],
         "cluster_terms": [
-          "claim",
-          "endorsement",
           "insurance",
-          "policy",
           "roof"
         ],
         "scoring_mode": "roofing_keyword_match_only"
       },
-      "search_quality_score": 11.0,
-      "content_age_days": 1,
+      "search_quality_score": 6.0,
+      "content_age_days": 4,
+      "scoring_mode": "roofing_keyword_match_only"
+    }
+  },
+  {
+    "title": "Florida's 2024 Hurricane Season Cost Billions in Claims, and Reece Windows & Doors Sees Surge in Demand for Impact Windows Across Jacksonville, Tampa, and Orlando",
+    "url": "https://markets.businessinsider.com/news/stocks/florida-s-2024-hurricane-season-cost-billions-in-claims-and-reece-windows-doors-sees-surge-in-demand-for-impact-windows-across-jacksonville-tampa-and-orlando-1036229924",
+    "strategy_cluster": "ga_insurance_navigation",
+    "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
+    "trigger_window_hours": 48,
+    "scores": {
+      "local_relevance": 2,
+      "roofing_relevance": 5,
+      "recency": 8,
+      "source_authority": 7,
+      "actionability": 6,
+      "territory_alignment": 3,
+      "semantic_relevance": 4
+    },
+    "model_weighted_score": 5.28,
+    "weighted_score": 5.28,
+    "scoring_adjustments": {
+      "territory_alignment_score": 0,
+      "semantic_relevance_score": 0,
+      "multi_territory_bonus": 0,
+      "off_topic_penalty": 0,
+      "duplicate_topic_penalty": 0,
+      "weighted_score_adjustment": 0.0,
+      "hard_reject_reasons": []
+    },
+    "keep": true,
+    "reason": "Insufficient local relevance and territory alignment Kept by minimum-kept fallback (top 2 by weighted_score despite threshold 6.0).",
+    "recommended_angle": "How does this Georgia insurance update affect roof repair or replacement claims?",
+    "source": {
+      "title": "Florida's 2024 Hurricane Season Cost Billions in Claims, and Reece Windows & Doors Sees Surge in Demand for Impact Windows Across Jacksonville, Tampa, and Orlando - markets.businessinsider.com",
+      "url": "https://markets.businessinsider.com/news/stocks/florida-s-2024-hurricane-season-cost-billions-in-claims-and-reece-windows-doors-sees-surge-in-demand-for-impact-windows-across-jacksonville-tampa-and-orlando-1036229924",
+      "domain": "markets.businessinsider.com",
+      "content": "Jacksonville, Florida, United States, June 6, 2026 -- Florida's 2024 hurricane season was one of the most active on record. Storms Debby, Helene, and Milton all made landfall within months of each other. As per reports on Earth.Org, hurricanes Milton and Helene led to $60 billion and $55 billion in damage, respectively. The financial impact on Florida homeowners was severe. Insurance premiums rose, and deductibles increased. Many homeowners discovered their coverage fell short when they needed it most. For many families, the storms exposed just how financially vulnerable homeownership can become in the face of increasingly severe weather events. [...] Insurance costs remain high. However, homeowners who upgrade to certified impact windows can qualify for meaningful premium reductions. That financial pressure is driving action. Florida homeowners in Jacksonville are accelerating plans to upgrade aging windows and doors before the next storm season. The calculation is straightforward for many. Property owners know the cost of a window upgrade. They can risk abandoning upgrades since the cost of storm damage or a denied insurance claim can be very high. Upgrading before the season begins is the only way to qualify for coverage and wind-mitigation discounts before a claim is needed. [...] My Markets Watchlist\n\nMarkets   News\n\n# Florida's 2024 Hurricane Season Cost Billions in Claims, and Reece Windows & Doors Sees Surge in Demand for Impact Windows Across Jacksonville, Tampa, and Orlando\n\nPRESS RELEASE Plentisoft\n\nJun. 5, 2026, 08:23 PM\n\nFlorida's 2024 hurricane season left homeowners facing higher premiums, tighter coverage, and a clearer understanding of storm risk. In response, demand for impact-resistant window upgrades is growing across Florida, and Reece Windows & Doors is positioned to meet it.",
+      "published_date": "Sat, 06 Jun 2026 01:56:18 GMT",
+      "tavily_score": 0.08182022,
+      "priority_source": false,
+      "secondary_source": false,
+      "official_source": false,
+      "query": "Georgia roof insurance deductible percentage homeowners storm",
+      "strategy_cluster": "ga_insurance_navigation",
+      "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
+      "trigger_window_hours": 48,
+      "search_stage": "broad_14_day_news",
+      "search_days": 7,
+      "retrieved_at": "2026-06-08T15:13:38.499531+00:00",
+      "matched_terms": {
+        "local_terms": [
+          "milton"
+        ],
+        "topic_terms": [
+          "claim",
+          "damage",
+          "insurance",
+          "storm",
+          "weather",
+          "wind"
+        ],
+        "cluster_terms": [
+          "claim",
+          "insurance"
+        ],
+        "scoring_mode": "roofing_keyword_match_only"
+      },
+      "search_quality_score": 9.0,
+      "content_age_days": 2,
       "scoring_mode": "roofing_keyword_match_only"
     }
   }

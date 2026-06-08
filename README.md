@@ -13,6 +13,7 @@ blog-automation/
 ├── src/peachtree_blog/          # Application code
 │   ├── paths.py                 # Repo root + output/prompt paths
 │   ├── used_sources.py          # Shared source URL tracking
+│   ├── draft_approval.py        # Approval metadata in validation JSON; approved/ moves
 │   ├── cli_progress.py          # Terminal progress helpers
 │   ├── draft_pdf.py             # Markdown → PDF
 │   ├── write_common.py          # Prompts, validation, Together helpers
@@ -22,7 +23,7 @@ blog-automation/
 ├── pipeline.py                  # Entry: interactive menu (``--all`` for full run)
 ├── prompts/                     # LLM prompt templates
 ├── feedback/                    # Standing style notes
-├── output/                      # Generated JSON, drafts, approvals (gitignored)
+├── output/                      # Generated JSON, drafts, approved (gitignored)
 └── scripts/                     # Shell helpers
 ```
 
@@ -118,7 +119,7 @@ The search plan is organized around the four topical territories from the strate
 12. Applies cluster-specific gates so storm, insurance, roof-safety, and county-guide results each prove the right kind of relevance.
 13. Blocks common false positives like sports, car insurance, liability-only legal stories, shootings, and election/runoff articles.
 14. Adds strategy metadata to each result, including `strategy_cluster`, `pillar_topic`, `trigger_window_hours`, `search_stage`, `search_quality_score`, and `matched_terms`.
-15. Skips source URLs already recorded in `output/sources/used_sources.json` from previous blog drafts.
+15. Skips source URLs already recorded in `output/sources/used_sources.json` from previously approved (published) blogs.
 16. Saves the final result list to `output/sources/search_results.json`.
 
 Run it with:
@@ -230,19 +231,19 @@ Search scoring now includes:
 - Actionability scoring for homeowner next-step language.
 - Negative scoring for sports, politics, unrelated insurance, crime-only stories, and generic local news.
 - Duplicate-topic penalties when a source overlaps a draft topic from the past 30 days.
-- Permanent URL blocking via `output/sources/used_sources.json` so previously used story URLs are skipped in future searches.
+- Permanent URL blocking via `output/sources/used_sources.json` so story URLs from approved blogs are skipped in future searches.
 
 Candidates must reach `--min-quality-score` (default: 7.5) to be kept. Lower it with `--min-quality-score 6` if a quiet news week returns too few results.
 
 ### Used Source Registry
 
-When `write_serverless.py` saves a draft, the selected source URLs are appended to:
+When a draft is **approved in Slack** (`approve_listen.py` ✅ reaction), its source URLs are appended to:
 
 ```text
 output/sources/used_sources.json
 ```
 
-The next `search.py` run skips those URLs automatically. `evaluate.py` also hard-rejects them as a backup if an old search file still contains them.
+Drafts that were only written but not approved do not block future searches. The next `search.py` run skips approved-source URLs automatically. `evaluate.py` also hard-rejects them as a backup if an old search file still contains them.
 
 Useful commands:
 
@@ -250,7 +251,10 @@ Useful commands:
 # List recorded used sources
 conda run -n blog-automation python used_sources.py --list
 
-# Seed the registry from an existing kept-sources file (one-time backfill)
+# Backfill from an already-approved draft's validation JSON
+conda run -n blog-automation python used_sources.py --seed-validation output/drafts/drafts_json/<draft>-validation.json
+
+# Seed the registry from a kept-sources file (manual override)
 conda run -n blog-automation python used_sources.py --seed output/sources/kept_sources.json
 
 # Allow previously used URLs again for one search run
@@ -444,7 +448,7 @@ The validator is intentionally strict. A failed validation does not mean the fil
 
 ## Slack Approval
 
-The approval stage lives in `approve_listen.py`. It can post the newest generated draft to Slack, save an approval record under `output/approvals/`, and listen for approval reactions and thread feedback.
+The approval stage lives in `approve_listen.py`. It posts the newest generated draft to Slack, stores approval state inside each draft's `*-validation.json` under `output/drafts/drafts_json/`, and listens for approval reactions and thread feedback. When a draft is approved, its `.md`, `.pdf`, and validation JSON move to `output/approved/` (same `drafts_md/`, `drafts_pdf/`, `drafts_json/` layout).
 
 ### Slack App Setup
 
@@ -506,13 +510,21 @@ Or post a specific draft:
 conda run -n blog-automation python -m peachtree_blog.pipeline.approve_listen post output/drafts/drafts_md/example.md
 ```
 
-The message asks reviewers to react with `:white_check_mark:` to approve or `:x:` to request revisions on the **intro message** (not the PDF thread reply). The bot pre-adds those reactions so reviewers can click one to register their decision.
+The message asks reviewers to react on the **intro message** (not the PDF thread reply):
 
-Posting creates a JSON approval record like:
+- `:white_check_mark:` — approve (records sources in `used_sources.json`)
+- `:x:` — request revisions (reply in thread with feedback)
+- `:repeat:` (🔁) — discard the draft and rerun **search → evaluate → write**, then post a new draft for approval
+
+The bot pre-adds those reaction prompts on the intro message.
+
+Posting updates the draft validation JSON with an `approval` block (Slack channel, message timestamp, status, feedback, etc.):
 
 ```text
-output/approvals/YYYY-MM-DD-HHMMSS-title-slug.json
+output/drafts/drafts_json/YYYY-MM-DD-HHMMSS-title-slug-validation.json
 ```
+
+After approval, the same files live under `output/approved/`.
 
 To post and immediately start listening for reactions in one command:
 
@@ -536,12 +548,12 @@ Run the Socket Mode listener:
 conda run -n blog-automation python -m peachtree_blog.pipeline.approve_listen listen
 ```
 
-When a reviewer reacts with `:white_check_mark:` on the **intro message** (not the PDF thread reply), the approval JSON status changes to `approved` and the bot replies in the thread.
+When a reviewer reacts with `:white_check_mark:` on the **intro message** (not the PDF thread reply), the validation JSON `approval.status` changes to `approved`, the draft moves to `output/approved/`, and the bot replies in the thread.
 
-When a reviewer reacts with `:x:`, the bot asks for feedback in the Slack thread. The next human thread reply is saved into the approval JSON and `write_serverless.py` is rerun with:
+When a reviewer reacts with `:x:`, the bot asks for feedback in the Slack thread. The next human thread reply is saved into the validation JSON and `write_serverless.py` is rerun with:
 
 ```bash
-python -m peachtree_blog.pipeline.write_serverless --feedback-json output/approvals/example.json
+python -m peachtree_blog.pipeline.write_serverless --feedback-json output/drafts/drafts_json/example-validation.json
 ```
 
 The revised draft is then posted back to Slack for another approval round. To collect feedback without automatically rewriting, run:
@@ -549,6 +561,25 @@ The revised draft is then posted back to Slack for another approval round. To co
 ```bash
 conda run -n blog-automation python -m peachtree_blog.pipeline.approve_listen listen --no-auto-rewrite
 ```
+
+### Clear Bot Messages From The Approval Channel
+
+The bot can only delete **its own** messages (intro posts, PDF uploads, thread replies like “Approved by…”). Human messages and other apps are left untouched.
+
+Preview what would be removed:
+
+```bash
+conda run -n blog-automation python -m peachtree_blog.pipeline.approve_listen clear-channel --dry-run
+```
+
+Delete after confirmation (or pass `--yes`):
+
+```bash
+conda run -n blog-automation python -m peachtree_blog.pipeline.approve_listen clear-channel
+conda run -n blog-automation python -m peachtree_blog.pipeline.approve_listen clear-channel --yes
+```
+
+Uses `SLACK_APPROVAL_CHANNEL` from `.env`. Requires `channels:history` (or `groups:history` for private channels) and `chat:write`.
 
 ### Pipeline Posting
 

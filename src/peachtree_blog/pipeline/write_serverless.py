@@ -126,23 +126,24 @@ def infer_model_from_feedback_json(feedback_json: Path) -> str | None:
     with feedback_json.open("r", encoding="utf-8") as handle:
         record: dict[str, Any] = json.load(handle)
 
-    draft_path = resolve_replace_draft_path(record)
-    if not draft_path:
-        return None
-
-    validation_path = draft_validation_json_path(draft_path)
-    if not validation_path.is_file():
-        return None
-
-    with validation_path.open("r", encoding="utf-8") as handle:
-        validation = json.load(handle)
+    if feedback_json.name.endswith("-validation.json"):
+        validation = record
+    else:
+        draft_path = resolve_replace_draft_path(record)
+        if not draft_path:
+            return None
+        validation_path = draft_validation_json_path(draft_path)
+        if not validation_path.is_file():
+            return None
+        with validation_path.open("r", encoding="utf-8") as handle:
+            validation = json.load(handle)
 
     generation = validation.get("generation", {})
     if not isinstance(generation, dict):
         return None
 
     model_used = str(generation.get("model_used") or "").strip()
-    return model_used or None
+    return model_used or validation.get("model") or None
 
 
 def resolve_writing_model(
@@ -200,7 +201,7 @@ def main() -> None:
     parser.add_argument(
         "--feedback-json",
         type=Path,
-        help="Optional Slack approval JSON whose feedback should be applied to this rewrite.",
+        help="Draft validation JSON (drafts_json/*-validation.json) whose Slack feedback should be applied.",
     )
     parser.add_argument(
         "--revision-mode",

@@ -7,7 +7,7 @@ import peachtree_blog._pycache_prefix  # noqa: F401
 import argparse
 
 from peachtree_blog.pipeline.approve_listen import run_approve_post_and_listen
-from peachtree_blog.pipeline.runner import run_module, run_modules
+from peachtree_blog.pipeline.runner import run_module, run_modules, run_pipeline_restart
 from peachtree_blog.paths import PROJECT_ROOT
 from dotenv import load_dotenv
 
@@ -63,14 +63,11 @@ def run_interactive_menu() -> None:
 
 
 def run_full_pipeline(*, send_to_slack: bool) -> None:
-    stages: list[tuple[str, tuple[str, ...]]] = [
-        ("search", ()),
-        ("evaluate", ()),
-        ("write_serverless", ()),
-    ]
+    code = run_pipeline_restart()
+    if code != 0:
+        raise SystemExit(code)
     if send_to_slack:
-        stages.append(("approve_listen", ("post", "--latest")))
-    run_modules(stages)
+        run_module("approve_listen", "post", "--latest")
     print("[pipeline] Pipeline completed successfully")
 
 

@@ -1,4 +1,4 @@
-"""Track blog source URLs so search can skip stories already used in drafts."""
+"""Track blog source URLs so search can skip stories used in approved (published) blogs."""
 
 from __future__ import annotations
 
@@ -89,7 +89,7 @@ def record_used_sources(
     runner: str,
     path: Path = DEFAULT_USED_SOURCES_PATH,
 ) -> list[dict[str, Any]]:
-    """Append or update registry entries for sources used in a draft."""
+    """Append or update registry entries for sources used in an approved blog draft."""
     now = datetime.now(timezone.utc).isoformat()
     draft_path_str = str(draft_path)
     records = load_used_sources(path)
@@ -130,6 +130,28 @@ def record_used_sources(
     return updated
 
 
+def seed_used_sources_from_validation_json(
+    validation_path: Path,
+    *,
+    runner: str = "seed-validation",
+    path: Path = DEFAULT_USED_SOURCES_PATH,
+) -> int:
+    """Record sources from a draft validation JSON (e.g. already-approved blog)."""
+    with validation_path.open("r", encoding="utf-8") as handle:
+        report = json.load(handle)
+    if not isinstance(report, dict):
+        raise ValueError(f"Expected a JSON object in {validation_path}")
+
+    draft_path = report.get("draft_path") or f"seeded-from:{validation_path.name}"
+    updated = record_used_sources_from_validation_report(
+        report,
+        draft_path=draft_path,
+        runner=runner,
+        path=path,
+    )
+    return len(updated)
+
+
 def seed_used_sources_from_file(
     sources_path: Path,
     *,
@@ -150,6 +172,25 @@ def seed_used_sources_from_file(
         path=path,
     )
     return len(updated)
+
+
+def record_used_sources_from_validation_report(
+    validation_report: dict[str, Any],
+    *,
+    draft_path: str | Path,
+    runner: str,
+    path: Path = DEFAULT_USED_SOURCES_PATH,
+) -> list[dict[str, Any]]:
+    """Record sources listed in a draft validation JSON after Slack approval."""
+    sources = validation_report.get("sources_used")
+    if not isinstance(sources, list) or not sources:
+        return []
+    return record_used_sources(
+        sources,
+        draft_path=draft_path,
+        runner=runner,
+        path=path,
+    )
 
 
 def sources_used_payload(selected_sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -181,7 +222,17 @@ def main() -> None:
         type=Path,
         help="Record every URL from a kept/evaluated sources JSON file.",
     )
+    parser.add_argument(
+        "--seed-validation",
+        type=Path,
+        help="Record sources from a draft validation JSON (approved blog backfill).",
+    )
     args = parser.parse_args()
+
+    if args.seed_validation:
+        count = seed_used_sources_from_validation_json(args.seed_validation)
+        print(f"[used_sources] Recorded {count} source URL(s) from {args.seed_validation}")
+        return
 
     if args.seed:
         count = seed_used_sources_from_file(args.seed)

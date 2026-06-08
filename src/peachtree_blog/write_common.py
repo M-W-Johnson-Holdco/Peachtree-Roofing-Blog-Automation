@@ -15,7 +15,7 @@ from typing import Any
 from dotenv import load_dotenv
 
 from peachtree_blog.cli_progress import run_with_progress
-from peachtree_blog.used_sources import normalize_source_url, record_used_sources, sources_used_payload, used_source_urls
+from peachtree_blog.used_sources import normalize_source_url, sources_used_payload, used_source_urls
 from peachtree_blog.draft_pdf import save_draft_pdf
 
 
@@ -45,27 +45,44 @@ TOGETHER_MODEL_PRICING_PER_MILLION: dict[str, dict[str, float]] = {
 
 METRO_LOCATIONS = [
     "Atlanta",
-    "Fulton",
-    "DeKalb",
-    "Cobb",
-    "Gwinnett",
-    "Cherokee",
-    "Henry",
-    "Buckhead",
-    "Midtown",
-    "Marietta",
     "Alpharetta",
-    "Dunwoody",
-    "Woodstock",
-    "East Cobb",
-    "Vinings",
+    "Brookhaven",
+    "Buckhead",
     "Chamblee",
-    "Sandy Springs",
-    "Roswell",
+    "Cherokee",
+    "Cobb",
+    "Conyers",
     "Decatur",
+    "DeKalb",
+    "Duluth",
+    "Dunwoody",
+    "East Cobb",
+    "Fayette County",
+    "Fulton",
+    "Gwinnett",
+    "Henry",
+    "Johns Creek",
+    "Kennesaw",
     "Lawrenceville",
+    "Lithonia",
+    "Marietta",
+    "Midtown",
+    "Norcross",
+    "Peachtree City",
+    "Roswell",
+    "Sandy Springs",
     "Smyrna",
+    "Stone Mountain",
+    "Suwanee",
+    "Tucker",
+    "Vinings",
+    "Woodstock",
 ]
+
+
+def format_metro_locations_list() -> str:
+    """Comma-separated allowlist injected into the write prompt; must match METRO_LOCATIONS."""
+    return ", ".join(METRO_LOCATIONS)
 
 GENERIC_OPENERS = [
     "In today's world",
@@ -246,7 +263,9 @@ def format_approval_feedback_lines(feedback_texts: list[str]) -> str:
 
 
 def classify_revision_mode_from_record(record: dict[str, Any]) -> tuple[str, str]:
-    return classify_revision_mode(feedback_items_to_texts(record.get("feedback", [])))
+    approval = record.get("approval") if isinstance(record.get("approval"), dict) else {}
+    feedback_source = approval.get("feedback") if approval.get("feedback") is not None else record.get("feedback", [])
+    return classify_revision_mode(feedback_items_to_texts(feedback_source))
 
 
 def update_record_revision_mode(record: dict[str, Any]) -> tuple[str, str]:
@@ -271,7 +290,9 @@ def load_approval_rewrite_context(path: Path | None) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as f:
         data = json.load(f)
 
-    feedback_texts = feedback_items_to_texts(data.get("feedback", []))
+    approval = data.get("approval") if isinstance(data.get("approval"), dict) else {}
+    feedback_source = approval.get("feedback") if approval.get("feedback") is not None else data.get("feedback", [])
+    feedback_texts = feedback_items_to_texts(feedback_source)
     approval_feedback = format_approval_feedback_lines(feedback_texts)
     revision_mode, revision_mode_reason = classify_revision_mode(feedback_texts)
 
@@ -296,6 +317,15 @@ def load_approval_rewrite_context(path: Path | None) -> dict[str, Any]:
 
 def resolve_replace_draft_path(record: dict[str, Any]) -> Path | None:
     """Return the draft file that a rewrite should replace, if known."""
+    approval = record.get("approval") if isinstance(record.get("approval"), dict) else {}
+    for key in ("revision_draft_path",):
+        draft_rel = str(approval.get(key, "")).strip()
+        if draft_rel:
+            draft_path = Path(draft_rel)
+            if not draft_path.is_absolute():
+                draft_path = PROJECT_ROOT / draft_path
+            if draft_path.is_file():
+                return draft_path
     for key in ("revision_draft_path", "draft_path"):
         draft_rel = str(record.get(key, "")).strip()
         if not draft_rel:
@@ -313,8 +343,12 @@ def persist_revision_mode_to_approval_json(path: Path, mode: str, reason: str) -
         return
     with path.open("r", encoding="utf-8") as f:
         data = json.load(f)
-    data["revision_mode"] = mode
-    data["revision_mode_reason"] = reason
+    approval = data.setdefault("approval", {})
+    if not isinstance(approval, dict):
+        approval = {}
+        data["approval"] = approval
+    approval["revision_mode"] = mode
+    approval["revision_mode_reason"] = reason
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
@@ -455,7 +489,7 @@ def validation_checklist_block(author_name: str, author_credentials: str) -> str
         "- Every ## heading is a question ending with ?, except the exact heading `## FAQ`.\n"
         "- At least one markdown comparison table.\n"
         "- Exactly 3-5 inline citations formatted `(Source: Outlet Name, Month Year)`.\n"
-        "- At least 6 named Metro Atlanta locations woven into the prose.\n"
+        f"- At least 6 different location names from this allowlist woven into the prose: {format_metro_locations_list()}.\n"
         "- Exactly 8 FAQ questions as ### H3 headings under `## FAQ` (answers 3-5 sentences each).\n"
         f'- Exact author byline: "Written by {author_name}, {author_credentials}. Peachtree Roofing & Exteriors serves homeowners across Metro Atlanta."\n'
         '- Exact CTA: "Contact Peachtree Roofing & Exteriors for a free inspection."\n'
@@ -482,6 +516,7 @@ def build_first_draft_prompt(
         today=date.today().isoformat(),
         author_name=author_name,
         author_credentials=author_credentials,
+        metro_locations_list=format_metro_locations_list(),
     )
 
     checklist = validation_checklist_block(author_name, author_credentials)
@@ -493,7 +528,10 @@ def build_first_draft_prompt(
         "---\n\n"
         "IMPORTANT SOURCE USE RULES:\n"
         "- Do not invent facts, statistics, dates, credentials, review counts, project counts, or license numbers.\n"
-        "- Use exactly 3 to 5 cited statistics from the provided sources.\n"
+        "- Do not name court cases, legislation, or policy exclusions unless they appear explicitly in SOURCES.\n"
+        "- Do not introduce unrelated regulatory topics (e.g., firearms exclusions in a roof-insurance post).\n"
+        "- Before outputting, silently re-read the draft against SOURCES and fix fabrications, uncited numbers, and story-type mismatches.\n"
+        "- Use exactly 3 to 5 cited statistics from the provided sources; spread citations across outlets when multiple sources are provided.\n"
         "- Keep all headings and FAQ questions in question format.\n"
         "- Use the exact FAQ format: ## FAQ, then exactly eight H3 question headings and 3-5 sentence answers.\n"
         "- After the opening paragraph, include the Quick Answer block with all four labeled lines.\n"
@@ -1074,7 +1112,7 @@ VALIDATION_CHECK_HINTS: dict[str, str] = {
         "Include exactly 3-5 inline citations formatted `(Source: Outlet Name, Month Year)`."
     ),
     "location_count_at_least_6": (
-        "Name at least 6 Metro Atlanta locations naturally in the prose, such as Atlanta, Cobb, Marietta, Decatur, Sandy Springs, and Gwinnett."
+        f"Name at least 6 different locations from this allowlist naturally in the prose: {format_metro_locations_list()}."
     ),
     "faq_exactly_8": (
         "Under the exact heading `## FAQ`, include exactly 8 H3 question headings ending with ? and 3-5 sentence answers."
@@ -1476,14 +1514,6 @@ def save_draft_outputs(
     if not report["passed"]:
         failed = [name for name, passed in report["checks"].items() if not passed]
         print(f"{log} Failed checks: {', '.join(failed)}")
-
-    recorded = record_used_sources(
-        selected_sources,
-        draft_path=draft_path,
-        runner=write_runner_name(),
-    )
-    if recorded:
-        print(f"{log} Recorded {len(recorded)} used source URL(s) in output/sources/used_sources.json")
 
     return report
 

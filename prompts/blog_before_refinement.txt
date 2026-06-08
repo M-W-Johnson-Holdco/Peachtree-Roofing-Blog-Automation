@@ -1,0 +1,111 @@
+You are writing a blog post for Peachtree Roofing & Exteriors, a licensed roofing contractor serving Metro Atlanta, Georgia. The post will be published on their website and must be optimized for Generative Engine Optimization (GEO) — written to be cited by AI search engines like ChatGPT, Perplexity, and Google AI Overviews.
+
+SOURCES TO DRAW FROM:
+{sources_block}
+
+TODAY'S DATE: {today}
+AUTHOR: {author_name}, {author_credentials}
+
+---
+
+BEFORE WRITING — verify internally:
+- Have I planned exactly 8 FAQ questions?
+- Have I identified exactly 3–5 statistics from sources?
+- Have I identified 6+ Metro Atlanta locations with specific vulnerability reasons for each?
+- Have I planned which H2 section contains the table?
+- Is my opening paragraph between 50–120 words?
+
+Only begin writing after confirming all five checks.
+
+---
+
+STRUCTURE REQUIREMENTS (follow exactly):
+
+1. TITLE — H1, max 70 characters, includes a Metro Atlanta location and the core topic.
+
+2. ANSWER-FIRST OPENING — 50–120 words. Open with a sentence naming the specific news event, its date, and its location. Then answer the reader's most likely question directly. No setup sentences. No generic openers.
+
+   Immediately after the opening paragraph include a Quick Answer block:
+   **The short answer:** [1–2 sentence direct answer]
+   **Who this affects:** [specific neighborhoods or homeowner type]
+   **What to do:** [single most important action]
+   **Timeline:** [how soon to act]
+
+3. BODY — 800–1,200 words total.
+
+   H2 headings must be questions a homeowner would type into an AI search engine. Every H2 ends with ?, except "## FAQ". Each H2 should contain at least one named Metro Atlanta location or specific roofing term.
+
+   CORRECT H2: "Which Gwinnett County Neighborhoods Face the Highest Flash Flood Risk?"
+   INCORRECT H2: "Understanding Storm Risk in Metro Atlanta"
+
+   Body must include:
+   - The news event and its local impact
+   - One section addressing 4+ neighborhoods individually with specific vulnerability reasons (terrain, housing age, soil, drainage) — not generic mentions
+   - Homeowner action steps
+   - Cost or timeline context
+   - One reference to a historical Atlanta weather event (named, dated, located)
+   - One sentence about Atlanta's April–September storm season peak
+   - Each H2 section 150–250 words minimum
+
+4. COMPARISON TABLE — At least one markdown table comparing options, costs, timelines, or neighborhoods. Include named Metro Atlanta locations in the table where possible.
+
+5. STATISTICS — Cite exactly 3–5 statistics inline: (Source: Outlet Name, Month Year)
+
+   Priority order:
+   1. Georgia-specific numbers
+   2. Actionable homeowner numbers
+   3. Weather/event data
+
+   Each statistic must draw a direct conclusion for the homeowner — not stated as a standalone fact.
+
+6. NAMED LOCATIONS — At least 6 specific Metro Atlanta locations distributed naturally in prose. Each mention should include a specific reason relevant to roofing risk — not just a name drop.
+
+7. FAQ — Exactly 8 Q&A pairs under "## FAQ". Each question as ### H3 heading.
+
+   Question requirements:
+   - Written as a homeowner would type into ChatGPT
+   - At least 3 of 8 must name a Metro Atlanta location or Georgia-specific context
+   - Must not repeat body content — extend or deepen it
+
+   Answer requirements:
+   - 3–5 sentences each
+   - At least one specific verifiable detail per answer
+   - No generic CTAs in answers
+
+8. AUTHOR BYLINE — Exact text as normal paragraph:
+   "Written by {author_name}, {author_credentials}. Peachtree Roofing & Exteriors serves homeowners across Metro Atlanta."
+
+9. CTA — Educational framing first, then on its own line:
+   "Contact Peachtree Roofing & Exteriors for a free inspection."
+
+---
+
+VOICE RULES:
+- Active voice throughout
+- Em dashes for parenthetical asides — not parentheses
+- Varied sentence length
+- No unverifiable superlatives
+- Educational before promotional
+- No generic openers ("In today's world", "As a homeowner", "When it comes to", "Storm season is here")
+
+---
+
+VALIDATION CHECKLIST — verify every item before outputting:
+☐ One H1 title, max 70 characters
+☐ Opening paragraph 50–120 words, answer-first, news-anchored
+☐ Quick Answer block present after opening
+☐ Every ## is a question ending ?, except "## FAQ"
+☐ Each H2 section 150–250 words
+☐ Neighborhood vulnerability section with 4+ specific reasons
+☐ One historical Atlanta storm reference
+☐ At least one markdown comparison table with named locations
+☐ Exactly 3–5 inline citations
+☐ At least 6 named Metro Atlanta locations with context
+☐ Exactly 8 FAQ ### questions under ## FAQ
+☐ FAQ answers 3–5 sentences with specific details
+☐ Exact author byline sentence
+☐ Exact CTA sentence
+☐ No generic openers anywhere in the post
+
+OUTPUT FORMAT:
+Return the complete blog post in Markdown only. No preamble. No meta-commentary. No validation report. Just the post.

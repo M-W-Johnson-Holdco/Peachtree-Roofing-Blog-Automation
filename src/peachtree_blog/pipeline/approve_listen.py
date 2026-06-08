@@ -7,10 +7,17 @@ Subcommands:
     python -m peachtree_blog.pipeline.approve_listen post --latest
     python -m peachtree_blog.pipeline.approve_listen post --latest --then-listen
     python -m peachtree_blog.pipeline.approve_listen listen
+    python -m peachtree_blog.pipeline.approve_listen clear-channel --dry-run
+    python -m peachtree_blog.pipeline.approve_listen clear-channel --yes
 
 While listening, type ``e`` + Enter to stop and return to the ``pipeline.py`` menu.
 
 Posting uploads the existing PDF from `output/drafts/drafts_pdf/`. Run write first.
+
+Slack reactions on the approval message:
+- :white_check_mark: — approve (records sources in used_sources.json)
+- :x: — request revisions (reply in thread with feedback)
+- :repeat: — discard and rerun search → evaluate → write → post new draft
 
 Required: SLACK_APPROVAL_BOT_TOKEN, SLACK_APPROVAL_CHANNEL, SLACK_APPROVAL_TOKEN (listen).
 """
@@ -38,24 +45,51 @@ from peachtree_blog.pipeline.runner import (
     DEFAULT_REWRITE_MODULE_KEY,
     build_module_command,
     pipeline_subprocess_env,
+    run_pipeline_restart,
 )
 from peachtree_blog.pipeline.write_serverless import model_label, resolve_writing_model
+from peachtree_blog.draft_approval import (
+    APPROVAL_STATUS_APPROVED,
+    APPROVAL_STATUS_FEEDBACK_RECEIVED,
+    APPROVAL_STATUS_NEEDS_FEEDBACK,
+    APPROVAL_STATUS_PIPELINE_RESTART_IN_PROGRESS,
+    APPROVAL_STATUS_REVISION_GENERATED,
+    APPROVED_OUTPUT_DIR,
+    append_feedback as append_validation_feedback,
+    approval_status,
+    clear_approval_status as clear_validation_approval_status,
+    clear_rejection_status as clear_validation_rejection_status,
+    find_validation_for_slack_message,
+    get_approval_block,
+    load_validation_report,
+    mark_approval_status,
+    new_approval_block,
+    relocate_draft_artifacts,
+    resolve_draft_path_from_report,
+    save_validation_report,
+)
+from peachtree_blog.used_sources import record_used_sources_from_validation_report
 from peachtree_blog.write_common import (
     DEFAULT_OUTPUT_DIR,
     draft_pdf_path,
     draft_validation_json_path,
     format_generation_slack_lines,
     latest_markdown_draft,
+    resolve_drafts_root,
     update_record_revision_mode,
 )
 
-
+APPROVE_RUNNER = "peachtree_blog.pipeline.approve_listen"
 
 DEFAULT_DRAFT_DIR = DEFAULT_OUTPUT_DIR
-DEFAULT_APPROVAL_DIR = PROJECT_ROOT / "output" / "approvals"
 REWRITE_MODULE_KEY = DEFAULT_REWRITE_MODULE_KEY
 APPROVE_REACTIONS = {"white_check_mark", "heavy_check_mark"}
 REJECT_REACTIONS = {"x", "negative_squared_cross_mark"}
+RESTART_REACTIONS = {"repeat"}
+PIPELINE_RESTART_BLOCK_STATUSES = {
+    APPROVAL_STATUS_PIPELINE_RESTART_IN_PROGRESS,
+    APPROVAL_STATUS_APPROVED,
+}
 IGNORE_MESSAGE_SUBTYPES = {
     "bot_message",
     "message_changed",
@@ -69,21 +103,6 @@ IGNORE_MESSAGE_SUBTYPES = {
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
-
-
-def load_json(path: Path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8") as f:
-        data = json.load(f)
-    if not isinstance(data, dict):
-        raise ValueError(f"Expected a JSON object in {path}")
-    return data
-
-
-def save_json(data: dict[str, Any], path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
-    print(f"[approve] Saved {path}")
 
 
 def get_slack_client():
@@ -112,25 +131,8 @@ def latest_draft_path(draft_dir: Path = DEFAULT_DRAFT_DIR) -> Path:
     return latest_markdown_draft(draft_dir)
 
 
-def approval_path_for_draft(draft_path: Path) -> Path:
-    return DEFAULT_APPROVAL_DIR / f"{draft_path.stem}.json"
-
-
-def clear_approvals_directory(approval_dir: Path = DEFAULT_APPROVAL_DIR) -> list[Path]:
-    """Remove existing approval JSON files before a new approval post."""
-    approval_dir.mkdir(parents=True, exist_ok=True)
-    removed: list[Path] = []
-    for path in sorted(approval_dir.iterdir()):
-        if path.is_file():
-            path.unlink()
-            removed.append(path)
-    return removed
-
-
 def prepare_new_approval_post() -> None:
-    removed = clear_approvals_directory()
-    if removed:
-        print(f"[approve] Cleared {len(removed)} file(s) from {DEFAULT_APPROVAL_DIR}")
+    """No-op: approval state lives in each draft's validation JSON under output/drafts/drafts_json/."""
 
 
 def title_from_markdown(markdown: str) -> str:
@@ -140,14 +142,24 @@ def title_from_markdown(markdown: str) -> str:
     return "Blog draft"
 
 
-def load_draft_validation_report(draft_path: Path) -> dict[str, Any]:
-    validation_path = draft_validation_json_path(draft_path)
-    if not validation_path.is_file():
-        return {}
+def record_approved_draft_sources(report: dict[str, Any]) -> int:
+    """Persist sources from an approved draft into used_sources.json."""
+    draft_path = resolve_draft_path_from_report(report)
+    if not draft_path or not draft_path.is_file():
+        print(f"[approve] Warning: draft not found for used-source recording: {draft_path}")
+        return 0
 
-    with validation_path.open("r", encoding="utf-8") as handle:
-        data = json.load(handle)
-    return data if isinstance(data, dict) else {}
+    recorded = record_used_sources_from_validation_report(
+        report,
+        draft_path=draft_path.relative_to(PROJECT_ROOT),
+        runner=APPROVE_RUNNER,
+    )
+    if recorded:
+        print(
+            f"[approve] Recorded {len(recorded)} used source URL(s) in "
+            "output/sources/used_sources.json"
+        )
+    return len(recorded)
 
 
 def build_approval_intro(
@@ -156,6 +168,7 @@ def build_approval_intro(
     pdf_relative_path: Path,
     rewritten_from: str | None,
     *,
+    recycled_from: str | None = None,
     validation_report: dict[str, Any] | None = None,
     rewrite_model: str | None = None,
     auto_rewrite: bool = True,
@@ -166,7 +179,12 @@ def build_approval_intro(
         f"PDF: `{pdf_relative_path}`",
         "",
     ]
-    if rewritten_from:
+    if recycled_from:
+        intro.insert(
+            1,
+            f"Full pipeline restart from `{recycled_from}` (search → evaluate → write).",
+        )
+    elif rewritten_from:
         intro.insert(1, f"Revision generated from `{rewritten_from}`.")
 
     report = validation_report or {}
@@ -194,20 +212,162 @@ def build_approval_intro(
 
     intro.append("The draft PDF is attached in this thread.")
     intro.append("")
-    intro.append("React to this message with :white_check_mark: to approve or :x: to request revisions.")
+    intro.append(
+        "React to this message with :white_check_mark: to approve, :x: to request revisions, "
+        "or :repeat: to discard and rerun search → evaluate → write."
+    )
     return "\n".join(intro)
 
 
 def get_bot_user_id(client: Any) -> str | None:
+    return get_bot_identity(client).get("user_id")
+
+
+def get_bot_identity(client: Any) -> dict[str, str | None]:
     response = client.auth_test()
     if not response.get("ok"):
         print(f"[approve] Warning: auth_test failed: {response}")
-        return None
-    return response.get("user_id")
+        return {"user_id": None, "bot_id": None}
+    return {
+        "user_id": response.get("user_id"),
+        "bot_id": response.get("bot_id") or response.get("user_id"),
+    }
+
+
+def message_is_from_bot(
+    message: dict[str, Any],
+    *,
+    bot_user_id: str | None,
+    bot_id: str | None,
+) -> bool:
+    if bot_user_id and message.get("user") == bot_user_id:
+        return True
+    if bot_id and message.get("bot_id") == bot_id:
+        return True
+    if message.get("subtype") == "bot_message" and bot_user_id and message.get("user") == bot_user_id:
+        return True
+    return False
+
+
+def _message_preview(message: dict[str, Any]) -> str:
+    text = str(message.get("text", "")).strip().replace("\n", " ")
+    if len(text) > 80:
+        return text[:77] + "..."
+    return text or f"<{message.get('subtype', 'message')}>"
+
+
+def collect_bot_messages_in_channel(
+    client: Any,
+    channel: str,
+    *,
+    bot_user_id: str | None,
+    bot_id: str | None,
+) -> list[dict[str, Any]]:
+    """Return bot-authored messages in channel roots and threads (deduped by ts)."""
+    seen_ts: set[str] = set()
+    collected: list[dict[str, Any]] = []
+
+    def add_message(message: dict[str, Any]) -> None:
+        ts = str(message.get("ts", "")).strip()
+        if not ts or ts in seen_ts:
+            return
+        if not message_is_from_bot(message, bot_user_id=bot_user_id, bot_id=bot_id):
+            return
+        seen_ts.add(ts)
+        collected.append(message)
+
+    cursor: str | None = None
+    while True:
+        response = client.conversations_history(channel=channel, cursor=cursor, limit=200)
+        if not response.get("ok"):
+            raise RuntimeError(f"conversations.history failed: {response}")
+
+        for parent in response.get("messages", []):
+            add_message(parent)
+            reply_count = int(parent.get("reply_count") or 0)
+            if reply_count <= 0:
+                continue
+
+            thread_ts = str(parent.get("ts", "")).strip()
+            reply_cursor: str | None = None
+            while True:
+                replies_response = client.conversations_replies(
+                    channel=channel,
+                    ts=thread_ts,
+                    cursor=reply_cursor,
+                    limit=200,
+                )
+                if not replies_response.get("ok"):
+                    raise RuntimeError(f"conversations.replies failed: {replies_response}")
+
+                for reply in replies_response.get("messages", []):
+                    add_message(reply)
+
+                reply_cursor = replies_response.get("response_metadata", {}).get("next_cursor")
+                if not reply_cursor:
+                    break
+
+        cursor = response.get("response_metadata", {}).get("next_cursor")
+        if not cursor:
+            break
+
+    collected.sort(key=lambda item: float(item.get("ts", "0")))
+    return collected
+
+
+def clear_bot_messages_from_channel(
+    *,
+    dry_run: bool = False,
+    yes: bool = False,
+) -> int:
+    """Delete all messages posted by this bot in SLACK_APPROVAL_CHANNEL."""
+    client = get_slack_client()
+    channel = get_approval_channel()
+    identity = get_bot_identity(client)
+    bot_user_id = identity.get("user_id")
+    bot_id = identity.get("bot_id")
+
+    messages = collect_bot_messages_in_channel(
+        client,
+        channel,
+        bot_user_id=bot_user_id,
+        bot_id=bot_id,
+    )
+    print(f"[approve] Found {len(messages)} bot message(s) in channel {channel}")
+
+    if not messages:
+        return 0
+
+    for message in messages:
+        print(f"  - ts={message.get('ts')} {_message_preview(message)}")
+
+    if dry_run:
+        print("[approve] Dry run only — no messages deleted.")
+        return 0
+
+    if not yes:
+        answer = input(f"Delete {len(messages)} bot message(s) from {channel}? [y/N] ").strip().lower()
+        if answer not in {"y", "yes"}:
+            print("[approve] Aborted.")
+            return 0
+
+    deleted = 0
+    failed = 0
+    for message in messages:
+        ts = str(message.get("ts", "")).strip()
+        response = client.chat_delete(channel=channel, ts=ts)
+        if response.get("ok"):
+            deleted += 1
+        else:
+            failed += 1
+            print(f"[approve] Warning: could not delete {ts}: {response}")
+
+    print(f"[approve] Deleted {deleted} message(s)" + (f"; {failed} failed" if failed else ""))
+    return deleted
 
 
 def add_approval_prompt_reactions(client: Any, channel: str, message_ts: str) -> None:
-    for name in ("white_check_mark", "x"):
+    for name in ("white_check_mark", "x", "repeat"):
         response = client.reactions_add(channel=channel, timestamp=message_ts, name=name)
         if response.get("ok"):
             print(f"[approve] Added :{name}: reaction prompt on message {message_ts}")
@@ -231,9 +391,110 @@ def upload_draft_pdf(client: Any, channel: str, thread_ts: str, pdf_path: Path, 
     return False
 
 
+def infer_write_model_from_report(
+    report: dict[str, Any],
+    *,
+    fallback: str | None = None,
+) -> str | None:
+    generation = report.get("generation")
+    if isinstance(generation, dict):
+        model_used = str(generation.get("model_used") or "").strip()
+        if model_used:
+            return model_used
+    model = str(report.get("model") or "").strip()
+    return model or fallback
+
+
+_pipeline_restart_lock = threading.Lock()
+_pipeline_restart_in_progress: set[str] = set()
+
+
+def restart_pipeline_from_slack(
+    *,
+    validation_path: Path,
+    report: dict[str, Any],
+    channel: str,
+    thread_ts: str,
+    user: str,
+    client: Any,
+    rewrite_model: str | None,
+    auto_rewrite: bool,
+) -> None:
+    """Background worker: search → evaluate → write → post new draft to Slack."""
+    restart_key = f"{channel}:{thread_ts}"
+    try:
+        write_model = infer_write_model_from_report(report, fallback=rewrite_model)
+        if write_model:
+            write_model = resolve_writing_model(write_model, interactive=False)
+
+        approval = report.setdefault("approval", {})
+        approval["status"] = APPROVAL_STATUS_PIPELINE_RESTART_IN_PROGRESS
+        approval["pipeline_restart_requested_at"] = utc_now()
+        approval["pipeline_restart_requested_by"] = user
+        save_validation_report(validation_path, report)
+
+        client.chat_postMessage(
+            channel=channel,
+            thread_ts=thread_ts,
+            text=(
+                f"<@{user}> requested a full pipeline restart "
+                "(search → evaluate → write). Running now — this may take a few minutes."
+            ),
+        )
+
+        code = run_pipeline_restart(write_model=write_model, clear_drafts=True)
+        if code != 0:
+            approval["status"] = "pipeline_restart_failed"
+            approval["pipeline_restart_failed_at"] = utc_now()
+            save_validation_report(validation_path, report)
+            client.chat_postMessage(
+                channel=channel,
+                thread_ts=thread_ts,
+                text="Pipeline restart failed. Check the terminal logs and try again.",
+            )
+            return
+
+        approval["status"] = "recycled"
+        approval["recycled_at"] = utc_now()
+        approval["recycled_by"] = user
+        save_validation_report(validation_path, report)
+
+        new_draft_path = latest_draft_path()
+        new_validation_path = post_draft(
+            new_draft_path,
+            recycled_from=str(validation_path.relative_to(PROJECT_ROOT)),
+            rewrite_model=rewrite_model,
+            auto_rewrite=auto_rewrite,
+        )
+        client.chat_postMessage(
+            channel=channel,
+            thread_ts=thread_ts,
+            text=(
+                "New draft posted from full pipeline restart: "
+                f"`{new_validation_path.relative_to(PROJECT_ROOT)}`"
+            ),
+        )
+    except Exception as exc:
+        approval = report.setdefault("approval", {})
+        approval["status"] = "pipeline_restart_failed"
+        approval["pipeline_restart_failed_at"] = utc_now()
+        approval["pipeline_restart_error"] = str(exc)
+        save_validation_report(validation_path, report)
+        client.chat_postMessage(
+            channel=channel,
+            thread_ts=thread_ts,
+            text=f"Pipeline restart failed: {exc}",
+        )
+        print(f"[approve] Pipeline restart failed: {exc}")
+    finally:
+        with _pipeline_restart_lock:
+            _pipeline_restart_in_progress.discard(restart_key)
+
+
 def post_draft(
     draft_path: Path,
     rewritten_from: str | None = None,
+    recycled_from: str | None = None,
     *,
     rewrite_model: str | None = None,
     auto_rewrite: bool = True,
@@ -252,13 +513,15 @@ def post_draft(
     title = title_from_markdown(markdown)
     relative_path = draft_path.relative_to(PROJECT_ROOT)
     pdf_relative_path = pdf_path.relative_to(PROJECT_ROOT)
-    validation_report = load_draft_validation_report(draft_path)
+    validation_path = draft_validation_json_path(draft_path)
+    report = load_validation_report(validation_path)
     text = build_approval_intro(
         title,
         relative_path,
         pdf_relative_path,
         rewritten_from,
-        validation_report=validation_report,
+        recycled_from=recycled_from,
+        validation_report=report,
         rewrite_model=rewrite_model,
         auto_rewrite=auto_rewrite,
     )
@@ -271,74 +534,25 @@ def post_draft(
     if not upload_draft_pdf(client, channel, message_ts, pdf_path, title):
         raise RuntimeError(f"Slack PDF upload failed for {pdf_path.name}")
 
-    record = {
-        "draft_path": str(relative_path),
-        "pdf_path": str(pdf_relative_path),
-        "post_format": "pdf",
-        "channel": channel,
-        "message_ts": message_ts,
-        "status": "pending",
-        "posted_at": utc_now(),
-        "approved_at": None,
-        "approved_by": None,
-        "rejected_at": None,
-        "rejected_by": None,
-        "feedback_requested_at": None,
-        "rewritten_from": rewritten_from,
-        "revision_draft_path": None,
-        "feedback": [],
-    }
-    approval_path = approval_path_for_draft(draft_path)
-    save_json(record, approval_path)
+    report["draft_path"] = str(relative_path)
+    report["pdf_path"] = str(pdf_relative_path)
+    report["approval"] = new_approval_block(
+        channel=channel,
+        message_ts=message_ts,
+        rewritten_from=rewritten_from,
+        recycled_from=recycled_from,
+    )
+    save_validation_report(validation_path, report)
     add_approval_prompt_reactions(client, channel, message_ts)
     print(f"[approve] Posted draft PDF to Slack channel {channel} at {message_ts}")
-    return approval_path
+    return validation_path
 
 
-def find_record_for_message(channel: str, ts: str) -> tuple[Path, dict[str, Any]] | None:
-    for path in DEFAULT_APPROVAL_DIR.glob("*.json"):
-        record = load_json(path)
-        if record.get("channel") == channel and record.get("message_ts") == ts:
-            return path, record
-    return None
-
-
-def update_status(path: Path, record: dict[str, Any], status: str, user: str) -> None:
-    record["status"] = status
-    if status == "approved":
-        record["approved_at"] = utc_now()
-        record["approved_by"] = user
-        record["rejected_at"] = None
-        record["rejected_by"] = None
-        record["feedback_requested_at"] = None
-    elif status == "needs_feedback":
-        record["rejected_at"] = utc_now()
-        record["rejected_by"] = user
-        record["feedback_requested_at"] = utc_now()
-        record["approved_at"] = None
-        record["approved_by"] = None
-    save_json(record, path)
-
-
-def clear_approval_status(path: Path, record: dict[str, Any]) -> None:
-    record["status"] = "pending"
-    record["approved_at"] = None
-    record["approved_by"] = None
-    save_json(record, path)
-
-
-def clear_rejection_status(path: Path, record: dict[str, Any]) -> None:
-    record["status"] = "pending"
-    record["rejected_at"] = None
-    record["rejected_by"] = None
-    record["feedback_requested_at"] = None
-    save_json(record, path)
-
-
-def request_feedback(client: Any, record: dict[str, Any]) -> None:
+def request_feedback(client: Any, report: dict[str, Any]) -> None:
+    approval = get_approval_block(report)
     client.chat_postMessage(
-        channel=record["channel"],
-        thread_ts=record["message_ts"],
+        channel=approval["channel"],
+        thread_ts=approval["message_ts"],
         text=(
             "Got it. Please reply in this thread with the changes you want.\n"
             "Start with `edit:` for wording/structure fixes, or `sources:` if you need "
@@ -347,33 +561,14 @@ def request_feedback(client: Any, record: dict[str, Any]) -> None:
     )
 
 
-def append_feedback(path: Path, record: dict[str, Any], user: str, text: str, event_ts: str | None) -> None:
-    feedback = record.setdefault("feedback", [])
-    if not isinstance(feedback, list):
-        feedback = []
-        record["feedback"] = feedback
-
-    feedback.append(
-        {
-            "user": user,
-            "text": text.strip(),
-            "event_ts": event_ts,
-            "created_at": utc_now(),
-        }
-    )
-    record["status"] = "feedback_received"
-    update_record_revision_mode(record)
-    save_json(record, path)
-
-
 def regenerate_from_feedback(
-    record_path: Path,
-    record: dict[str, Any],
+    validation_path: Path,
+    report: dict[str, Any],
     *,
     rewrite_module_key: str = REWRITE_MODULE_KEY,
     rewrite_model: str | None = None,
 ) -> Path:
-    rewrite_args: list[str] = ["--feedback-json", str(record_path)]
+    rewrite_args: list[str] = ["--feedback-json", str(validation_path)]
     if rewrite_model:
         rewrite_args.extend(["--model", rewrite_model])
     command = build_module_command(rewrite_module_key, *rewrite_args)
@@ -384,14 +579,22 @@ def regenerate_from_feedback(
         raise RuntimeError(f"{rewrite_module_key} failed with exit code {completed.returncode}")
 
     new_draft_path = latest_draft_path()
-    record["status"] = "revision_generated"
-    record["revision_draft_path"] = str(new_draft_path.relative_to(PROJECT_ROOT))
-    record["revision_generated_at"] = utc_now()
-    save_json(record, record_path)
+    approval = report.setdefault("approval", {})
+    approval["status"] = APPROVAL_STATUS_REVISION_GENERATED
+    approval["revision_draft_path"] = str(new_draft_path.relative_to(PROJECT_ROOT))
+    approval["revision_generated_at"] = utc_now()
+    save_validation_report(validation_path, report)
     return new_draft_path
 
 
-def handle_reaction(event: dict[str, Any], client: Any, bot_user_id: str | None = None) -> None:
+def handle_reaction(
+    event: dict[str, Any],
+    client: Any,
+    bot_user_id: str | None = None,
+    *,
+    rewrite_model: str | None = None,
+    auto_rewrite: bool = True,
+) -> None:
     item = event.get("item", {})
     if item.get("type") != "message":
         return
@@ -406,31 +609,66 @@ def handle_reaction(event: dict[str, Any], client: Any, bot_user_id: str | None 
     if bot_user_id and user == bot_user_id:
         return
 
-    found = find_record_for_message(channel, ts)
+    found = find_validation_for_slack_message(channel, ts)
     if not found:
         return
 
-    path, record = found
-    status = record.get("status", "pending")
+    validation_path, report = found
+    status = approval_status(report)
 
     if reaction in APPROVE_REACTIONS:
-        if status in {"feedback_received", "revision_generated"}:
+        if status in {APPROVAL_STATUS_FEEDBACK_RECEIVED, APPROVAL_STATUS_REVISION_GENERATED}:
             print(f"[approve] Ignoring approval reaction; status is {status}")
             return
-        previously_approved = status == "approved"
-        update_status(path, record, "approved", user)
+        previously_approved = status == APPROVAL_STATUS_APPROVED
+        mark_approval_status(validation_path, report, APPROVAL_STATUS_APPROVED, user)
         print(f"[approve] Draft approved by {user}")
         if previously_approved:
-            print(f"[approve] Updated approval record at {path}")
+            print(f"[approve] Updated approval record at {validation_path}")
         else:
+            draft_path = resolve_draft_path_from_report(report)
+            if draft_path and draft_path.is_file():
+                relocated = relocate_draft_artifacts(draft_path, destination_root=APPROVED_OUTPUT_DIR)
+                validation_path = draft_validation_json_path(relocated)
+                report = load_validation_report(validation_path)
+            record_approved_draft_sources(report)
             client.chat_postMessage(channel=channel, thread_ts=ts, text=f"Approved by <@{user}>.")
     elif reaction in REJECT_REACTIONS:
-        if status in {"needs_feedback", "feedback_received", "revision_generated"}:
+        if status in {
+            APPROVAL_STATUS_NEEDS_FEEDBACK,
+            APPROVAL_STATUS_FEEDBACK_RECEIVED,
+            APPROVAL_STATUS_REVISION_GENERATED,
+        }:
             print(f"[approve] Ignoring revision reaction; status is {status}")
             return
-        update_status(path, record, "needs_feedback", user)
+        mark_approval_status(validation_path, report, APPROVAL_STATUS_NEEDS_FEEDBACK, user)
         print(f"[approve] Revision requested by {user}")
-        request_feedback(client, record)
+        request_feedback(client, report)
+    elif reaction in RESTART_REACTIONS:
+        if status in PIPELINE_RESTART_BLOCK_STATUSES:
+            print(f"[approve] Ignoring repeat reaction; status is {status}")
+            return
+        restart_key = f"{channel}:{ts}"
+        with _pipeline_restart_lock:
+            if restart_key in _pipeline_restart_in_progress:
+                print("[approve] Ignoring repeat reaction; pipeline restart already running")
+                return
+            _pipeline_restart_in_progress.add(restart_key)
+        print(f"[approve] Full pipeline restart requested by {user}")
+        threading.Thread(
+            target=restart_pipeline_from_slack,
+            kwargs={
+                "validation_path": validation_path,
+                "report": report,
+                "channel": channel,
+                "thread_ts": ts,
+                "user": user,
+                "client": client,
+                "rewrite_model": rewrite_model,
+                "auto_rewrite": auto_rewrite,
+            },
+            daemon=True,
+        ).start()
 
 
 def handle_reaction_removed(event: dict[str, Any], client: Any, bot_user_id: str | None = None) -> None:
@@ -448,20 +686,29 @@ def handle_reaction_removed(event: dict[str, Any], client: Any, bot_user_id: str
     if bot_user_id and user == bot_user_id:
         return
 
-    found = find_record_for_message(channel, ts)
+    found = find_validation_for_slack_message(channel, ts)
     if not found:
         return
 
-    path, record = found
-    status = record.get("status", "pending")
+    validation_path, report = found
+    approval = get_approval_block(report)
+    status = approval_status(report)
 
     if reaction in APPROVE_REACTIONS:
-        if status != "approved":
+        if status != APPROVAL_STATUS_APPROVED:
             return
-        if record.get("approved_by") != user:
-            print(f"[approve] Ignoring approval removal from {user}; approver is {record.get('approved_by')}")
+        if approval.get("approved_by") != user:
+            print(
+                f"[approve] Ignoring approval removal from {user}; "
+                f"approver is {approval.get('approved_by')}"
+            )
             return
-        clear_approval_status(path, record)
+        draft_path = resolve_draft_path_from_report(report)
+        clear_validation_approval_status(validation_path, report)
+        if draft_path and draft_path.is_file() and resolve_drafts_root(draft_path) == APPROVED_OUTPUT_DIR:
+            relocated = relocate_draft_artifacts(draft_path, destination_root=DEFAULT_OUTPUT_DIR)
+            validation_path = draft_validation_json_path(relocated)
+            report = load_validation_report(validation_path)
         print(f"[approve] Approval removed by {user}; status reset to pending")
         client.chat_postMessage(
             channel=channel,
@@ -469,12 +716,15 @@ def handle_reaction_removed(event: dict[str, Any], client: Any, bot_user_id: str
             text=f"Approval removed by <@{user}>. Status reset to pending.",
         )
     elif reaction in REJECT_REACTIONS:
-        if status != "needs_feedback":
+        if status != APPROVAL_STATUS_NEEDS_FEEDBACK:
             return
-        if record.get("rejected_by") != user:
-            print(f"[approve] Ignoring revision removal from {user}; rejector is {record.get('rejected_by')}")
+        if approval.get("rejected_by") != user:
+            print(
+                f"[approve] Ignoring revision removal from {user}; "
+                f"rejector is {approval.get('rejected_by')}"
+            )
             return
-        clear_rejection_status(path, record)
+        clear_validation_rejection_status(validation_path, report)
         print(f"[approve] Revision request removed by {user}; status reset to pending")
         client.chat_postMessage(
             channel=channel,
@@ -518,16 +768,25 @@ def handle_message(
     if not channel or not thread_ts:
         return
 
-    found = find_record_for_message(channel, thread_ts)
+    found = find_validation_for_slack_message(channel, thread_ts)
     if not found:
         return
 
-    path, record = found
-    if record.get("status") != "needs_feedback":
+    validation_path, report = found
+    if approval_status(report) != APPROVAL_STATUS_NEEDS_FEEDBACK:
         return
 
-    append_feedback(path, record, user, text, event.get("event_ts"))
-    mode = record.get("revision_mode", "editorial")
+    append_validation_feedback(
+        validation_path,
+        report,
+        user=user,
+        text=text,
+        event_ts=event.get("event_ts"),
+    )
+    update_record_revision_mode(report)
+    approval = get_approval_block(report)
+    mode = approval.get("revision_mode", "editorial")
+    save_validation_report(validation_path, report)
     client.chat_postMessage(
         channel=channel,
         thread_ts=thread_ts,
@@ -536,16 +795,22 @@ def handle_message(
 
     if auto_rewrite:
         new_draft_path = regenerate_from_feedback(
-            path,
-            record,
+            validation_path,
+            report,
             rewrite_module_key=rewrite_module_key,
             rewrite_model=rewrite_model,
         )
-        new_record_path = post_draft(new_draft_path, rewritten_from=str(path.relative_to(PROJECT_ROOT)))
+        new_validation_path = post_draft(
+            new_draft_path,
+            rewritten_from=str(validation_path.relative_to(PROJECT_ROOT)),
+        )
         client.chat_postMessage(
             channel=channel,
             thread_ts=thread_ts,
-            text=f"Revision generated and posted for approval: `{new_record_path.relative_to(PROJECT_ROOT)}`",
+            text=(
+                "Revision generated and posted for approval: "
+                f"`{new_validation_path.relative_to(PROJECT_ROOT)}`"
+            ),
         )
 
 
@@ -608,7 +873,13 @@ def listen(
         event = request.payload.get("event", {})
         event_type = event.get("type")
         if event_type == "reaction_added":
-            handle_reaction(event, web_client, bot_user_id=bot_user_id)
+            handle_reaction(
+                event,
+                web_client,
+                bot_user_id=bot_user_id,
+                rewrite_model=rewrite_model,
+                auto_rewrite=auto_rewrite,
+            )
         elif event_type == "reaction_removed":
             handle_reaction_removed(event, web_client, bot_user_id=bot_user_id)
         elif event_type == "message":
@@ -710,6 +981,21 @@ def main() -> None:
     listen_parser = subparsers.add_parser("listen", help="Listen for Slack reactions and feedback.")
     _add_listen_flags(listen_parser)
 
+    clear_parser = subparsers.add_parser(
+        "clear-channel",
+        help="Delete all messages posted by this bot in SLACK_APPROVAL_CHANNEL.",
+    )
+    clear_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="List bot messages that would be deleted without deleting them.",
+    )
+    clear_parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="Skip the confirmation prompt.",
+    )
+
     _add_listen_flags(parser)
 
     args = parser.parse_args()
@@ -754,6 +1040,8 @@ def main() -> None:
         if not args.model:
             rewrite_model = resolve_writing_model(None)
         listen(auto_rewrite=auto_rewrite, rewrite_model=rewrite_model)
+    elif args.command == "clear-channel":
+        clear_bot_messages_from_channel(dry_run=args.dry_run, yes=args.yes)
 
 
 if __name__ == "__main__":

@@ -25,6 +25,173 @@ Notes / next step:
 - 
 ```
 
+## 2026-06-08 - Slack clear-channel command for bot messages
+
+Changed:
+- Added `approve_listen clear-channel` with `--dry-run` and `--yes` to delete all bot-authored messages in `SLACK_APPROVAL_CHANNEL` (roots and thread replies).
+
+Why:
+- Clean up old approval threads without manual Slack housekeeping.
+
+Files touched:
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (requires live Slack token).
+
+## 2026-06-08 - Approval metadata in validation JSON; approved drafts folder
+
+Changed:
+- Slack approval state now lives in an `approval` object inside each `drafts_json/*-validation.json` (no separate `output/approvals/*.json` per draft).
+- On ✅ approval, draft artifacts move from `output/drafts/` to `output/approved/` (same `drafts_md/`, `drafts_pdf/`, `drafts_json/` layout).
+- Added `src/peachtree_blog/draft_approval.py` for validation lookup, relocation, and legacy approval migration.
+- `--feedback-json` for rewrites now points at a validation JSON file.
+
+Why:
+- Single source of truth per draft; approved blogs archived under `output/approved/`.
+
+Files touched:
+- `src/peachtree_blog/draft_approval.py` (new)
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `src/peachtree_blog/write_common.py`
+- `src/peachtree_blog/pipeline/write_serverless.py`
+- `src/peachtree_blog/paths.py`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- `py_compile` on modified modules.
+
+Notes / next step:
+- Legacy `output/approvals/*.json` files auto-migrate on the next Slack reaction lookup.
+
+## 2026-06-08 - Use repeat emoji for pipeline restart
+
+Changed:
+- Pipeline restart Slack reaction uses `:repeat:` (🔁), not `:recycling_symbol:` or `:repeat_one:`.
+
+Why:
+- User preference for the standard repeat emoji.
+
+Files touched:
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (emoji name change only).
+
+## 2026-06-08 - Slack recycle reaction reruns full pipeline
+
+Changed:
+- Reacting with `:repeat:` on an approval message runs search → evaluate → write (`--clear-drafts`) in the background, then posts a new draft to Slack.
+- Added `run_pipeline_restart()` in `runner.py`; `cli.py --all` now uses it.
+- Approval intro and bot prompt reactions document the recycle option.
+
+Why:
+- Unusable drafts should restart from fresh sources, not only thread rewrites.
+
+Files touched:
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `src/peachtree_blog/pipeline/runner.py`
+- `src/peachtree_blog/pipeline/cli.py`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- `py_compile` on modified modules.
+
+Notes / next step:
+- Repeat restart is blocked while a restart is in progress or after approval; uses the same write model as the discarded draft when available.
+
+## 2026-06-08 - Record used sources only on Slack approval
+
+Changed:
+- Removed `record_used_sources()` call from `save_draft_outputs()` in `write_common.py` — writing a draft no longer blocks its URLs in search.
+- On first Slack ✅ approval, `approve_listen.py` reads `sources_used` from the draft validation JSON and records them in `used_sources.json`.
+- Added `record_used_sources_from_validation_report()` and `--seed-validation` CLI backfill in `used_sources.py`.
+
+Why:
+- Source URLs should be reserved for published/approved blogs, not every draft attempt.
+
+Files touched:
+- `src/peachtree_blog/write_common.py`
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `src/peachtree_blog/used_sources.py`
+- `src/peachtree_blog/pipeline/evaluate.py`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Not run.
+
+Notes / next step:
+- Already-approved drafts (e.g. `111923`) were not auto-backfilled; re-approve in Slack or seed from validation JSON if those URLs should block search now.
+
+## 2026-06-08 - Add silent accuracy self-audit to blog prompt
+
+Changed:
+- Added mandatory five-step `ACCURACY SELF-AUDIT` section to `prompts/blog.txt` — source grounding, citation integrity, story-type match, location quality, final read-through; output only the corrected post, never the audit.
+- Capped allowlist location guidance at 6–12 names with depth over laundry lists.
+- Mirrored silent re-read rule in `build_first_draft_prompt()` runtime source-use rules.
+
+Why:
+- Draft `125930` improved accuracy but under-cited and stuffed 33 locations; models need an explicit post-draft fact-check pass without leaking chain-of-thought.
+
+Files touched:
+- `prompts/blog.txt`
+- `src/peachtree_blog/write_common.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (prompt-only change).
+
+Notes / next step:
+- Re-run write on the insurance cluster and confirm citation count and location count stay in range.
+
+## 2026-06-08 - Legal accuracy guardrails and location allowlist sync
+
+Changed:
+- Added `FACTUAL ACCURACY RULE` to `prompts/blog.txt` — no invented case names, legislation, or unrelated exclusion types; neutral insurer language; multi-outlet citation spread.
+- Injected `{metro_locations_list}` into the write prompt from `METRO_LOCATIONS` so the model and validator use the same allowlist.
+- Expanded `METRO_LOCATIONS` (Brookhaven, Duluth, Lithonia, Kennesaw, Johns Creek, Suwanee, etc.).
+- Strengthened runtime source-use rules in `build_first_draft_prompt()` and validation retry hints.
+
+Why:
+- Draft `125010` hallucinated firearms exclusions, Carmichael rulings, and tort reform 2025; it also failed `location_count_at_least_6` because neighborhood names were outside the validator allowlist.
+
+Files touched:
+- `prompts/blog.txt`
+- `src/peachtree_blog/write_common.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (prompt and validation-list change).
+
+Notes / next step:
+- Re-run write on the insurance cluster; prefer Draft 1 (`111923`) for publish with Draft 2's before/after table format as a manual merge.
+
+## 2026-06-05 - Refine blog.txt for GEO over SEO
+
+Changed:
+- Rewrote `prompts/blog.txt` with GEO principles, cluster-based angles, conditional storm/insurance sections, citable-chunk H2 format, stronger citation anti-hallucination rules, and improved FAQ guidance.
+- Replaced visible pre-write checklist with silent planning instruction to reduce chain-of-thought leaks.
+
+Why:
+- Drafts were over-fitting a storm template (historical weather, April–September) on non-storm stories; GEO quality needs source-grounded, extractable answers matched to story type.
+
+Files touched:
+- `prompts/blog.txt`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (prompt-only change).
+
+Notes / next step:
+- Run write on insurance and storm clusters to compare draft quality; promote recurring Slack feedback into `feedback/style_notes.txt`.
+
 ## 2026-06-05 - Slack posts show feedback rewrite model
 
 Changed:

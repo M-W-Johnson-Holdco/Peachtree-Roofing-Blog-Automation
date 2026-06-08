@@ -64,3 +64,22 @@ def run_modules(stages: Sequence[tuple[str, tuple[str, ...]]]) -> None:
         code = run_module(module_key, *args)
         if code != 0:
             raise SystemExit(code)
+
+
+def run_pipeline_restart(
+    *,
+    write_model: str | None = None,
+    clear_drafts: bool = True,
+) -> int:
+    """Run search → evaluate → write_serverless. Returns last stage exit code."""
+    if run_module("search") != 0:
+        return 1
+    if run_module("evaluate") != 0:
+        return 1
+
+    write_args: list[str] = []
+    if clear_drafts:
+        write_args.append("--clear-drafts")
+    if write_model:
+        write_args.extend(["--model", write_model])
+    return run_module("write_serverless", *write_args)

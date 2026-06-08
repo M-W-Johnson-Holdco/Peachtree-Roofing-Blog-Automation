@@ -1,83 +1,21 @@
 [
   {
-    "title": "The top 15 states at risk of hurricane damage include some surprises - Business Insider",
-    "url": "https://www.businessinsider.com/top-worst-states-hurricane-damage-risk-2026-5",
-    "strategy_cluster": "roof_safety",
-    "pillar_topic": "Atlanta roof safety, fires, penetrations, structural risk",
-    "trigger_window_hours": 48,
-    "scores": {
-      "local_relevance": 7,
-      "roofing_relevance": 8,
-      "recency": 5,
-      "source_authority": 9,
-      "actionability": 7,
-      "territory_alignment": 8,
-      "semantic_relevance": 6
-    },
-    "model_weighted_score": 7.2,
-    "weighted_score": 7.2,
-    "scoring_adjustments": {
-      "territory_alignment_score": 0,
-      "semantic_relevance_score": 0,
-      "multi_territory_bonus": 0,
-      "off_topic_penalty": 0,
-      "duplicate_topic_penalty": 0,
-      "weighted_score_adjustment": 0.0,
-      "hard_reject_reasons": []
-    },
-    "keep": true,
-    "reason": "Relevant to roof safety and actionability for homeowners in Metro Atlanta.",
-    "recommended_angle": "How can homeowners in Metro Atlanta prepare for hurricane risks and protect their roofs?",
-    "source": {
-      "title": "The top 15 states at risk of hurricane damage include some surprises - Business Insider",
-      "url": "https://www.businessinsider.com/top-worst-states-hurricane-damage-risk-2026-5",
-      "domain": "businessinsider.com",
-      "content": "Number of homes with moderate or greater risk: 768,390\n\nReconstruction cost value: $232.7 billion\n\nMedian home price: $299,000\n\n## 13. Pennsylvania\n\nNumber of homes with moderate or greater risk: 781,797\n\nReconstruction cost value: $360 billion\n\nMedian home price: $308,500\n\n## 12. Connecticut\n\nNumber of homes with moderate or greater risk: 813,066\n\nReconstruction cost value: $426 billion\n\nMedian home price: $445,100\n\n## 11. Georgia\n\nNumber of homes with moderate or greater risk: 836,172\n\nReconstruction cost value: $243.1 billion\n\nMedian home price: $373,700\n\n## 10. Mississippi\n\nNumber of homes with moderate or greater risk: 837,860\n\nReconstruction cost value: $241.8 billion\n\nMedian home price: $265,200\n\n## 9. Virginia\n\nNumber of homes with moderate or greater risk: 1,146,781 [...] As for metropolitan areas, New York City ranks ahead of any Florida city, with a reconstruction cost value of more than $1.9 billion. The metro also has the most homes with a moderate or greater risk of hurricane wind damage.\n\nIn total, more than 32.2 million homes across the United States are at moderate or greater risk from hurricane winds alone, accounting for over $12.26 trillion in reconstruction cost value, according to Cotality.\n\nBelow, see the states where homeowners are at the highest risk of hurricane damage.\n\nMedian home price data is from Redfin.\n\n## 15. Maryland\n\nNumber of homes with moderate or greater risk: 479,881\n\nReconstruction cost value: $179.6 billion\n\nMedian home price: $446,900\n\n## 14. Alabama\n\nNumber of homes with moderate or greater risk: 768,390 [...] Number of homes with moderate or greater risk: 1,146,781\n\nReconstruction cost value: $426.4 billion\n\nMedian home price: $462,400\n\n## 8. South Carolina\n\nNumber of homes with moderate or greater risk: 1,482,345\n\nReconstruction cost value: $476.9 billion\n\nMedian home price: $397,600\n\n## 7. Louisiana\n\nNumber of homes with moderate or greater risk: 1,657,255\n\nReconstruction cost value: $515.7 billion\n\nMedian home price: $260,300\n\n## 6. Massachusetts\n\nNumber of homes with moderate or greater risk: 1,785,383\n\nReconstruction cost value: $1 trillion\n\nMedian home price: $645,400\n\n## 5. New Jersey\n\nNumber of homes with moderate or greater risk: 2,208,651\n\nReconstruction cost value: $1.2 trillion\n\nMedian home price: $545,300\n\n## 4. New York\n\nNumber of homes with moderate or greater risk: 2,213,104",
-      "published_date": "Sat, 30 May 2026 14:33:01 GMT",
-      "tavily_score": 0.04952013,
-      "priority_source": false,
-      "secondary_source": false,
-      "official_source": false,
-      "query": "Atlanta roof collapse structural failure homeowners inspection",
-      "strategy_cluster": "roof_safety",
-      "pillar_topic": "Atlanta roof safety, fires, penetrations, structural risk",
-      "trigger_window_hours": 48,
-      "search_stage": "broad_14_day_news",
-      "search_days": 7,
-      "retrieved_at": "2026-06-05T18:30:31.358625+00:00",
-      "matched_terms": {
-        "local_terms": [
-          "georgia"
-        ],
-        "topic_terms": [
-          "damage",
-          "wind"
-        ],
-        "cluster_terms": [],
-        "scoring_mode": "roofing_keyword_match_only"
-      },
-      "search_quality_score": 3.0,
-      "content_age_days": 6,
-      "scoring_mode": "roofing_keyword_match_only"
-    }
-  },
-  {
     "title": "Georgia Brokers and Agents Alarmed After Court Ruling Expands Liability for Them - Insurance Journal",
     "url": "https://www.insurancejournal.com/news/southeast/2026/06/04/872383.htm",
     "strategy_cluster": "ga_insurance_navigation",
     "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
     "trigger_window_hours": 48,
     "scores": {
-      "local_relevance": 5,
-      "roofing_relevance": 3,
+      "local_relevance": 7,
+      "roofing_relevance": 5,
       "recency": 8,
       "source_authority": 9,
-      "actionability": 4,
-      "territory_alignment": 7,
+      "actionability": 6,
+      "territory_alignment": 8,
       "semantic_relevance": 4
     },
-    "model_weighted_score": 6.0,
-    "weighted_score": 6.0,
+    "model_weighted_score": 6.56,
+    "weighted_score": 6.56,
     "scoring_adjustments": {
       "territory_alignment_score": 0,
       "semantic_relevance_score": 0,
@@ -88,47 +26,432 @@
       "hard_reject_reasons": []
     },
     "keep": true,
-    "reason": "Expands liability for brokers, indirectly affecting roof insurance claims in Georgia.",
-    "recommended_angle": "How does the recent court ruling in Georgia impact homeowners' roof insurance claims?",
+    "reason": "Relevant to insurance brokers and agents, with implications for roofing contractors in Georgia.",
+    "recommended_angle": "How does the recent court ruling in Georgia affect roofing contractors and their insurance policies?",
     "source": {
       "title": "Georgia Brokers and Agents Alarmed After Court Ruling Expands Liability for Them - Insurance Journal",
       "url": "https://www.insurancejournal.com/news/southeast/2026/06/04/872383.htm",
       "domain": "insurancejournal.com",
-      "content": "Here are more articles you may enjoy.\n\nFlorida Supreme Court Posts New Rule on AI Hallucinations in Court Filings\n\nNY Lawmakers Agree to Governor\u2019s Auto Insurance Reforms in New Budget\n\nRoof Costs Soar Even as Claims Decline: Verisk\n\nEntrepreneur\u2019s Suit Says My Safe Florida Home Hurricane Shutters Are Fire Hazards\n\n#### Written By William Rabb\n\nRabb is Southeast Editor for Insurance Journal. He is a long-time newspaper man in the Deep South; also covered workers' comp insurance issues for a trade publication for a few years.\n\n##### Latest Posts:\n\n Florida\u2019s Sypher Insurance Exchange Gets COA and a BBB Strength Rating\n Florida Supreme Court Posts New Rule on AI Hallucinations in Court Filings\n Entrepreneur\u2019s Suit Says My Safe Florida Home Hurricane Shutters Are Fire Hazards [...] The widow, Plummer, settled with HPI. As part of that settlement, HPI assigned its claims against the insurance broker to Plummer. Plummer\u2019s attorneys, from the national firm of Morgan & Morgan, argued that CIA was guilty of negligence and breach of fiduciary duty by failing to obtain a policy or endorsement that would have covered shooting injuries at the store.\n\nA lower court in DeKalb County sided with the insurance broker, finding that the claim was a personal tort, and personal torts are not assignable under Georgia law. The widow appealed, and the appellate judges agreed with her, deciding for the first time in Georgia litigation that the assigned claim was, in fact, a property claim. [...] More From Author\n\n#### Interested in Agencies?\n\nGet automatic alerts for this topic.\n\nEmail This   Subscribe to Newsletter\n\n Categories: Southeast NewsTopics: Agents & Brokers, assigned claims, brokers and agents liability, brokers' errors and omissions policies, Georgia tort reform law 2025, premises liability litigation\n Have a hot lead? Email us at newsdesk@insurancejournal.com\n\n### Insurance Jobs\n\n Large Loss Property Adjuster \u2013 Field Estimating \u2013 Chicago, IL - Chicago, IL\n Property Adjuster \u2013 Field Estimating New Orleans, LA - New Orleans, LA\n Notice of Loss Coordinator \u2013 Auto - Franklin, TN\n Attorney-Represented Bodily Injury Adjuster - Florida, FL\n Claims Adjuster Trainee \u2013 North Carolina - Winston Salem, NC",
+      "content": "More From Author\n\n#### Interested in Agencies?\n\nGet automatic alerts for this topic.\n\nEmail This   Subscribe to Newsletter\n\n Categories: Southeast NewsTopics: Agents & Brokers, assigned claims, brokers and agents liability, brokers' errors and omissions policies, Georgia tort reform law 2025, premises liability litigation\n Have a hot lead? Email us at newsdesk@insurancejournal.com\n\n### Insurance Jobs\n\n Large Loss Property Adjuster \u2013 Field Estimating \u2013 Chicago, IL - Chicago, IL\n Property Adjuster \u2013 Field Estimating New Orleans, LA - New Orleans, LA\n Notice of Loss Coordinator \u2013 Auto - Franklin, TN\n Attorney-Represented Bodily Injury Adjuster - Florida, FL\n Claims Adjuster Trainee \u2013 North Carolina - Winston Salem, NC [...] Here are more articles you may enjoy.\n\nFlorida Supreme Court Posts New Rule on AI Hallucinations in Court Filings\n\nNY Lawmakers Agree to Governor\u2019s Auto Insurance Reforms in New Budget\n\nRoof Costs Soar Even as Claims Decline: Verisk\n\nEntrepreneur\u2019s Suit Says My Safe Florida Home Hurricane Shutters Are Fire Hazards\n\n#### Written By William Rabb\n\nRabb is Southeast Editor for Insurance Journal. He is a long-time newspaper man in the Deep South; also covered workers' comp insurance issues for a trade publication for a few years.\n\n##### Latest Posts:\n\n Florida\u2019s Sypher Insurance Exchange Gets COA and a BBB Strength Rating\n Florida Supreme Court Posts New Rule on AI Hallucinations in Court Filings\n Entrepreneur\u2019s Suit Says My Safe Florida Home Hurricane Shutters Are Fire Hazards [...] The Georgia Supreme Court upheld that decision in 2023.\n\nThe Carmichael rulings triggered panic among insurance carriers in Georgia, and led more insurers to introduce firearms exclusions for thousands of businesses in and around Atlanta, a city with multiple neighborhoods that have been ranked as high in property and violent crimes, according to news reports.",
       "published_date": "Thu, 04 Jun 2026 05:01:50 GMT",
-      "tavily_score": 0.07990414,
+      "tavily_score": 0.07170176,
       "priority_source": false,
       "secondary_source": false,
       "official_source": false,
-      "query": "Georgia actual cash value roof claim homeowners dispute",
+      "query": "Metro Atlanta insurance adjuster roof inspection homeowners",
       "strategy_cluster": "ga_insurance_navigation",
       "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
       "trigger_window_hours": 48,
       "search_stage": "broad_14_day_news",
       "search_days": 7,
-      "retrieved_at": "2026-06-05T18:30:27.462921+00:00",
+      "retrieved_at": "2026-06-08T15:13:36.658226+00:00",
       "matched_terms": {
         "local_terms": [
-          "dekalb",
           "georgia"
         ],
         "topic_terms": [
-          "claim",
           "fire",
           "insurance",
           "roof"
         ],
         "cluster_terms": [
-          "claim",
-          "endorsement",
           "insurance",
-          "policy",
           "roof"
         ],
         "scoring_mode": "roofing_keyword_match_only"
       },
-      "search_quality_score": 11.0,
+      "search_quality_score": 6.0,
+      "content_age_days": 4,
+      "scoring_mode": "roofing_keyword_match_only"
+    }
+  },
+  {
+    "title": "Florida's 2024 Hurricane Season Cost Billions in Claims, and Reece Windows & Doors Sees Surge in Demand for Impact Windows Across Jacksonville, Tampa, and Orlando",
+    "url": "https://markets.businessinsider.com/news/stocks/florida-s-2024-hurricane-season-cost-billions-in-claims-and-reece-windows-doors-sees-surge-in-demand-for-impact-windows-across-jacksonville-tampa-and-orlando-1036229924",
+    "strategy_cluster": "ga_insurance_navigation",
+    "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
+    "trigger_window_hours": 48,
+    "scores": {
+      "local_relevance": 2,
+      "roofing_relevance": 5,
+      "recency": 8,
+      "source_authority": 7,
+      "actionability": 6,
+      "territory_alignment": 3,
+      "semantic_relevance": 4
+    },
+    "model_weighted_score": 5.28,
+    "weighted_score": 5.28,
+    "scoring_adjustments": {
+      "territory_alignment_score": 0,
+      "semantic_relevance_score": 0,
+      "multi_territory_bonus": 0,
+      "off_topic_penalty": 0,
+      "duplicate_topic_penalty": 0,
+      "weighted_score_adjustment": 0.0,
+      "hard_reject_reasons": []
+    },
+    "keep": true,
+    "reason": "Insufficient local relevance and territory alignment Kept by minimum-kept fallback (top 2 by weighted_score despite threshold 6.0).",
+    "recommended_angle": "How does this Georgia insurance update affect roof repair or replacement claims?",
+    "source": {
+      "title": "Florida's 2024 Hurricane Season Cost Billions in Claims, and Reece Windows & Doors Sees Surge in Demand for Impact Windows Across Jacksonville, Tampa, and Orlando - markets.businessinsider.com",
+      "url": "https://markets.businessinsider.com/news/stocks/florida-s-2024-hurricane-season-cost-billions-in-claims-and-reece-windows-doors-sees-surge-in-demand-for-impact-windows-across-jacksonville-tampa-and-orlando-1036229924",
+      "domain": "markets.businessinsider.com",
+      "content": "Jacksonville, Florida, United States, June 6, 2026 -- Florida's 2024 hurricane season was one of the most active on record. Storms Debby, Helene, and Milton all made landfall within months of each other. As per reports on Earth.Org, hurricanes Milton and Helene led to $60 billion and $55 billion in damage, respectively. The financial impact on Florida homeowners was severe. Insurance premiums rose, and deductibles increased. Many homeowners discovered their coverage fell short when they needed it most. For many families, the storms exposed just how financially vulnerable homeownership can become in the face of increasingly severe weather events. [...] Insurance costs remain high. However, homeowners who upgrade to certified impact windows can qualify for meaningful premium reductions. That financial pressure is driving action. Florida homeowners in Jacksonville are accelerating plans to upgrade aging windows and doors before the next storm season. The calculation is straightforward for many. Property owners know the cost of a window upgrade. They can risk abandoning upgrades since the cost of storm damage or a denied insurance claim can be very high. Upgrading before the season begins is the only way to qualify for coverage and wind-mitigation discounts before a claim is needed. [...] My Markets Watchlist\n\nMarkets   News\n\n# Florida's 2024 Hurricane Season Cost Billions in Claims, and Reece Windows & Doors Sees Surge in Demand for Impact Windows Across Jacksonville, Tampa, and Orlando\n\nPRESS RELEASE Plentisoft\n\nJun. 5, 2026, 08:23 PM\n\nFlorida's 2024 hurricane season left homeowners facing higher premiums, tighter coverage, and a clearer understanding of storm risk. In response, demand for impact-resistant window upgrades is growing across Florida, and Reece Windows & Doors is positioned to meet it.",
+      "published_date": "Sat, 06 Jun 2026 01:56:18 GMT",
+      "tavily_score": 0.08182022,
+      "priority_source": false,
+      "secondary_source": false,
+      "official_source": false,
+      "query": "Georgia roof insurance deductible percentage homeowners storm",
+      "strategy_cluster": "ga_insurance_navigation",
+      "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
+      "trigger_window_hours": 48,
+      "search_stage": "broad_14_day_news",
+      "search_days": 7,
+      "retrieved_at": "2026-06-08T15:13:38.499531+00:00",
+      "matched_terms": {
+        "local_terms": [
+          "milton"
+        ],
+        "topic_terms": [
+          "claim",
+          "damage",
+          "insurance",
+          "storm",
+          "weather",
+          "wind"
+        ],
+        "cluster_terms": [
+          "claim",
+          "insurance"
+        ],
+        "scoring_mode": "roofing_keyword_match_only"
+      },
+      "search_quality_score": 9.0,
+      "content_age_days": 2,
+      "scoring_mode": "roofing_keyword_match_only"
+    }
+  },
+  {
+    "title": "Self-defense experts encourage women to learn basic safety skills",
+    "url": "https://www.11alive.com/article/news/self-defense-experts-encourage-women-to-learn-basic-safety-skills/85-ca5bac6a-7a5d-4473-b35c-b5a26d0a1e41",
+    "strategy_cluster": "ga_insurance_navigation",
+    "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
+    "trigger_window_hours": 48,
+    "scores": {
+      "local_relevance": 7,
+      "roofing_relevance": 2,
+      "recency": 8,
+      "source_authority": 9,
+      "actionability": 5,
+      "territory_alignment": 3,
+      "semantic_relevance": 2
+    },
+    "model_weighted_score": 4.88,
+    "weighted_score": 4.88,
+    "scoring_adjustments": {
+      "territory_alignment_score": 0,
+      "semantic_relevance_score": 0,
+      "multi_territory_bonus": 0,
+      "off_topic_penalty": 0,
+      "duplicate_topic_penalty": 0,
+      "weighted_score_adjustment": 0.0,
+      "hard_reject_reasons": []
+    },
+    "keep": false,
+    "reason": "Low relevance to roofing/exterior and territory alignment",
+    "recommended_angle": "",
+    "source": {
+      "title": "Self-defense experts encourage women to learn basic safety skills - 11Alive.com",
+      "url": "https://www.11alive.com/article/news/self-defense-experts-encourage-women-to-learn-basic-safety-skills/85-ca5bac6a-7a5d-4473-b35c-b5a26d0a1e41",
+      "domain": "11alive.com",
+      "content": "Skip Navigation\n\n Share on Facebook\n Share on SMS\n Share on Email\n\n Advertise With Us\n 11Alive News Investigates\n Atlanta & Company\n Better Work\n Money Moves\n The Georgia Vote\n Contests\n Locked On Sports Atlanta\n Community\n Companies That Care\n TV Listings\n\nBreaking News\n\nMore () \u00bb\n\nNews\n\n# Self-defense experts encourage women to learn basic safety skills\n\nAs concerns over attacks on metro Atlanta women grow, self-defense instructors emphasize awareness.\n\nCredit: WXIA\n\nMARIETTA, Ga. \u2014 Recent deadly attacks against women on the Beltline and a MARTA train have renewed conversations about personal safety, prompting self-defense experts to encourage women to learn practical skills that can help them recognize danger and respond effectively in threatening situations. [...] At Tommy Cho Martial Arts in Marietta, the focus is on more than physical techniques. Instructors say that building confidence and awareness can help women better protect themselves in potentially dangerous encounters.\n\nThis story continues below.\n\nMore in News\n\n DeKalb County investigating report of shooting\n Popular Atlanta club owner shot and killed over holiday weekend in Gwinnett County\n\n\"Equipping women with the confidence to get out of a dangerous situation is the main goal of self-defense,\" said Raquel Riley Thomas, founder of DefendRILEY.org and a black belt martial artist.\n\nFor Thomas, teaching self-defense is deeply personal. She says a family tragedy shaped her mission. [...] \"Back in March of 2013, my mother took her life, and I found out later that she had been sexually assaulted when she was younger,\" Thomas said.\n\nAfter moving to Georgia several years ago, Thomas became increasingly concerned about reports of assaults involving women. She said her martial arts training helped her discover a greater purpose.\n\n\"When I got here and started to take Taekwondo, I knew there was a purpose for me that was bigger than me,\" she said.\n\nToday, Thomas works alongside black belt instructor David Ellard to teach Gracie Jiu-Jitsu to women and children of all ages. Their classes focus on practical self-defense techniques, situational awareness, and strategies for escaping dangerous situations.",
+      "published_date": "Mon, 01 Jun 2026 16:59:33 GMT",
+      "tavily_score": 0.030103253,
+      "priority_source": true,
+      "secondary_source": false,
+      "official_source": false,
+      "query": "Metro Atlanta insurance adjuster roof inspection homeowners",
+      "strategy_cluster": "ga_insurance_navigation",
+      "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
+      "trigger_window_hours": 48,
+      "search_stage": "priority_7_day_news",
+      "search_days": 7,
+      "retrieved_at": "2026-06-08T15:13:05.757681+00:00",
+      "matched_terms": {
+        "local_terms": [
+          "atlanta",
+          "dekalb",
+          "georgia",
+          "gwinnett",
+          "marietta",
+          "metro atlanta"
+        ],
+        "topic_terms": [
+          "safety"
+        ],
+        "cluster_terms": [],
+        "scoring_mode": "roofing_keyword_match_only"
+      },
+      "search_quality_score": 7.0,
+      "content_age_days": 6,
+      "scoring_mode": "roofing_keyword_match_only"
+    }
+  },
+  {
+    "title": "Murder charge dropped for groom who killed bride\u2019s stepfather at wedding - WSB-TV",
+    "url": "https://www.wsbtv.com/news/local/murder-charge-dropped-groom-who-killed-brides-stepfather-wedding/3WUPVM57LREXXBRALNBZVMOANE/",
+    "strategy_cluster": "ga_insurance_navigation",
+    "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
+    "trigger_window_hours": 48,
+    "scores": {
+      "local_relevance": 7,
+      "roofing_relevance": 2,
+      "recency": 8,
+      "source_authority": 9,
+      "actionability": 3,
+      "territory_alignment": 5,
+      "semantic_relevance": 2
+    },
+    "model_weighted_score": 4.76,
+    "weighted_score": 4.76,
+    "scoring_adjustments": {
+      "territory_alignment_score": 0,
+      "semantic_relevance_score": 0,
+      "multi_territory_bonus": 0,
+      "off_topic_penalty": 0,
+      "duplicate_topic_penalty": 0,
+      "weighted_score_adjustment": 0.0,
+      "hard_reject_reasons": []
+    },
+    "keep": false,
+    "reason": "No clear connection to roofing or exterior demand in Metro Atlanta.",
+    "recommended_angle": "",
+    "source": {
+      "title": "Murder charge dropped for groom who killed bride\u2019s stepfather at wedding - WSB-TV",
+      "url": "https://www.wsbtv.com/news/local/murder-charge-dropped-groom-who-killed-brides-stepfather-wedding/3WUPVM57LREXXBRALNBZVMOANE/",
+      "domain": "wsbtv.com",
+      "content": "DOWNLOAD: [Free WSB-TV News app for alerts as news breaks]\n\nSIGN UP: [WSB-TV Daily Headlines Newsletter]\n\n\u00a92026 Cox Media Group\n\n0\n\n## Most Read\n\n## Murder charge dropped for groom who killed bride\u2019s stepfather at wedding\n\n## Barnes & Noble store closing after 30 years; gas station chain purchased building\n\n## MARTA stabbing: Woman killed minutes after suspect stepped onto train, police report says\n\n## Georgia gas tax suspension ends Tuesday night\n\n## Neighbors say homes keep flooding because thieves are stealing hot water heaters [...] WSB Now\n\nResize:\n\nDrag to Resize Video\n\nLocal\n\n# Murder charge dropped for groom who killed bride\u2019s stepfather at wedding\n\nBy WSBTV.com News Staff\n\nBy WSBTV.com News Staff\n\nBUTTS COUNTY, Ga. \u2014 Charges have been dropped against a man who said he fatally shot his wife\u2019s stepfather on his wedding night in self-defense.\n\nIn a Channel 2 exclusive, Aaron White says in July 2024 he was a groom who just hours after his wedding took a step he replays every day.\n\nHe told Channel 2 Investigative Reporter Mark Winne shot his new stepfather in law, Jason Maughon, in self-defense in Butts County.\n\n\u201cSorry somebody had to lose their life, but I had to do what I had to do to protect,\u201d White said.\n\nHe was indicted earlier this year for murder and aggravated assault charges. [...] This order bearing the names of Flint Circuit District Attorney Darius Patillo and Judge Thomas Wilson says, \u201cAfter a thorough review of the evidence, witness statements, investigative materials, and applicable law, the State has determined that it cannot meet its burden of proof beyond a reasonable doubt at trial due to insufficient evidence.\u201d\n\nThey determined it cannot be proved beyond a reasonable doubt that White was the main aggressor.\n\nDefense Attorney Bret Dunn, who said he and John Strauss represent White, says while Patillo is the Henry County D.A. he was appointed to handle the case after the D.A\u2019s office that covers Butts County agreed to be disqualified from the case.",
+      "published_date": "Tue, 02 Jun 2026 09:06:44 GMT",
+      "tavily_score": 0.031146845,
+      "priority_source": true,
+      "secondary_source": false,
+      "official_source": false,
+      "query": "Georgia roof insurance deductible percentage homeowners storm",
+      "strategy_cluster": "ga_insurance_navigation",
+      "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
+      "trigger_window_hours": 48,
+      "search_stage": "priority_7_day_news",
+      "search_days": 7,
+      "retrieved_at": "2026-06-08T15:13:09.359758+00:00",
+      "matched_terms": {
+        "local_terms": [
+          "georgia"
+        ],
+        "topic_terms": [
+          "flooding"
+        ],
+        "cluster_terms": [],
+        "scoring_mode": "roofing_keyword_match_only"
+      },
+      "search_quality_score": 2.0,
+      "content_age_days": 6,
+      "scoring_mode": "roofing_keyword_match_only"
+    }
+  },
+  {
+    "title": "Suspect sought in MARTA train shooting; law enforcement presence to increase - WSB-TV",
+    "url": "https://www.wsbtv.com/news/local/atlanta/suspect-sought-marta-train-shooting-law-enforcement-presence-increase/PS2Z3PX5RVAAJIAG6GWRCWO7CE/",
+    "strategy_cluster": "storm_damage",
+    "pillar_topic": "Metro Atlanta storm damage inspection and repair",
+    "trigger_window_hours": 72,
+    "scores": {
+      "local_relevance": 8,
+      "roofing_relevance": 2,
+      "recency": 10,
+      "source_authority": 9,
+      "actionability": 3,
+      "territory_alignment": 5,
+      "semantic_relevance": 2
+    },
+    "model_weighted_score": 4.68,
+    "weighted_score": 4.68,
+    "scoring_adjustments": {
+      "territory_alignment_score": 0,
+      "semantic_relevance_score": 0,
+      "multi_territory_bonus": 0,
+      "off_topic_penalty": 0,
+      "duplicate_topic_penalty": 0,
+      "weighted_score_adjustment": 0.0,
+      "hard_reject_reasons": []
+    },
+    "keep": false,
+    "reason": "No clear connection to roofing or exterior demand in Metro Atlanta.",
+    "recommended_angle": "",
+    "source": {
+      "title": "Suspect sought in MARTA train shooting; law enforcement presence to increase - WSB-TV",
+      "url": "https://www.wsbtv.com/news/local/atlanta/suspect-sought-marta-train-shooting-law-enforcement-presence-increase/PS2Z3PX5RVAAJIAG6GWRCWO7CE/",
+      "domain": "wsbtv.com",
+      "content": "\u00a92026 Cox Media Group\n\n0\n\n## Most Read\n\n## 3-month-old baby dies following reported dog attack in Georgia home\n\n## Man accused of stealing entire roof off Georgia home\n\n## At least 12 people were wounded, 2 critically, in shooting near an Ohio festival, police say\n\n## WATCH: Homeowner confronts suspects after Ring alert, gunfire follows\n\n## Arrests made for ID fraud after home searched for 4 days [...] Then they made eye contact, and that\u2019s when the suspect walked to the victim\u2019s car and shot him from the platform, MARTA police said.\n\nThe investigation continues into what contributed to the shooting.\n\nIn the meantime, MARTA is increasing the presence of officers on trains and in stations.\n\nPolice will be working 12-hour shifts, six days a week, with additional personnel pulled off desk duty to help.\n\nDOWNLOAD: [Free WSB-TV News app for alerts as news breaks]\n\nTRENDING STORIES:\n\n 3-month-old baby dies following reported dog attack in Georgia home\n Business owners say they\u2019re being forced out of Northlake Mall with just weeks notice\n Man accused of stealing entire roof off Georgia home\n\nSIGN UP: [WSB-TV Daily Headlines Newsletter]\n\n\u00a92026 Cox Media Group\n\n0\n\n## Most Read [...] WSB Now\n\nResize:\n\nDrag to Resize Video\n\nAtlanta\n\n# Suspect sought in MARTA train shooting; law enforcement presence to increase\n\nBy WSBTV.com News Staff\n\nBy WSBTV.com News Staff\n\nATLANTA \u2014 Police with Metro Atlanta Regional Transportation Authority provided additional details in connection to a shooting they say was targeted.\n\nSuspect sought in MARTA train shooting. What authorities say happened just before, LIVE on WSB Tonight at 11 p.m.\n\nChannel 2 Action News reported the shooting happened at Midtown Station Friday night.\n\nAccording to a preliminary police investigation, both men paid their fare to enter Midtown Station and, at first, got into separate train cars.",
+      "published_date": "Sun, 07 Jun 2026 02:05:35 GMT",
+      "tavily_score": 0.10076372,
+      "priority_source": true,
+      "secondary_source": false,
+      "official_source": false,
+      "query": "Georgia severe weather roof inspection checklist homeowners",
+      "strategy_cluster": "storm_damage",
+      "pillar_topic": "Metro Atlanta storm damage inspection and repair",
+      "trigger_window_hours": 72,
+      "search_stage": "priority_7_day_news",
+      "search_days": 7,
+      "retrieved_at": "2026-06-08T15:13:02.071607+00:00",
+      "matched_terms": {
+        "local_terms": [
+          "atlanta",
+          "georgia"
+        ],
+        "topic_terms": [
+          "roof"
+        ],
+        "cluster_terms": [
+          "roof"
+        ],
+        "scoring_mode": "roofing_keyword_match_only"
+      },
+      "search_quality_score": 4.0,
       "content_age_days": 1,
+      "scoring_mode": "roofing_keyword_match_only"
+    }
+  },
+  {
+    "title": "Senior centers getting self-serve blood pressure monitors - Douglas County Sentinel",
+    "url": "https://www.douglascountysentinel.com/douglasville_sentinel/senior-centers-getting-self-serve-blood-pressure-monitors/article_531ec4c0-6ea9-516a-8e38-d73c4ce760f0.html",
+    "strategy_cluster": "roof_safety",
+    "pillar_topic": "Atlanta roof safety, fires, penetrations, structural risk",
+    "trigger_window_hours": 48,
+    "scores": {
+      "local_relevance": 7,
+      "roofing_relevance": 2,
+      "recency": 10,
+      "source_authority": 8,
+      "actionability": 3,
+      "territory_alignment": 5,
+      "semantic_relevance": 2
+    },
+    "model_weighted_score": 4.48,
+    "weighted_score": 4.48,
+    "scoring_adjustments": {
+      "territory_alignment_score": 0,
+      "semantic_relevance_score": 0,
+      "multi_territory_bonus": 0,
+      "off_topic_penalty": 0,
+      "duplicate_topic_penalty": 0,
+      "weighted_score_adjustment": 0.0,
+      "hard_reject_reasons": []
+    },
+    "keep": false,
+    "reason": "No clear connection to roofing or exterior demand in Metro Atlanta.",
+    "recommended_angle": "",
+    "source": {
+      "title": "Senior centers getting self-serve blood pressure monitors - Douglas County Sentinel",
+      "url": "https://www.douglascountysentinel.com/douglasville_sentinel/senior-centers-getting-self-serve-blood-pressure-monitors/article_531ec4c0-6ea9-516a-8e38-d73c4ce760f0.html",
+      "domain": "douglascountysentinel.com",
+      "content": "Articles\n Images\n Videos\n Commented\n\n#### Articles\n\n Third man arrested in alleged motorcycle club assault\n Police: Teen shot man during apparent drug deal\n All five Douglas high schools named AP Honor Schools\n County launches recruitment effort to attract retail businesses\n Couple let children go unfed, unschooled\n New scoring system aims to stretch limited grant dollars\n Motorcycle gang members arrested after bar fight, police say\n City unveils $190 million transportation plan focused on growth, safety\n County to consider transportation sales tax\n Leadership Douglas Class of 2026 graduates from program\n\n#### Images\n\n#### Videos\n\n#### Commented\n\nSorry, there are no recent results for popular commented articles.\n\n#### Newsletters - Sign up Today! [...] To view our latest e-Edition click the image on the left.\n\n### Click here to Subscribe!\n\n## Latest News\n\n Couple jailed in elaborate fake ID scheme, police say\n All five Douglas high schools named AP Honor Schools\n UPDATE: NOTICE TO OUR READERS\n \ud83d\udce2 Notice to Our Readers\n Thomas Cervantes named 2026 Gates Millennium Scholar\n Beau McClain honored with new courtroom portrait\n Senior class has record $130.3 million in scholarships\n Chapel Hill valedictorian gives emotional speech about family\u2019s journey to the U.S.\n\n## Most Popular\n\n Articles\n Images\n Videos\n Commented\n\n#### Articles [...] Gilchrist said the stations are designed to be self-operated and user-friendly. They provide simple, step-by-step instructions so seniors can comfortably check their blood pressure independently.\n\n\u201cStaff members will be available to assist as needed, and they will receive basic training to help guide seniors in using the equipment properly,\u201d she said. \u201cWhile the stations are self-service, this added support ensures that residents feel confident and comfortable using them.\u201d\n\nGilchrist said the monitoring stations should be up and running within the next few weeks.\n\n Facebook\n Twitter\n WhatsApp\n SMS\n Email\n Print \"Print\")\n Save\n\n### Georgia Press Association\n\n## Latest e-Edition\n\n### Douglas County Sentinel\n\n To view our latest e-Edition click the image on the left.",
+      "published_date": "Fri, 05 Jun 2026 19:15:00 GMT",
+      "tavily_score": 0.01717839,
+      "priority_source": false,
+      "secondary_source": true,
+      "official_source": false,
+      "query": "Georgia roof fire HVAC electrical conduit homeowners safety",
+      "strategy_cluster": "roof_safety",
+      "pillar_topic": "Atlanta roof safety, fires, penetrations, structural risk",
+      "trigger_window_hours": 48,
+      "search_stage": "secondary_14_day_news",
+      "search_days": 7,
+      "retrieved_at": "2026-06-08T15:13:30.914247+00:00",
+      "matched_terms": {
+        "local_terms": [
+          "douglasville"
+        ],
+        "topic_terms": [
+          "safety"
+        ],
+        "cluster_terms": [
+          "safety"
+        ],
+        "scoring_mode": "roofing_keyword_match_only"
+      },
+      "search_quality_score": 3.0,
+      "content_age_days": 2,
+      "scoring_mode": "roofing_keyword_match_only"
+    }
+  },
+  {
+    "title": "Georgia Commissioner\u2019s Office Offers $10,000 Reward for Help on String of Arsons",
+    "url": "https://www.insurancejournal.com/news/southeast/2026/06/05/872664.htm",
+    "strategy_cluster": "roof_safety",
+    "pillar_topic": "Atlanta roof safety, fires, penetrations, structural risk",
+    "trigger_window_hours": 48,
+    "scores": {
+      "local_relevance": 7,
+      "roofing_relevance": 3,
+      "recency": 10,
+      "source_authority": 8,
+      "actionability": 2,
+      "territory_alignment": 5,
+      "semantic_relevance": 2
+    },
+    "model_weighted_score": 4.4,
+    "weighted_score": 4.4,
+    "scoring_adjustments": {
+      "territory_alignment_score": 0,
+      "semantic_relevance_score": 0,
+      "multi_territory_bonus": 0,
+      "off_topic_penalty": 0,
+      "duplicate_topic_penalty": 0,
+      "weighted_score_adjustment": 0.0,
+      "hard_reject_reasons": []
+    },
+    "keep": false,
+    "reason": "Low relevance to roofing/exterior and actionability",
+    "recommended_angle": "",
+    "source": {
+      "title": "Georgia Commissioner\u2019s Office Offers $10,000 Reward for Help on String of Arsons - Insurance Journal",
+      "url": "https://www.insurancejournal.com/news/southeast/2026/06/05/872664.htm",
+      "domain": "insurancejournal.com",
+      "content": "Anyone with information is encouraged to contact the Georgia Arson Control Hotline at 1\u2011800\u2011282\u20115804.\n\nTopics Georgia\n\nWas this article valuable?\n\nHere are more articles you may enjoy.\n\nEntrepreneur\u2019s Suit Says My Safe Florida Home Hurricane Shutters Are Fire Hazards\n\nUSI Insurance Services Claims Ex-Broker Poached Clients for Own New Agency\n\nWarmer World Means Bigger Hail and More Damage, Study Finds\n\nTrump Scraps Ocean Sensors Providing Crucial Data on Climate, Flooding\n\n#### The most important insurance news,in your inbox every business day.\n\nGet the insurance industry's trusted newsletter\n\nEmail This   Subscribe to Newsletter\n\n Categories: Southeast News\n Have a hot lead? Email us at newsdesk@insurancejournal.com\n\n### Insurance Jobs [...] After local firefighters subdued the vehicle blaze on May 22, the state Fire Marshal investigators determined the fire had been deliberately set, Commissioner John King\u2019s office said in a bulletin. The gasoline and the battery had been removed from the vehicle before the incident.\n\nIt may be the latest arson in the same area in the last eight months, including a camper fire, an outbuilding and non-residential structure fire, the office noted.\n\n\u201cWe are asking for the public\u2019s help to identify whoever is responsible for this fire,\u201d King said in a statement. \u201cA reward of up to $10,000 is available for information leading to the arrest and conviction of those involved. Callers may remain anonymous.\u201d [...] Skip to content\n\n MyNewMarkets.com\n Claims Journal\n Insurance Journal TV\n Academy of Insurance\n Carrier Management\n\n### Featured Stories\n\n Environmental Brokers Busy After Chemical Plant Blast\n AIG\u2019s Turnaround Sets Stage for New Leadership\n\n Articles\n Jobs\n Markets\n\n### Current Magazine\n\n Read Online\n Subscribe\n Login\n\n# Georgia Commissioner\u2019s Office Offers $10,000 Reward for Help on String of Arsons\n\nJune 5, 2026\n\nEmail This   Subscribe to Newsletter\n\n Article\n 0 Comments\n\nThe Georgia Insurance Commissioner\u2019s office is offering a reward of as much as $10,000 for information leading to the culprit behind a vehicle fire, one of several suspicious fires in Cedartown in recent months.",
+      "published_date": "Fri, 05 Jun 2026 13:57:48 GMT",
+      "tavily_score": 0.063233286,
+      "priority_source": false,
+      "secondary_source": false,
+      "official_source": false,
+      "query": "Georgia roof fire HVAC electrical conduit homeowners safety",
+      "strategy_cluster": "roof_safety",
+      "pillar_topic": "Atlanta roof safety, fires, penetrations, structural risk",
+      "trigger_window_hours": 48,
+      "search_stage": "broad_14_day_news",
+      "search_days": 7,
+      "retrieved_at": "2026-06-08T15:13:40.014145+00:00",
+      "matched_terms": {
+        "local_terms": [
+          "georgia"
+        ],
+        "topic_terms": [
+          "damage",
+          "fire",
+          "flooding",
+          "hail",
+          "insurance"
+        ],
+        "cluster_terms": [
+          "fire"
+        ],
+        "scoring_mode": "roofing_keyword_match_only"
+      },
+      "search_quality_score": 7.0,
+      "content_age_days": 3,
       "scoring_mode": "roofing_keyword_match_only"
     }
   },
@@ -147,8 +470,8 @@
       "territory_alignment": 5,
       "semantic_relevance": 2
     },
-    "model_weighted_score": 4.68,
-    "weighted_score": 4.68,
+    "model_weighted_score": 4.4,
+    "weighted_score": 4.4,
     "scoring_adjustments": {
       "territory_alignment_score": 0,
       "semantic_relevance_score": 0,
@@ -159,7 +482,7 @@
       "hard_reject_reasons": []
     },
     "keep": false,
-    "reason": "Low relevance to roofing/exterior demand in Metro Atlanta",
+    "reason": "Too little direct relevance to roofing or exterior demand in Metro Atlanta.",
     "recommended_angle": "",
     "source": {
       "title": "People Moves at Alfa, Alliant in the Southeast - Insurance Journal",
@@ -177,7 +500,7 @@
       "trigger_window_hours": 48,
       "search_stage": "broad_14_day_news",
       "search_days": 7,
-      "retrieved_at": "2026-06-05T18:30:28.867261+00:00",
+      "retrieved_at": "2026-06-08T15:13:36.653700+00:00",
       "matched_terms": {
         "local_terms": [
           "atlanta",
@@ -196,395 +519,7 @@
         "scoring_mode": "roofing_keyword_match_only"
       },
       "search_quality_score": 8.0,
-      "content_age_days": 3,
-      "scoring_mode": "roofing_keyword_match_only"
-    }
-  },
-  {
-    "title": "Georgia Commissioner\u2019s Office Offers $10,000 Reward for Help on String of Arsons",
-    "url": "https://www.insurancejournal.com/news/southeast/2026/06/05/872664.htm",
-    "strategy_cluster": "ga_insurance_navigation",
-    "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
-    "trigger_window_hours": 48,
-    "scores": {
-      "local_relevance": 5,
-      "roofing_relevance": 2,
-      "recency": 10,
-      "source_authority": 8,
-      "actionability": 3,
-      "territory_alignment": 5,
-      "semantic_relevance": 2
-    },
-    "model_weighted_score": 4.68,
-    "weighted_score": 4.68,
-    "scoring_adjustments": {
-      "territory_alignment_score": 0,
-      "semantic_relevance_score": 0,
-      "multi_territory_bonus": 0,
-      "off_topic_penalty": 0,
-      "duplicate_topic_penalty": 0,
-      "weighted_score_adjustment": 0.0,
-      "hard_reject_reasons": []
-    },
-    "keep": false,
-    "reason": "Not directly relevant to roofing or exterior demand in Metro Atlanta.",
-    "recommended_angle": "",
-    "source": {
-      "title": "Georgia Commissioner\u2019s Office Offers $10,000 Reward for Help on String of Arsons - Insurance Journal",
-      "url": "https://www.insurancejournal.com/news/southeast/2026/06/05/872664.htm",
-      "domain": "insurancejournal.com",
-      "content": "Anyone with information is encouraged to contact the Georgia Arson Control Hotline at 1\u2011800\u2011282\u20115804.\n\nTopics Georgia\n\nWas this article valuable?\n\nHere are more articles you may enjoy.\n\nEntrepreneur\u2019s Suit Says My Safe Florida Home Hurricane Shutters Are Fire Hazards\n\nUSI Insurance Services Claims Ex-Broker Poached Clients for Own New Agency\n\nWarmer World Means Bigger Hail and More Damage, Study Finds\n\nTrump Scraps Ocean Sensors Providing Crucial Data on Climate, Flooding\n\n#### The most important insurance news,in your inbox every business day.\n\nGet the insurance industry's trusted newsletter\n\nEmail This   Subscribe to Newsletter\n\n Categories: Southeast News\n Have a hot lead? Email us at newsdesk@insurancejournal.com\n\n### Insurance Jobs [...] Merck to Settle Bulk of Gardasil Suits for About $50 Million\n IBM, AT&T Accused by Whistleblower of Covering Up Foreign Hacks\n Report Explores Forces Driving Claim Complexity\n Insurers Acting Like Banks Must Grasp Loan Risk, EIOPA Says\n The Future of Appraisal and the Rising Standard of Competency\n\n June 4th Saving Commercial Property Insureds from an Epic Coverage Fail\n June 11th Emerging E&O Risks for 2026\n June 18th Agency Best Practices Revisited: Why The Order Taker Standard Does NOT Work to Your Detriment\n July 9th Business Auto Pollution Myths [...] Skip to content\n\n MyNewMarkets.com\n Claims Journal\n Insurance Journal TV\n Academy of Insurance\n Carrier Management\n\n### Featured Stories\n\n Environmental Brokers Busy After Chemical Plant Blast\n AIG\u2019s Turnaround Sets Stage for New Leadership\n\n Articles\n Jobs\n Markets\n\n### Current Magazine\n\n Read Online\n Subscribe\n Login\n\n# Georgia Commissioner\u2019s Office Offers $10,000 Reward for Help on String of Arsons\n\nJune 5, 2026\n\nEmail This   Subscribe to Newsletter\n\n Article\n 0 Comments\n\nThe Georgia Insurance Commissioner\u2019s office is offering a reward of as much as $10,000 for information leading to the culprit behind a vehicle fire, one of several suspicious fires in Cedartown in recent months.",
-      "published_date": "Fri, 05 Jun 2026 13:57:48 GMT",
-      "tavily_score": 0.035320852,
-      "priority_source": false,
-      "secondary_source": false,
-      "official_source": false,
-      "query": "Georgia actual cash value roof claim homeowners dispute",
-      "strategy_cluster": "ga_insurance_navigation",
-      "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
-      "trigger_window_hours": 48,
-      "search_stage": "broad_14_day_news",
-      "search_days": 7,
-      "retrieved_at": "2026-06-05T18:30:27.476821+00:00",
-      "matched_terms": {
-        "local_terms": [
-          "georgia"
-        ],
-        "topic_terms": [
-          "claim",
-          "damage",
-          "fire",
-          "flooding",
-          "hail",
-          "insurance"
-        ],
-        "cluster_terms": [
-          "claim",
-          "insurance"
-        ],
-        "scoring_mode": "roofing_keyword_match_only"
-      },
-      "search_quality_score": 9.0,
-      "content_age_days": 0,
-      "scoring_mode": "roofing_keyword_match_only"
-    }
-  },
-  {
-    "title": "Murder charge dropped for groom who killed bride\u2019s stepfather at wedding",
-    "url": "https://www.wsbtv.com/news/local/murder-charge-dropped-groom-who-killed-brides-stepfather-wedding/3WUPVM57LREXXBRALNBZVMOANE/",
-    "strategy_cluster": "ga_insurance_navigation",
-    "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
-    "trigger_window_hours": 48,
-    "scores": {
-      "local_relevance": 7,
-      "roofing_relevance": 2,
-      "recency": 8,
-      "source_authority": 9,
-      "actionability": 3,
-      "territory_alignment": 5,
-      "semantic_relevance": 2
-    },
-    "model_weighted_score": 4.64,
-    "weighted_score": 4.64,
-    "scoring_adjustments": {
-      "territory_alignment_score": 0,
-      "semantic_relevance_score": 0,
-      "multi_territory_bonus": 0,
-      "off_topic_penalty": 0,
-      "duplicate_topic_penalty": 0,
-      "weighted_score_adjustment": 0.0,
-      "hard_reject_reasons": []
-    },
-    "keep": false,
-    "reason": "No clear connection to roofing or exterior demand in Metro Atlanta.",
-    "recommended_angle": "",
-    "source": {
-      "title": "Murder charge dropped for groom who killed bride\u2019s stepfather at wedding - WSB-TV",
-      "url": "https://www.wsbtv.com/news/local/murder-charge-dropped-groom-who-killed-brides-stepfather-wedding/3WUPVM57LREXXBRALNBZVMOANE/",
-      "domain": "wsbtv.com",
-      "content": "DOWNLOAD: [Free WSB-TV News app for alerts as news breaks]\n\nSIGN UP: [WSB-TV Daily Headlines Newsletter]\n\n\u00a92026 Cox Media Group\n\n0\n\n## Most Read\n\n## Murder charge dropped for groom who killed bride\u2019s stepfather at wedding\n\n## Barnes & Noble store closing after 30 years; gas station chain purchased building\n\n## MARTA stabbing: Woman killed minutes after suspect stepped onto train, police report says\n\n## Georgia gas tax suspension ends Tuesday night\n\n## Neighbors say homes keep flooding because thieves are stealing hot water heaters [...] WSB Now\n\nResize:\n\nDrag to Resize Video\n\nLocal\n\n# Murder charge dropped for groom who killed bride\u2019s stepfather at wedding\n\nBy WSBTV.com News Staff\n\nBy WSBTV.com News Staff\n\nBUTTS COUNTY, Ga. \u2014 Charges have been dropped against a man who said he fatally shot his wife\u2019s stepfather on his wedding night in self-defense.\n\nIn a Channel 2 exclusive, Aaron White says in July 2024 he was a groom who just hours after his wedding took a step he replays every day.\n\nHe told Channel 2 Investigative Reporter Mark Winne shot his new stepfather in law, Jason Maughon, in self-defense in Butts County.\n\n\u201cSorry somebody had to lose their life, but I had to do what I had to do to protect,\u201d White said.\n\nHe was indicted earlier this year for murder and aggravated assault charges. [...] \u201cWe waited two years to finally be able to take a breath and realize that this nightmare is over as far as the legal side of it,\u201d said White\u2019s wife, Kailagh.\n\nButts County Sheriff Gary Long said he disagreed with then-DA Jonathan Adams taking the case to a grand jury a second time, which led to the indictment.\n\nAdams is now a judge-elect. He declined to comment on the decision not to prosecute.\n\nDan Maughon, Jason\u2019s father, says he and his family have compiled their own file on the case, and they\u2019re not giving up.\n\n\u201cHe was completely unarmed,\u201d Dan Maughon said.\n\nHe says he and his wife never got a chance to give their side in court, though they did to Patillo.\n\nHe said he believes the case is now \u201con life support, but I don\u2019t think it is completely dead.\u201d",
-      "published_date": "Tue, 02 Jun 2026 09:06:44 GMT",
-      "tavily_score": 0.0008969393,
-      "priority_source": true,
-      "secondary_source": false,
-      "official_source": false,
-      "query": "Georgia actual cash value roof claim homeowners dispute",
-      "strategy_cluster": "ga_insurance_navigation",
-      "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
-      "trigger_window_hours": 48,
-      "search_stage": "priority_7_day_news",
-      "search_days": 7,
-      "retrieved_at": "2026-06-05T18:29:59.907127+00:00",
-      "matched_terms": {
-        "local_terms": [
-          "georgia"
-        ],
-        "topic_terms": [
-          "flooding"
-        ],
-        "cluster_terms": [],
-        "scoring_mode": "roofing_keyword_match_only"
-      },
-      "search_quality_score": 2.0,
-      "content_age_days": 3,
-      "scoring_mode": "roofing_keyword_match_only"
-    }
-  },
-  {
-    "title": "Self-defense experts encourage women to learn basic safety skills",
-    "url": "https://www.11alive.com/article/news/self-defense-experts-encourage-women-to-learn-basic-safety-skills/85-ca5bac6a-7a5d-4473-b35c-b5a26d0a1e41",
-    "strategy_cluster": "ga_insurance_navigation",
-    "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
-    "trigger_window_hours": 48,
-    "scores": {
-      "local_relevance": 7,
-      "roofing_relevance": 2,
-      "recency": 8,
-      "source_authority": 9,
-      "actionability": 5,
-      "territory_alignment": 6,
-      "semantic_relevance": 2
-    },
-    "model_weighted_score": 4.64,
-    "weighted_score": 4.64,
-    "scoring_adjustments": {
-      "territory_alignment_score": 0,
-      "semantic_relevance_score": 0,
-      "multi_territory_bonus": 0,
-      "off_topic_penalty": 0,
-      "duplicate_topic_penalty": 0,
-      "weighted_score_adjustment": 0.0,
-      "hard_reject_reasons": []
-    },
-    "keep": false,
-    "reason": "Low relevance to roofing/exterior and limited actionability for contractors/homeowners",
-    "recommended_angle": "",
-    "source": {
-      "title": "Self-defense experts encourage women to learn basic safety skills - 11Alive.com",
-      "url": "https://www.11alive.com/article/news/self-defense-experts-encourage-women-to-learn-basic-safety-skills/85-ca5bac6a-7a5d-4473-b35c-b5a26d0a1e41",
-      "domain": "11alive.com",
-      "content": "Skip Navigation\n\n Share on Facebook\n Share on SMS\n Share on Email\n\n Advertise With Us\n 11Alive News Investigates\n Atlanta & Company\n Better Work\n Money Moves\n The Georgia Vote\n Contests\n Locked On Sports Atlanta\n Community\n Companies That Care\n TV Listings\n\nBreaking News\n\nMore () \u00bb\n\nNews\n\n# Self-defense experts encourage women to learn basic safety skills\n\nAs concerns over attacks on metro Atlanta women grow, self-defense instructors emphasize awareness.\n\nCredit: WXIA\n\nMARIETTA, Ga. \u2014 Recent deadly attacks against women on the Beltline and a MARTA train have renewed conversations about personal safety, prompting self-defense experts to encourage women to learn practical skills that can help them recognize danger and respond effectively in threatening situations. [...] At Tommy Cho Martial Arts in Marietta, the focus is on more than physical techniques. Instructors say that building confidence and awareness can help women better protect themselves in potentially dangerous encounters.\n\nThis story continues below.\n\nMore in News\n\n DeKalb County investigating report of shooting\n Popular Atlanta club owner shot and killed over holiday weekend in Gwinnett County\n\n\"Equipping women with the confidence to get out of a dangerous situation is the main goal of self-defense,\" said Raquel Riley Thomas, founder of DefendRILEY.org and a black belt martial artist.\n\nFor Thomas, teaching self-defense is deeply personal. She says a family tragedy shaped her mission. [...] \"Back in March of 2013, my mother took her life, and I found out later that she had been sexually assaulted when she was younger,\" Thomas said.\n\nAfter moving to Georgia several years ago, Thomas became increasingly concerned about reports of assaults involving women. She said her martial arts training helped her discover a greater purpose.\n\n\"When I got here and started to take Taekwondo, I knew there was a purpose for me that was bigger than me,\" she said.\n\nToday, Thomas works alongside black belt instructor David Ellard to teach Gracie Jiu-Jitsu to women and children of all ages. Their classes focus on practical self-defense techniques, situational awareness, and strategies for escaping dangerous situations.",
-      "published_date": "Mon, 01 Jun 2026 16:59:33 GMT",
-      "tavily_score": 0.030103253,
-      "priority_source": true,
-      "secondary_source": false,
-      "official_source": false,
-      "query": "Metro Atlanta insurance adjuster roof inspection homeowners",
-      "strategy_cluster": "ga_insurance_navigation",
-      "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
-      "trigger_window_hours": 48,
-      "search_stage": "priority_7_day_news",
-      "search_days": 7,
-      "retrieved_at": "2026-06-05T18:30:00.777626+00:00",
-      "matched_terms": {
-        "local_terms": [
-          "atlanta",
-          "dekalb",
-          "georgia",
-          "gwinnett",
-          "marietta",
-          "metro atlanta"
-        ],
-        "topic_terms": [
-          "safety"
-        ],
-        "cluster_terms": [],
-        "scoring_mode": "roofing_keyword_match_only"
-      },
-      "search_quality_score": 7.0,
-      "content_age_days": 4,
-      "scoring_mode": "roofing_keyword_match_only"
-    }
-  },
-  {
-    "title": "The Atlanta airport\u2019s shiny new parking deck is \u2018just Phase 1\u2019 - AJC.com",
-    "url": "https://www.ajc.com/business/2026/05/the-atlanta-airports-shiny-new-parking-deck-is-just-phase-1/",
-    "strategy_cluster": "ga_insurance_navigation",
-    "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
-    "trigger_window_hours": 48,
-    "scores": {
-      "local_relevance": 7,
-      "roofing_relevance": 2,
-      "recency": 10,
-      "source_authority": 9,
-      "actionability": 3,
-      "territory_alignment": 5,
-      "semantic_relevance": 1
-    },
-    "model_weighted_score": 4.64,
-    "weighted_score": 4.64,
-    "scoring_adjustments": {
-      "territory_alignment_score": 0,
-      "semantic_relevance_score": 0,
-      "multi_territory_bonus": 0,
-      "off_topic_penalty": 0,
-      "duplicate_topic_penalty": 0,
-      "weighted_score_adjustment": 0.0,
-      "hard_reject_reasons": []
-    },
-    "keep": false,
-    "reason": "Low roofing relevance and semantic relevance",
-    "recommended_angle": "",
-    "source": {
-      "title": "The Atlanta airport\u2019s shiny new parking deck is \u2018just Phase 1\u2019 - AJC.com",
-      "url": "https://www.ajc.com/business/2026/05/the-atlanta-airports-shiny-new-parking-deck-is-just-phase-1/",
-      "domain": "ajc.com",
-      "content": "### More Stories\n\nThe Latest\n\n### PSC signs off on lower bills for Georgia Power customers\n\n### Savannah\u2019s horse-drawn carriage tours can resume in heat, court rules\n\n### Portman continues suburban development push with Gwinnett mixed-use proposal\n\nKeep Reading\n\n### Ships, trains and semi-trucks: How inland port aims to ease Atlanta traffic\n\n### Portman continues suburban development push with Gwinnett mixed-use proposal\n\n### Atlanta did well during the close of I-285. What about the next dozen closings?\n\n### More rain in Georgia\u2019s forecast. Here\u2019s what it means for the drought.\n\n### The Atlanta airport\u2019s shiny new parking deck is \u2018just Phase 1\u2019\n\n### Atlanta police investigate sex affair involving judge and high-ranking officer [...] \u2014 \u2014 raey lliw hcihw eht eht eht emas desiar .gnikrap gnikrap gnikrap tsal ylruoh ruoh rof rof seef :skced yad yliad tnerruc eb sa dna na tropria a ehT 03$ 01$\n\nThe $441 million deck has been under construction since 2023. (Ben Hendren for the AJC)\n\nhcihw rednu emit eht ecnis ,eludehcs gninepo fo txen shtnom .htnom si ni sah rof ,kced noitcurtsnoc neeb daeha dlroW ehT AFIF puC ,3202\n\neht eht fo ton s\u2019ti dne noitpursid noitcurtsnoc dnuora .lanimreT htuoS citsemoD tuB\n\nlliw gnitrats tliuber dlo ni dehsilomed kced eb dna ehT .tsuguA\n\n\u2026 nodraP\u201c ot eht roines dias ydaer ruo reganam .erutcurtsarfni og lareneg rof tsud ytuped s\u2019tropria \u201d,niaga er\u2019eW ,rekcuR knarF\n\nAbout the Author\n\nEmma Hurt [...] tI\u201c uoy nehw tahw eht eht s\u2019taht \u201d.stneserper yllaer tcejorp gnikrap tsrif retne ,supmac snigeb dna\n\n,yawklaw gniklaw hguorht eht eht eht naht lanimret htuos nairtsedep sregnessap won senal noitallatsni morf morf gnirutaef gnitsixe retne detavele ffo-pord erutraped ,kced nac tsitra lavirra dna na na ssorca rehtaR .eeL yrraB desab-atnaltA\n\n.sraey ohw klaw ot eht eht eht eht lanimret emos deiler ytimixorp no wen noitacol nehtgnel evah rof rof gnitsixe s\u2019kced dluoc htuoS atleD tuB\n\n\u2026 tahW\u201c er\u2019ew gnisu dlot ot ot eht ygolonhcet dradnats trams tes \u201d.gnikrap wen tsom si woh gniog rof deticxe ,dworc eb tropria tuoba a m\u2019I snekciD\n\noT\u201c ohw su owt gniyrt deirt ot ot eht ssecorp \u201d.gnikrap gnikrap tuo ro fo etagivan ylekil ni ,tsenoh ereh sah dnif decneirepxe reve egnellahc eb yna a",
-      "published_date": "Sat, 30 May 2026 10:02:38 GMT",
-      "tavily_score": 0.03037818,
-      "priority_source": true,
-      "secondary_source": false,
-      "official_source": false,
-      "query": "Metro Atlanta insurance adjuster roof inspection homeowners",
-      "strategy_cluster": "ga_insurance_navigation",
-      "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
-      "trigger_window_hours": 48,
-      "search_stage": "priority_7_day_news",
-      "search_days": 7,
-      "retrieved_at": "2026-06-05T18:30:00.774191+00:00",
-      "matched_terms": {
-        "local_terms": [
-          "atlanta",
-          "georgia",
-          "gwinnett"
-        ],
-        "topic_terms": [
-          "construction"
-        ],
-        "cluster_terms": [],
-        "scoring_mode": "roofing_keyword_match_only"
-      },
-      "search_quality_score": 4.0,
       "content_age_days": 6,
-      "scoring_mode": "roofing_keyword_match_only"
-    }
-  },
-  {
-    "title": "Mich. Biz Can't Appeal AG Intervention In Fire Coverage Suit - Law360",
-    "url": "https://www.law360.com/real-estate-authority/commercial/articles/2484238/mich-biz-can-t-appeal-ag-intervention-in-fire-coverage-suit",
-    "strategy_cluster": "ga_insurance_navigation",
-    "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
-    "trigger_window_hours": 48,
-    "scores": {
-      "local_relevance": 1,
-      "roofing_relevance": 1,
-      "recency": 8,
-      "source_authority": 10,
-      "actionability": 2,
-      "territory_alignment": 5,
-      "semantic_relevance": 1
-    },
-    "model_weighted_score": 4.24,
-    "weighted_score": 4.24,
-    "scoring_adjustments": {
-      "territory_alignment_score": 0,
-      "semantic_relevance_score": 0,
-      "multi_territory_bonus": 0,
-      "off_topic_penalty": 0,
-      "duplicate_topic_penalty": 0,
-      "weighted_score_adjustment": 0.0,
-      "hard_reject_reasons": []
-    },
-    "keep": false,
-    "reason": "No clear connection to roofing or exterior demand in Metro Atlanta.",
-    "recommended_angle": "",
-    "source": {
-      "title": "Mich. Biz Can't Appeal AG Intervention In Fire Coverage Suit - Law360",
-      "url": "https://www.law360.com/real-estate-authority/commercial/articles/2484238/mich-biz-can-t-appeal-ag-intervention-in-fire-coverage-suit",
-      "domain": "law360.com",
-      "content": "Pulse UK\n\nTransactions UK\n\n# Law360 Canada\n\nADR\n\nAccess to Justice\n\nBanking, Bankruptcy & Insolvency\n\nBusiness\n\nCivil Litigation\n\nConstitutional\n\nCriminal\n\nFamily\n\nImmigration\n\nIn-House Counsel\n\nInformation Technology\n\nInsurance\n\nIntellectual Property\n\nLabour & Employment\n\nNatural Resources\n\nOther Areas of Practice\n\nPersonal Injury\n\nPulse\n\nReal Estate\n\nTax\n\nThe Complete Brief\n\nWills, Trusts & Estates\n\n# Law360 Pulse | The Business of Law\n\nCalifornia Pulse\n\nConnecticut Pulse\n\nCourts\n\nDC Pulse\n\nDaily Litigation\n\nDelaware Pulse\n\nFlorida Pulse\n\nGeorgia Pulse\n\nIn-House\n\nInsights\n\nLegal Tech & AI\n\nMid-Law\n\nModern Lawyer\n\nNew Jersey Pulse\n\nNew York Pulse\n\nPennsylvania Pulse\n\nSmall Law\n\nTexas Pulse\n\n# Mealeys\n\nMealey's Artificial Intelligence\n\nMealey's Asbestos\n\nMealey's Asbestos Bankruptcy [...] ## US Coverage\n\n# Law360 | The Practice of Law\n\nAccess to Justice\n\nAerospace & Defense\n\nAsset Management\n\nCapital Markets\n\nClass Action\n\nCommercial Contracts\n\nConsumer Protection\n\nCriminal Practice\n\nCybersecurity & Privacy\n\nFood & Beverage\n\nGovernment Contracts\n\nIntellectual Property\n\nInternational Arbitration\n\nInternational Trade\n\nLegal Ethics\n\nLife Sciences\n\nMedia & Entertainment\n\nMergers & Acquisitions\n\nNative American\n\nPersonal Injury & Medical Malpractice\n\nPrivate Equity\n\nProduct Liability\n\nProject Finance\n\nPublic Policy\n\nReal Estate\n\nRetail & E-Commerce\n\nSecurities\n\nSports & Betting\n\nTax\n\nTechnology\n\nTelecommunications\n\nTransportation\n\nTrials\n\nWhite Collar\n\n# State Specific Coverage\n\nCalifornia\n\nColorado\n\nConnecticut\n\nDelaware\n\nFlorida\n\nGeorgia\n\nIllinois\n\nMassachusetts\n\nMichigan [...] Florida\n\nGeorgia\n\nIllinois\n\nMassachusetts\n\nMichigan\n\nNew Jersey\n\nNew York\n\nNorth Carolina\n\nOhio\n\nPennsylvania\n\nTexas\n\nWashington\n\n# Law360 Authority | Deep News & Analysis\n\n# Employment Authority\n\nDiscrimination\n\nLabor\n\nOther\n\nWage & Hour\n\n# Tax Authority\n\nFederal\n\nInternational\n\nState & Local\n\n# Insurance Authority\n\nGeneral Liability\n\nOther\n\nProperty\n\nSpecialty Lines\n\n# Real Estate Authority\n\nCommercial\n\nOther\n\nResidential\n\n# Healthcare Authority\n\nDeals & Corporate Governance\n\nDigital Health & Technology\n\nOther\n\nPolicy & Compliance\n\n# Bankruptcy Authority\n\nLarge Cap\n\nMid Cap\n\n## Global Coverage\n\n# Law360 UK\n\nCommercial Litigation UK\n\nCorporate Crime & Compliance UK\n\nEmployment UK\n\nFinancial Services UK\n\nInsurance UK\n\nIntellectual Property UK\n\nPulse UK\n\nTransactions UK\n\n# Law360 Canada",
-      "published_date": "Mon, 01 Jun 2026 23:41:00 GMT",
-      "tavily_score": 0.05086082,
-      "priority_source": false,
-      "secondary_source": false,
-      "official_source": false,
-      "query": "Georgia actual cash value roof claim homeowners dispute",
-      "strategy_cluster": "ga_insurance_navigation",
-      "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
-      "trigger_window_hours": 48,
-      "search_stage": "broad_14_day_news",
-      "search_days": 7,
-      "retrieved_at": "2026-06-05T18:30:27.474182+00:00",
-      "matched_terms": {
-        "local_terms": [
-          "georgia"
-        ],
-        "topic_terms": [
-          "fire",
-          "insurance"
-        ],
-        "cluster_terms": [
-          "insurance",
-          "policy"
-        ],
-        "scoring_mode": "roofing_keyword_match_only"
-      },
-      "search_quality_score": 5.0,
-      "content_age_days": 3,
-      "scoring_mode": "roofing_keyword_match_only"
-    }
-  },
-  {
-    "title": "Hurricane Season Spotlights Coverage Gaps, Market Strength - Law360",
-    "url": "https://www.law360.com/real-estate-authority/residential/articles/2485804/hurricane-season-spotlights-coverage-gaps-market-strength",
-    "strategy_cluster": "ga_insurance_navigation",
-    "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
-    "trigger_window_hours": 48,
-    "scores": {
-      "local_relevance": 2,
-      "roofing_relevance": 3,
-      "recency": 5,
-      "source_authority": 8,
-      "actionability": 4,
-      "territory_alignment": 3,
-      "semantic_relevance": 2
-    },
-    "model_weighted_score": 3.76,
-    "weighted_score": 3.76,
-    "scoring_adjustments": {
-      "territory_alignment_score": 0,
-      "semantic_relevance_score": 0,
-      "multi_territory_bonus": 0,
-      "off_topic_penalty": 0,
-      "duplicate_topic_penalty": 0,
-      "weighted_score_adjustment": 0.0,
-      "hard_reject_reasons": []
-    },
-    "keep": false,
-    "reason": "Low local relevance and semantic relevance, not directly related to roofing or exterior demand in Metro Atlanta.",
-    "recommended_angle": "",
-    "source": {
-      "title": "Hurricane Season Spotlights Coverage Gaps, Market Strength - Law360",
-      "url": "https://www.law360.com/real-estate-authority/residential/articles/2485804/hurricane-season-spotlights-coverage-gaps-market-strength",
-      "domain": "law360.com",
-      "content": "Pulse UK\n\nTransactions UK\n\n# Law360 Canada\n\nADR\n\nAccess to Justice\n\nBanking, Bankruptcy & Insolvency\n\nBusiness\n\nCivil Litigation\n\nConstitutional\n\nCriminal\n\nFamily\n\nImmigration\n\nIn-House Counsel\n\nInformation Technology\n\nInsurance\n\nIntellectual Property\n\nLabour & Employment\n\nNatural Resources\n\nOther Areas of Practice\n\nPersonal Injury\n\nPulse\n\nReal Estate\n\nTax\n\nThe Complete Brief\n\nWills, Trusts & Estates\n\n# Law360 Pulse | The Business of Law\n\nCalifornia Pulse\n\nConnecticut Pulse\n\nCourts\n\nDC Pulse\n\nDaily Litigation\n\nDelaware Pulse\n\nFlorida Pulse\n\nGeorgia Pulse\n\nIn-House\n\nInsights\n\nLegal Tech & AI\n\nMid-Law\n\nModern Lawyer\n\nNew Jersey Pulse\n\nNew York Pulse\n\nPennsylvania Pulse\n\nSmall Law\n\nTexas Pulse\n\n# Mealeys\n\nMealey's Artificial Intelligence\n\nMealey's Asbestos\n\nMealey's Asbestos Bankruptcy [...] Florida\n\nGeorgia\n\nIllinois\n\nMassachusetts\n\nMichigan\n\nNew Jersey\n\nNew York\n\nNorth Carolina\n\nOhio\n\nPennsylvania\n\nTexas\n\nWashington\n\n# Law360 Authority | Deep News & Analysis\n\n# Employment Authority\n\nDiscrimination\n\nLabor\n\nOther\n\nWage & Hour\n\n# Tax Authority\n\nFederal\n\nInternational\n\nState & Local\n\n# Insurance Authority\n\nGeneral Liability\n\nOther\n\nProperty\n\nSpecialty Lines\n\n# Real Estate Authority\n\nCommercial\n\nOther\n\nResidential\n\n# Healthcare Authority\n\nDeals & Corporate Governance\n\nDigital Health & Technology\n\nOther\n\nPolicy & Compliance\n\n# Bankruptcy Authority\n\nLarge Cap\n\nMid Cap\n\n## Global Coverage\n\n# Law360 UK\n\nCommercial Litigation UK\n\nCorporate Crime & Compliance UK\n\nEmployment UK\n\nFinancial Services UK\n\nInsurance UK\n\nIntellectual Property UK\n\nPulse UK\n\nTransactions UK\n\n# Law360 Canada [...] Mealey's Asbestos\n\nMealey's Asbestos Bankruptcy\n\nMealey's Attorney Fees\n\nMealey's California Insurance\n\nMealey's California Section 17200\n\nMealey's Catastrophic Loss\n\nMealey's Class Actions\n\nMealey's Construction Defects Insurance\n\nMealey's Copyright\n\nMealey's Coronavirus\n\nMealey's Cyber Tech & E-Commerce\n\nMealey's Data Privacy\n\nMealey's Daubert\n\nMealey's Disability Insurance\n\nMealey's Discovery\n\nMealey's Drugs & Devices\n\nMealey's ERISA\n\nMealey's Emerging Insurance Disputes\n\nMealey's Employment\n\nMealey's Fracking\n\nMealey's Insurance\n\nMealey's Insurance Bad Faith\n\nMealey's Insurance Fraud\n\nMealey's Insurance Insolvency\n\nMealey's Insurance Pleadings\n\nMealey's Intellectual Property\n\nMealey's International Arbitration\n\nMealey's Patents\n\nMealey's Personal Injury\n\nMealey's Pollution Liability",
-      "published_date": "Thu, 04 Jun 2026 23:25:00 GMT",
-      "tavily_score": 0.05732958,
-      "priority_source": false,
-      "secondary_source": false,
-      "official_source": false,
-      "query": "Georgia actual cash value roof claim homeowners dispute",
-      "strategy_cluster": "ga_insurance_navigation",
-      "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
-      "trigger_window_hours": 48,
-      "search_stage": "broad_14_day_news",
-      "search_days": 7,
-      "retrieved_at": "2026-06-05T18:30:27.471517+00:00",
-      "matched_terms": {
-        "local_terms": [
-          "georgia"
-        ],
-        "topic_terms": [
-          "insurance"
-        ],
-        "cluster_terms": [
-          "insurance",
-          "policy"
-        ],
-        "scoring_mode": "roofing_keyword_match_only"
-      },
-      "search_quality_score": 4.0,
-      "content_age_days": 0,
       "scoring_mode": "roofing_keyword_match_only"
     }
   },
@@ -600,8 +535,8 @@
       "recency": 5,
       "source_authority": 8,
       "actionability": 4,
-      "territory_alignment": 2,
-      "semantic_relevance": 3
+      "territory_alignment": 3,
+      "semantic_relevance": 2
     },
     "model_weighted_score": 3.68,
     "weighted_score": 3.68,
@@ -633,7 +568,7 @@
       "trigger_window_hours": 72,
       "search_stage": "broad_14_day_news",
       "search_days": 7,
-      "retrieved_at": "2026-06-05T18:30:26.010188+00:00",
+      "retrieved_at": "2026-06-08T15:13:32.256958+00:00",
       "matched_terms": {
         "local_terms": [
           "milton"
@@ -652,7 +587,135 @@
         "scoring_mode": "roofing_keyword_match_only"
       },
       "search_quality_score": 8.0,
-      "content_age_days": 0,
+      "content_age_days": 3,
+      "scoring_mode": "roofing_keyword_match_only"
+    }
+  },
+  {
+    "title": "T.W. Josey marks graduation at Bell Auditorium - The Augusta Chronicle",
+    "url": "https://www.augustachronicle.com/videos/news/education/graduation/2026/06/05/t-w-josey-marks-graduation-at-bell-auditorium/90424292007/",
+    "strategy_cluster": "storm_damage",
+    "pillar_topic": "Metro Atlanta storm damage inspection and repair",
+    "trigger_window_hours": 72,
+    "scores": {
+      "local_relevance": 2,
+      "roofing_relevance": 1,
+      "recency": 10,
+      "source_authority": 8,
+      "actionability": 1,
+      "territory_alignment": 2,
+      "semantic_relevance": 1
+    },
+    "model_weighted_score": 2.96,
+    "weighted_score": 2.96,
+    "scoring_adjustments": {
+      "territory_alignment_score": 0,
+      "semantic_relevance_score": 0,
+      "multi_territory_bonus": 0,
+      "off_topic_penalty": 0,
+      "duplicate_topic_penalty": 0,
+      "weighted_score_adjustment": 0.0,
+      "hard_reject_reasons": []
+    },
+    "keep": false,
+    "reason": "No direct connection to roofing or exterior demand in Metro Atlanta.",
+    "recommended_angle": "",
+    "source": {
+      "title": "T.W. Josey marks graduation at Bell Auditorium - The Augusta Chronicle",
+      "url": "https://www.augustachronicle.com/videos/news/education/graduation/2026/06/05/t-w-josey-marks-graduation-at-bell-auditorium/90424292007/",
+      "domain": "augustachronicle.com",
+      "content": "More Videos\n\nTicks in Georgia are responding to weather swings, not just seasonsDooley visits Augusta before runoffHow climate change is expanding mosquito populations in GeorgiaGeorgia Boaters Urged to Stop Invasive SpeciesEl Nin\u0303o May Calm Atlantic Hurricanes in 2026\n\nWatch Next\n\nAugusta runoffs set for mayor, commission seatsWhy Georgia alligators are more visible nowVideo: Augusta hits pause on new data center developments",
+      "published_date": "Fri, 05 Jun 2026 18:34:43 GMT",
+      "tavily_score": 0.032889787,
+      "priority_source": false,
+      "secondary_source": false,
+      "official_source": false,
+      "query": "Georgia severe weather roof inspection checklist homeowners",
+      "strategy_cluster": "storm_damage",
+      "pillar_topic": "Metro Atlanta storm damage inspection and repair",
+      "trigger_window_hours": 72,
+      "search_stage": "broad_14_day_news",
+      "search_days": 7,
+      "retrieved_at": "2026-06-08T15:13:32.255302+00:00",
+      "matched_terms": {
+        "local_terms": [
+          "georgia"
+        ],
+        "topic_terms": [
+          "weather"
+        ],
+        "cluster_terms": [
+          "weather"
+        ],
+        "scoring_mode": "roofing_keyword_match_only"
+      },
+      "search_quality_score": 3.0,
+      "content_age_days": 2,
+      "scoring_mode": "roofing_keyword_match_only"
+    }
+  },
+  {
+    "title": "Jacob Misiorowski throws 103.7 mph pitch, fastest by a starter since tracking began in 2008 - 95.5 WSB",
+    "url": "https://www.wsbradio.com/sports/jacob-misiorowski/B5CXU6ESAM7IXOSRPFYYG42GAM/",
+    "strategy_cluster": "storm_damage",
+    "pillar_topic": "Metro Atlanta storm damage inspection and repair",
+    "trigger_window_hours": 72,
+    "scores": {
+      "local_relevance": 2,
+      "roofing_relevance": 1,
+      "recency": 10,
+      "source_authority": 8,
+      "actionability": 1,
+      "territory_alignment": 2,
+      "semantic_relevance": 1
+    },
+    "model_weighted_score": 2.88,
+    "weighted_score": 2.88,
+    "scoring_adjustments": {
+      "territory_alignment_score": 0,
+      "semantic_relevance_score": 0,
+      "multi_territory_bonus": 0,
+      "off_topic_penalty": 0,
+      "duplicate_topic_penalty": 0,
+      "weighted_score_adjustment": 0.0,
+      "hard_reject_reasons": []
+    },
+    "keep": false,
+    "reason": "No clear connection to roofing or exterior demand in Metro Atlanta.",
+    "recommended_angle": "",
+    "source": {
+      "title": "Jacob Misiorowski throws 103.7 mph pitch, fastest by a starter since tracking began in 2008 - 95.5 WSB",
+      "url": "https://www.wsbradio.com/sports/jacob-misiorowski/B5CXU6ESAM7IXOSRPFYYG42GAM/",
+      "domain": "wsbradio.com",
+      "content": "He threw 52 pitches 100 mph or faster Saturday night, including a record 45 of at least 101 mph. He allowed just an unearned run while striking out eight in seven innings, lowering his ERA to 1.50.\n\nMisiorowski threw a record 57 pitches 100 mph or faster in the May 25 game, including 40 of 101 mph or more.\n\n\\_\\_\\_\n\nAP MLB: \n\nCopyright 2026 The Associated Press. All rights reserved. This material may not be published, broadcast, rewritten or redistributed without permission.\n\n## Listen\n\nnews\n\nweather\n\ntraffic\n\n60\n\nTraffic\n\nI-285Road work. Left two lanes blocked in Atlanta on I-285 WB at Bouldercrest Rd/Exit 51. Reported by GDOT\n\nI-20Road work. Right lane blocked in West Atlanta on I-20 WB between ML King Jr Dr/Exit 53 and Fulton Industrial Blvd/Exit 49. Reported by GDOT [...] ## Georgia Bulldogs Coverage\n\n## What does the SEC championship game blowout do for Georgia-Alabama 2026 matchup\n\n## Presence of Jared Curtis ensures Georgia-Vanderbilt game won\u2019t be overlooked\n\n## Expect this year\u2019s Georgia-Oklahoma game to be very different from 2018 Rose Bowl\n\nMore\n\n|  |  |\n --- |\n| Download the 95.5 WSB app |  |\n\n## Audio Temporarily Unavailable\n\nYou may be offline. Please check your connection and try again using the Retry button.\n\nListen Live\n\nLearn MoreShare currently playing on Facebook (Opens a new window)Share currently playing on Twitter (Opens a new window) [...] Subscribe to 95.5 WSB newsletter(Opens a new window)\n\n95.5 WSB facebook feed(Opens a new window)\n\n95.5 WSB twitter feed(Opens a new window)\n\n95.5 WSB instagram feed(Opens a new window)\n\nSports\n\n# Jacob Misiorowski throws 103.7 mph pitch, fastest by a starter since tracking began in 2008\n\nBy Associated Press\n\nBy Associated Press\n\nDENVER \u2014 Milwaukee Brewers ace Jacob Misiorowski threw a 103.7 mph pitch Saturday night against the Colorado Rockies, the fastest by a starter since tracking began in 2008.\n\nThe 24-year-old right-hander's record-setting pitch was low and outside to Kyle Karros in the third inning.\n\nMisiorowski has thrown the 12 fastest pitches by a starter. His previous high was 103.4 mph against St. Louis on May 25.",
+      "published_date": "Sun, 07 Jun 2026 04:00:31 GMT",
+      "tavily_score": 0.016903585,
+      "priority_source": true,
+      "secondary_source": false,
+      "official_source": false,
+      "query": "Georgia severe weather roof inspection checklist homeowners",
+      "strategy_cluster": "storm_damage",
+      "pillar_topic": "Metro Atlanta storm damage inspection and repair",
+      "trigger_window_hours": 72,
+      "search_stage": "priority_7_day_news",
+      "search_days": 7,
+      "retrieved_at": "2026-06-08T15:13:02.088961+00:00",
+      "matched_terms": {
+        "local_terms": [
+          "atlanta",
+          "fulton",
+          "georgia"
+        ],
+        "topic_terms": [
+          "weather"
+        ],
+        "cluster_terms": [
+          "weather"
+        ],
+        "scoring_mode": "roofing_keyword_match_only"
+      },
+      "search_quality_score": 5.0,
+      "content_age_days": 1,
       "scoring_mode": "roofing_keyword_match_only"
     }
   }

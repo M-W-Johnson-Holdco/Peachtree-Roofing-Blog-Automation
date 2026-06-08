@@ -103,7 +103,7 @@ def metadata_adjustments(source: dict[str, Any]) -> dict[str, Any]:
     hard_reject_reasons = []
     used_urls = used_source_urls()
     if used_urls and normalize_source_url(source_url(source)) in used_urls:
-        hard_reject_reasons.append("source URL was already used in a previous blog draft")
+        hard_reject_reasons.append("source URL was already used in an approved blog")
     if off_topic_penalty >= 7:
         hard_reject_reasons.append("off-topic penalty is too high")
     if semantic_score and semantic_score < 4:

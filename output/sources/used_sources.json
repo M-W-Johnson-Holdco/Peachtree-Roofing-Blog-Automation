@@ -1,6 +1,6 @@
 {
-  "updated_at": "2026-06-05T18:57:14.872663+00:00",
-  "source_count": 3,
+  "updated_at": "2026-06-08T20:12:18.356859+00:00",
+  "source_count": 5,
   "sources": [
     {
       "url": "https://markets.ft.com/data/announce/detail?dockey=600-202606031451PR_NEWS_USPRX____CL75458-1",
@@ -37,6 +37,30 @@
       "last_draft_path": "/Users/peachtreeroofing/Desktop/projects/Peachtree-Roofing-Blog-Automation/output/drafts/drafts_md/2026-06-05-145714-how-alpharetta-homeowners-can-shield-their-roofs-from-hurric.md",
       "last_runner": "peachtree_blog.pipeline.write_serverless",
       "use_count": 4
+    },
+    {
+      "url": "https://www.insurancejournal.com/news/southeast/2026/06/04/872383.htm",
+      "normalized_url": "https://insurancejournal.com/news/southeast/2026/06/04/872383.htm",
+      "domain": "insurancejournal.com",
+      "title": "Georgia Brokers and Agents Alarmed After Court Ruling Expands Liability for Them - Insurance Journal",
+      "strategy_cluster": "ga_insurance_navigation",
+      "first_used_at": "2026-06-08T15:16:30.577410+00:00",
+      "last_used_at": "2026-06-08T20:12:18.356507+00:00",
+      "last_draft_path": "/Users/peachtreeroofing/Desktop/projects/Peachtree-Roofing-Blog-Automation/output/drafts/drafts_md/2026-06-08-111923-atlanta-roof-insurance-how-the-2026-court-ruling-affects-you.md",
+      "last_runner": "seed-validation",
+      "use_count": 6
+    },
+    {
+      "url": "https://markets.businessinsider.com/news/stocks/florida-s-2024-hurricane-season-cost-billions-in-claims-and-reece-windows-doors-sees-surge-in-demand-for-impact-windows-across-jacksonville-tampa-and-orlando-1036229924",
+      "normalized_url": "https://markets.businessinsider.com/news/stocks/florida-s-2024-hurricane-season-cost-billions-in-claims-and-reece-windows-doors-sees-surge-in-demand-for-impact-windows-across-jacksonville-tampa-and-orlando-1036229924",
+      "domain": "markets.businessinsider.com",
+      "title": "Florida's 2024 Hurricane Season Cost Billions in Claims, and Reece Windows & Doors Sees Surge in Demand for Impact Windows Across Jacksonville, Tampa, and Orlando",
+      "strategy_cluster": "ga_insurance_navigation",
+      "first_used_at": "2026-06-08T15:16:30.577410+00:00",
+      "last_used_at": "2026-06-08T20:12:18.356507+00:00",
+      "last_draft_path": "/Users/peachtreeroofing/Desktop/projects/Peachtree-Roofing-Blog-Automation/output/drafts/drafts_md/2026-06-08-111923-atlanta-roof-insurance-how-the-2026-court-ruling-affects-you.md",
+      "last_runner": "seed-validation",
+      "use_count": 6
     }
   ]
 }
