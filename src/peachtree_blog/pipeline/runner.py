@@ -7,6 +7,7 @@ from peachtree_blog.paths import BYTECODE_CACHE_DIR, PROJECT_ROOT, SRC_DIR
 import os
 import subprocess
 import sys
+from datetime import datetime, timezone
 from typing import Sequence
 
 # Keys used by pipeline.py and approve subprocess rewrites.
@@ -35,6 +36,7 @@ def pipeline_subprocess_env() -> dict[str, str]:
     cache_dir.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
     env["PYTHONPYCACHEPREFIX"] = str(cache_dir)
+    env["PYTHONUNBUFFERED"] = "1"
     src = str(SRC_DIR)
     existing = env.get("PYTHONPATH", "")
     if src not in existing.split(os.pathsep):
@@ -44,18 +46,33 @@ def pipeline_subprocess_env() -> dict[str, str]:
 
 def build_module_command(module_key: str, *args: str) -> list[str]:
     """Argv to run a package module from the repo root (``PYTHONPATH=src``)."""
-    return [sys.executable, "-m", module_name(module_key), *args]
+    return [sys.executable, "-u", "-m", module_name(module_key), *args]
+
+
+STAGE_BANNER_WIDTH = 60
+
+
+def print_stage_banner(*, stage_index: int, stage_total: int, label: str) -> None:
+    line = "=" * STAGE_BANNER_WIDTH
+    print(f"\n{line}", flush=True)
+    print(f"[pipeline] Stage {stage_index}/{stage_total}: {label}", flush=True)
+    print(line, flush=True)
 
 
 def run_module(module_key: str, *args: str, label: str | None = None) -> int:
     command = build_module_command(module_key, *args)
     stage_label = label or module_key
-    print(f"[pipeline] Starting {stage_label}: {' '.join(command)}")
-    completed = subprocess.run(command, cwd=PROJECT_ROOT, env=pipeline_subprocess_env())
+    print(f"[pipeline] Running {stage_label}...", flush=True)
+    print(f"[pipeline] Command: {' '.join(command)}", flush=True)
+    completed = subprocess.run(
+        command,
+        cwd=PROJECT_ROOT,
+        env=pipeline_subprocess_env(),
+    )
     if completed.returncode != 0:
-        print(f"[pipeline] {stage_label} failed with exit code {completed.returncode}")
+        print(f"[pipeline] {stage_label} failed (exit {completed.returncode})", flush=True)
     else:
-        print(f"[pipeline] Finished {stage_label}")
+        print(f"[pipeline] {stage_label} finished", flush=True)
     return completed.returncode
 
 
@@ -70,16 +87,43 @@ def run_pipeline_restart(
     *,
     write_model: str | None = None,
     clear_drafts: bool = True,
+    preferred_cluster: str | None = None,
+    rotation_offset: int = 1,
 ) -> int:
     """Run search → evaluate → write_serverless. Returns last stage exit code."""
-    if run_module("search") != 0:
-        return 1
-    if run_module("evaluate") != 0:
-        return 1
+    search_args: list[str] = []
+    if preferred_cluster:
+        search_args.extend(["--preferred-cluster", preferred_cluster])
+    if rotation_offset:
+        week = datetime.now(timezone.utc).isocalendar().week + rotation_offset
+        search_args.extend(["--rotation-week", str(week)])
 
     write_args: list[str] = []
     if clear_drafts:
         write_args.append("--clear-drafts")
     if write_model:
         write_args.extend(["--model", write_model])
-    return run_module("write_serverless", *write_args)
+
+    stages: list[tuple[str, tuple[str, ...], str]] = [
+        ("search", tuple(search_args), "Search (Tavily)"),
+        ("evaluate", (), "Evaluate sources"),
+        ("write_serverless", tuple(write_args), "Write draft"),
+    ]
+
+    line = "=" * STAGE_BANNER_WIDTH
+    print(f"\n{line}", flush=True)
+    print("[pipeline] Full restart: search → evaluate → write", flush=True)
+    if preferred_cluster:
+        print(f"[pipeline] Preferred cluster: {preferred_cluster}", flush=True)
+    print(line, flush=True)
+
+    for index, (module_key, module_args, label) in enumerate(stages, start=1):
+        print_stage_banner(stage_index=index, stage_total=len(stages), label=label)
+        if run_module(module_key, *module_args, label=label) != 0:
+            print(f"\n[pipeline] Stopped after failed stage: {label}", flush=True)
+            return 1
+
+    print(f"\n{line}", flush=True)
+    print("[pipeline] Full restart completed successfully", flush=True)
+    print(f"{line}\n", flush=True)
+    return 0

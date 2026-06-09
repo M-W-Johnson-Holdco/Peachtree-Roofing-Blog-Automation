@@ -388,6 +388,69 @@ TOPIC_TERMS = [
     "drone inspection",
 ]
 
+# Terms that indicate real roofing content (not generic local news that only hits "safety"/"inspection").
+CORE_ROOFING_SIGNAL_TERMS = [
+    "roof",
+    "roofing",
+    "shingle",
+    "gutter",
+    "siding",
+    "hail",
+    "wind",
+    "thunderstorm",
+    "tornado",
+    "insurance",
+    "claim",
+    "flashing",
+    "attic",
+    "underlayment",
+    "roofer",
+    "roofing contractor",
+    "emergency tarp",
+    "architectural shingle",
+    "metal roof",
+    "flat roof",
+    "pipe boot",
+    "ridge cap",
+    "soffit",
+    "fascia",
+    "granule loss",
+    "missing shingle",
+    "roof leak",
+    "ice dam",
+    "deductible",
+    "rcv",
+    "acv",
+    "hb511",
+    "house bill 511",
+    "xactimate",
+    "public adjuster",
+    "roof inspection report",
+    "drone inspection",
+    "building permit",
+    "roof collapse",
+]
+
+OFF_TOPIC_SIGNAL_TERMS = [
+    "blood pressure",
+    "senior center",
+    "nursing home",
+    "hospital",
+    "health monitor",
+    "medicaid",
+    "medicare",
+    "physician",
+    "clinic",
+    "maternity",
+    "pediatric",
+    "shooting",
+    "murder",
+    "homicide",
+    "arrest",
+    "suspect sought",
+    "marta train",
+]
+
 CLUSTER_TERMS = {
     "storm_damage": [
         "roof",
@@ -616,28 +679,35 @@ def build_active_search_plan(
     queries_per_cluster: int = DEFAULT_QUERIES_PER_CLUSTER,
     use_all_queries: bool = False,
     rotation_week: int | None = None,
+    preferred_cluster: str | None = None,
 ) -> list[dict]:
     if use_all_queries or queries_per_cluster <= 0:
-        return list(SEARCH_PLAN)
+        plan = list(SEARCH_PLAN)
+    else:
+        week_number = rotation_week or datetime.now(timezone.utc).isocalendar().week
+        plan = []
+        for cluster_name, cluster in STRATEGY_CLUSTERS.items():
+            queries = cluster["queries"]
+            if not queries:
+                continue
+            count = min(queries_per_cluster, len(queries))
+            start_index = (week_number - 1) % len(queries)
+            for offset in range(count):
+                query = queries[(start_index + offset) % len(queries)]
+                plan.append(
+                    {
+                        "query": query,
+                        "strategy_cluster": cluster_name,
+                        "pillar_topic": cluster["pillar_topic"],
+                        "trigger_window_hours": cluster["trigger_window_hours"],
+                    }
+                )
 
-    week_number = rotation_week or datetime.now(timezone.utc).isocalendar().week
-    plan: list[dict] = []
-    for cluster_name, cluster in STRATEGY_CLUSTERS.items():
-        queries = cluster["queries"]
-        if not queries:
-            continue
-        count = min(queries_per_cluster, len(queries))
-        start_index = (week_number - 1) % len(queries)
-        for offset in range(count):
-            query = queries[(start_index + offset) % len(queries)]
-            plan.append(
-                {
-                    "query": query,
-                    "strategy_cluster": cluster_name,
-                    "pillar_topic": cluster["pillar_topic"],
-                    "trigger_window_hours": cluster["trigger_window_hours"],
-                }
-            )
+    if preferred_cluster and preferred_cluster in STRATEGY_CLUSTERS:
+        preferred = [item for item in plan if item["strategy_cluster"] == preferred_cluster]
+        other = [item for item in plan if item["strategy_cluster"] != preferred_cluster]
+        if preferred:
+            plan = preferred + other
     return plan
 
 
@@ -780,8 +850,15 @@ def _relevance_failure_reason(result: dict, matched: dict[str, object], max_age_
         return "outside_recency_window"
     if not matched["local_terms"]:
         return "missing_local_terms"
-    if not matched["topic_terms"] and not matched["cluster_terms"]:
-        return "missing_roofing_topic"
+
+    evidence = _article_evidence(result)
+    text = f"{evidence['title_url']} {evidence['early_content']}"
+    core_terms = _matched_terms(text, CORE_ROOFING_SIGNAL_TERMS)
+    off_topic_terms = _matched_terms(text, OFF_TOPIC_SIGNAL_TERMS)
+    if off_topic_terms and not core_terms:
+        return "off_topic_local_news"
+    if not core_terms:
+        return "missing_core_roofing_topic"
     return None
 
 
@@ -854,6 +931,7 @@ def search_roofing_news(
     queries_per_cluster: int = DEFAULT_QUERIES_PER_CLUSTER,
     use_all_queries: bool = False,
     rotation_week: int | None = None,
+    preferred_cluster: str | None = None,
 ) -> list[dict]:
     load_dotenv(PROJECT_ROOT / ".env")
     client = _load_client()
@@ -868,6 +946,7 @@ def search_roofing_news(
         queries_per_cluster=queries_per_cluster,
         use_all_queries=use_all_queries,
         rotation_week=rotation_week,
+        preferred_cluster=preferred_cluster,
     )
     planned_query_count = len(active_plan)
     active_plan = cap_search_plan_for_credits(
@@ -1027,6 +1106,11 @@ if __name__ == "__main__":
     parser.add_argument("--queries-per-cluster", type=int, default=DEFAULT_QUERIES_PER_CLUSTER)
     parser.add_argument("--all-queries", action="store_true")
     parser.add_argument("--rotation-week", type=int)
+    parser.add_argument(
+        "--preferred-cluster",
+        default=os.getenv("PIPELINE_PREFERRED_CLUSTER"),
+        help="Run this strategy cluster's queries first (e.g. ga_insurance_navigation).",
+    )
     args = parser.parse_args()
 
     target = None if args.target_results == 0 else args.target_results
@@ -1049,6 +1133,7 @@ if __name__ == "__main__":
             queries_per_cluster=args.queries_per_cluster,
             use_all_queries=args.all_queries,
             rotation_week=args.rotation_week,
+            preferred_cluster=args.preferred_cluster,
         )
     except (EnvironmentError, RuntimeError) as exc:
         print(f"\n[{LOG_PREFIX}] Setup needed: {exc}")

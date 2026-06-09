@@ -25,6 +25,49 @@ Notes / next step:
 - 
 ```
 
+## 2026-06-09 - Live terminal output on Slack pipeline restart
+
+Changed:
+- Slack `:repeat:` restart runs on the main CLI listen thread (not a background thread) so subprocess output streams in the same terminal.
+- `run_pipeline_restart` prints stage banners (1/3 Search, 2/3 Evaluate, 3/3 Write) with flushed, unbuffered child processes (`python -u`, `PYTHONUNBUFFERED=1`).
+
+Why:
+- User could not see which pipeline stage was running live when reacting with :repeat: in Slack.
+
+Files touched:
+- `src/peachtree_blog/pipeline/runner.py`
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `CHANGELOG.md`
+
+Tested:
+- `python -m py_compile` on modified modules.
+
+Notes / next step:
+- Restart `python pipeline.py` approve listen session to pick up changes.
+
+## 2026-06-09 - Block junk sources on pipeline restart
+
+Changed:
+- Search now requires a core roofing signal term and rejects off-topic local news (senior health, crime) without roofing context.
+- Evaluate no longer promotes sub-threshold sources via minimum-kept fallback; exits non-zero when zero sources qualify.
+- Slack `:repeat:` restart passes the recycled draft's strategy cluster to search and rotates query week for fresher results.
+
+Why:
+- Repeat produced an irrelevant roof-safety draft from a senior blood-pressure article after insurance URLs were blocked in `used_sources.json`.
+
+Files touched:
+- `src/peachtree_blog/pipeline/search.py`
+- `src/peachtree_blog/pipeline/evaluate.py`
+- `src/peachtree_blog/pipeline/runner.py`
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (requires Tavily/Together API keys).
+
+Notes / next step:
+- If restart fails with "No sources met quality thresholds", wait for new local roofing news or temporarily use `--include-used-sources` on search.
+
 ## 2026-06-08 - Slack clear-channel command for bot messages
 
 Changed:

@@ -1,6 +1,6 @@
 {
-  "updated_at": "2026-06-08T20:12:18.356859+00:00",
-  "source_count": 5,
+  "updated_at": "2026-06-09T05:22:39.129464+00:00",
+  "source_count": 6,
   "sources": [
     {
       "url": "https://markets.ft.com/data/announce/detail?dockey=600-202606031451PR_NEWS_USPRX____CL75458-1",
@@ -61,6 +61,18 @@
       "last_draft_path": "/Users/peachtreeroofing/Desktop/projects/Peachtree-Roofing-Blog-Automation/output/drafts/drafts_md/2026-06-08-111923-atlanta-roof-insurance-how-the-2026-court-ruling-affects-you.md",
       "last_runner": "seed-validation",
       "use_count": 6
+    },
+    {
+      "url": "https://www.insurancejournal.com/news/southeast/2026/06/05/872664.htm",
+      "normalized_url": "https://insurancejournal.com/news/southeast/2026/06/05/872664.htm",
+      "domain": "insurancejournal.com",
+      "title": "Georgia Commissioner\u2019s Office Offers $10,000 Reward for Help on String of Arsons",
+      "strategy_cluster": "roof_safety",
+      "first_used_at": "2026-06-08T21:04:30.348874+00:00",
+      "last_used_at": "2026-06-09T05:22:39.128817+00:00",
+      "last_draft_path": "output/approved/drafts_md/2026-06-08-170125-atlanta-roof-safety-protecting-homes-from-local-arson-risks.md",
+      "last_runner": "peachtree_blog.pipeline.approve_listen",
+      "use_count": 2
     }
   ]
 }

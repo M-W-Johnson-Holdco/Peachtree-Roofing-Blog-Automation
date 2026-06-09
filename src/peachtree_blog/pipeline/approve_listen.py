@@ -407,6 +407,31 @@ def infer_write_model_from_report(
 
 _pipeline_restart_lock = threading.Lock()
 _pipeline_restart_in_progress: set[str] = set()
+_pipeline_restart_event = threading.Event()
+_pending_pipeline_restart: dict[str, Any] | None = None
+
+
+def infer_preferred_cluster_from_report(report: dict[str, Any]) -> str | None:
+    """Prefer the strategy cluster from the draft being recycled."""
+    from collections import Counter
+
+    sources = report.get("sources_used") or []
+    clusters = [
+        str(item.get("strategy_cluster", "")).strip()
+        for item in sources
+        if isinstance(item, dict) and item.get("strategy_cluster")
+    ]
+    if not clusters:
+        return None
+    return Counter(clusters).most_common(1)[0][0]
+
+
+def schedule_pipeline_restart(**kwargs: Any) -> None:
+    """Queue a Slack :repeat: restart for the listen loop (runs on the main CLI thread)."""
+    global _pending_pipeline_restart
+    with _pipeline_restart_lock:
+        _pending_pipeline_restart = kwargs
+    _pipeline_restart_event.set()
 
 
 def restart_pipeline_from_slack(
@@ -420,7 +445,7 @@ def restart_pipeline_from_slack(
     rewrite_model: str | None,
     auto_rewrite: bool,
 ) -> None:
-    """Background worker: search → evaluate → write → post new draft to Slack."""
+    """search → evaluate → write → post new draft to Slack (live output in this terminal)."""
     restart_key = f"{channel}:{thread_ts}"
     try:
         write_model = infer_write_model_from_report(report, fallback=rewrite_model)
@@ -442,7 +467,12 @@ def restart_pipeline_from_slack(
             ),
         )
 
-        code = run_pipeline_restart(write_model=write_model, clear_drafts=True)
+        preferred_cluster = infer_preferred_cluster_from_report(report)
+        code = run_pipeline_restart(
+            write_model=write_model,
+            clear_drafts=True,
+            preferred_cluster=preferred_cluster,
+        )
         if code != 0:
             approval["status"] = "pipeline_restart_failed"
             approval["pipeline_restart_failed_at"] = utc_now()
@@ -654,21 +684,17 @@ def handle_reaction(
                 print("[approve] Ignoring repeat reaction; pipeline restart already running")
                 return
             _pipeline_restart_in_progress.add(restart_key)
-        print(f"[approve] Full pipeline restart requested by {user}")
-        threading.Thread(
-            target=restart_pipeline_from_slack,
-            kwargs={
-                "validation_path": validation_path,
-                "report": report,
-                "channel": channel,
-                "thread_ts": ts,
-                "user": user,
-                "client": client,
-                "rewrite_model": rewrite_model,
-                "auto_rewrite": auto_rewrite,
-            },
-            daemon=True,
-        ).start()
+        print(f"[approve] Full pipeline restart requested by {user}", flush=True)
+        schedule_pipeline_restart(
+            validation_path=validation_path,
+            report=report,
+            channel=channel,
+            thread_ts=ts,
+            user=user,
+            client=client,
+            rewrite_model=rewrite_model,
+            auto_rewrite=auto_rewrite,
+        )
 
 
 def handle_reaction_removed(event: dict[str, Any], client: Any, bot_user_id: str | None = None) -> None:
@@ -906,7 +932,19 @@ def listen(
 
     try:
         while not stop_event.is_set():
-            time.sleep(0.25)
+            if not _pipeline_restart_event.wait(timeout=0.25):
+                continue
+            _pipeline_restart_event.clear()
+            with _pipeline_restart_lock:
+                pending = _pending_pipeline_restart
+                _pending_pipeline_restart = None
+            if pending:
+                print(
+                    "\n[approve] Slack :repeat: detected — running pipeline in this terminal "
+                    "(search → evaluate → write). Output below is live.",
+                    flush=True,
+                )
+                restart_pipeline_from_slack(**pending)
     finally:
         _disconnect_socket_client(socket_client)
 

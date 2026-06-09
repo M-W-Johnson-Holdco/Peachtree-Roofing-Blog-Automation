@@ -43,6 +43,9 @@ PROMPT_PATH = PROJECT_ROOT / "prompts" / "evaluate.txt"
 DEFAULT_MODEL = "Qwen/Qwen2.5-7B-Instruct-Turbo"
 KEEP_THRESHOLD = 6.0
 MIN_KEPT_SOURCES = 2
+MIN_FALLBACK_WEIGHTED_SCORE = 5.5
+MIN_FALLBACK_ROOFING_RELEVANCE = 4
+MIN_ROOFING_RELEVANCE = 4
 CONTENT_SNIPPET_LIMIT = 2800
 
 SCORE_KEYS = [
@@ -106,7 +109,7 @@ def metadata_adjustments(source: dict[str, Any]) -> dict[str, Any]:
         hard_reject_reasons.append("source URL was already used in an approved blog")
     if off_topic_penalty >= 7:
         hard_reject_reasons.append("off-topic penalty is too high")
-    if semantic_score and semantic_score < 4:
+    if semantic_score > 0 and semantic_score < 4:
         hard_reject_reasons.append("semantic relevance check did not pass")
     if duplicate_topic_penalty >= 4:
         hard_reject_reasons.append("topic overlaps a draft from the past 30 days")
@@ -262,8 +265,13 @@ def normalize_evaluation(evaluation: dict[str, Any], source: dict[str, Any]) -> 
         max(1.0, min(10.0, weighted_score + adjustments["weighted_score_adjustment"])),
         2,
     )
+    hard_reject_reasons = list(adjustments["hard_reject_reasons"])
+    if normalized_scores.get("roofing_relevance", 0) < MIN_ROOFING_RELEVANCE:
+        hard_reject_reasons.append("roofing relevance is too low")
+    adjustments = {**adjustments, "hard_reject_reasons": hard_reject_reasons}
+
     keep = bool(evaluation.get("keep", adjusted_weighted_score >= KEEP_THRESHOLD))
-    if adjusted_weighted_score < KEEP_THRESHOLD or adjustments["hard_reject_reasons"]:
+    if adjusted_weighted_score < KEEP_THRESHOLD or hard_reject_reasons:
         keep = False
 
     recommended_angle = evaluation.get("recommended_angle") or build_fallback_angle(source)
@@ -271,8 +279,8 @@ def normalize_evaluation(evaluation: dict[str, Any], source: dict[str, Any]) -> 
         recommended_angle = ""
 
     reason = evaluation.get("reason") or "No reason provided."
-    if adjustments["hard_reject_reasons"]:
-        reason = f"{reason} Rejected because {', '.join(adjustments['hard_reject_reasons'])}."
+    if hard_reject_reasons:
+        reason = f"{reason} Rejected because {', '.join(hard_reject_reasons)}."
 
     return {
         "title": evaluation.get("title") or source.get("title", ""),
@@ -360,26 +368,25 @@ def ensure_minimum_kept(
     kept_urls = {item["url"] for item in kept}
     ranked = sorted(evaluated, key=lambda item: item["weighted_score"], reverse=True)
 
-    def try_promote(item: dict[str, Any], *, allow_hard_reject: bool) -> bool:
-        if item["url"] in kept_urls:
+    def qualifies_for_fallback(item: dict[str, Any]) -> bool:
+        scores = item.get("scores") or {}
+        if scores.get("roofing_relevance", 0) < MIN_FALLBACK_ROOFING_RELEVANCE:
+            return False
+        if item.get("weighted_score", 0) < MIN_FALLBACK_WEIGHTED_SCORE:
             return False
         hard_rejects = item.get("scoring_adjustments", {}).get("hard_reject_reasons") or []
-        if hard_rejects and not allow_hard_reject:
-            return False
+        return not hard_rejects
+
+    for item in ranked:
+        if len(kept) >= min_kept:
+            break
+        if item["url"] in kept_urls:
+            continue
+        if not qualifies_for_fallback(item):
+            continue
         _promote_minimum_kept(item)
         kept.append(item)
         kept_urls.add(item["url"])
-        return True
-
-    for item in ranked:
-        if len(kept) >= min_kept:
-            break
-        try_promote(item, allow_hard_reject=False)
-
-    for item in ranked:
-        if len(kept) >= min_kept:
-            break
-        try_promote(item, allow_hard_reject=True)
 
     return sorted(kept, key=lambda item: item["weighted_score"], reverse=True)
 
@@ -413,6 +420,13 @@ def main() -> None:
         f"(threshold {KEEP_THRESHOLD}, minimum {MIN_KEPT_SOURCES}"
         f"{f', {promoted} promoted by fallback' if promoted else ''})"
     )
+
+    if not kept:
+        print(
+            "[evaluate] No sources met quality thresholds. "
+            "Try :repeat: again later, widen search (--all-queries), or lower used-source blocklist."
+        )
+        raise SystemExit(1)
 
     model_used = str(run_report.get("model_used") or args.model)
     print_generation_cost_summary(
