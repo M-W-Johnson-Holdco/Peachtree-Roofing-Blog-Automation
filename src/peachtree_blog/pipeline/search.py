@@ -1,9 +1,9 @@
 """
-Broad Metro Atlanta roofing search — keyword match only, 7-day recency gate.
+Broad Metro Atlanta roofing search — keyword match + Georgia geography gate, 7-day recency.
 
-No scoring penalties (sports, politics, duplicate topic, min score). Keeps sources
-that match LOCAL_TERMS + TOPIC_TERMS/CLUSTER_TERMS from the Peachtree GEO strategy.
-Only hard reject besides relevance: older than 7 days (configurable).
+Keeps sources with Metro Atlanta / Georgia headline geography and roof/storm/insurance
+signals in the headline or article lead (not sidebar job ads or trending links).
+Rejects out-of-state headlines, crime/health stories, and national pages without GA focus.
 
 Run:
     python -m peachtree_blog.pipeline.search
@@ -31,14 +31,20 @@ from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
+from peachtree_blog.pipeline.evaluate import (
+    DEFAULT_KEPT_PATH,
+    IncrementalEvaluator,
+    KEEP_THRESHOLD,
+    MIN_KEPT_SOURCES,
+)
 from peachtree_blog.used_sources import normalize_source_url, used_source_urls
 
 
-DEFAULT_MAX_AGE_DAYS = 7
-DEFAULT_MAX_RESULTS_PER_QUERY = 6
+DEFAULT_MAX_AGE_DAYS = 21
+DEFAULT_MAX_RESULTS_PER_QUERY = 8
 DEFAULT_TARGET_RESULTS = 15
-DEFAULT_QUERIES_PER_CLUSTER = 2
-DEFAULT_MAX_TAVILY_CREDITS = 50
+DEFAULT_QUERIES_PER_CLUSTER = 3
+DEFAULT_MAX_TAVILY_CREDITS = 100
 DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "output" / "sources" / "search_results.json"
 TAVILY_ADVANCED_SEARCH_CREDITS = 2
 
@@ -106,6 +112,23 @@ OFFICIAL_SOURCES = [
     "dol.georgia.gov",
     "georgiabuilds.com",
     "icc-es.org",
+]
+
+GEORGIA_ROOFING_TRADE_SOURCES = [
+    "insurancejournal.com",
+    "ajc.com",
+    "atlantabusinesschronicle.com",
+    "fox5atlanta.com",
+    "11alive.com",
+    "wsbtv.com",
+    "wsbradio.com",
+    "insurance.georgia.gov",
+    "oci.georgia.gov",
+    "roughnotes.com",
+    "propertycasualty360.com",
+    "mariettadailyjournal.com",
+    "gwinnettdailypost.com",
+    "forsythnews.com",
 ]
 
 EXCLUDED_DOMAINS = [
@@ -273,6 +296,11 @@ LOCAL_TERMS = [
     "jonesboro",
 ]
 
+# Counties/cities/Metro labels — stronger than bare "georgia" alone.
+METRO_LOCAL_TERMS = [term for term in LOCAL_TERMS if term not in {"georgia", "north georgia"}]
+
+STATE_LOCAL_TERMS = ["georgia", "north georgia"]
+
 TOPIC_TERMS = [
     "roof",
     "roofing",
@@ -388,8 +416,8 @@ TOPIC_TERMS = [
     "drone inspection",
 ]
 
-# Terms that indicate real roofing content (not generic local news that only hits "safety"/"inspection").
-CORE_ROOFING_SIGNAL_TERMS = [
+# Roof/storm/structure signals — standalone "insurance" or "claim" are not enough.
+PRIMARY_CORE_ROOFING_TERMS = [
     "roof",
     "roofing",
     "shingle",
@@ -399,8 +427,6 @@ CORE_ROOFING_SIGNAL_TERMS = [
     "wind",
     "thunderstorm",
     "tornado",
-    "insurance",
-    "claim",
     "flashing",
     "attic",
     "underlayment",
@@ -418,17 +444,97 @@ CORE_ROOFING_SIGNAL_TERMS = [
     "missing shingle",
     "roof leak",
     "ice dam",
-    "deductible",
-    "rcv",
-    "acv",
-    "hb511",
-    "house bill 511",
-    "xactimate",
-    "public adjuster",
+    "roof collapse",
     "roof inspection report",
     "drone inspection",
     "building permit",
-    "roof collapse",
+    "hb511",
+    "house bill 511",
+]
+
+INSURANCE_CORE_TERMS = [
+    "homeowners insurance",
+    "roof insurance",
+    "insurance claim",
+    "insurance commissioner",
+    "rcv",
+    "acv",
+    "deductible",
+    "xactimate",
+    "public adjuster",
+    "recoverable depreciation",
+    "supplemental claim",
+]
+
+STORM_HEADLINE_TERMS = [
+    "severe thunderstorm",
+    "thunderstorm warning",
+    "tornado warning",
+    "tornado watch",
+    "severe weather",
+    "hail storm",
+    "flash flood",
+    "high wind",
+]
+
+# Back-compat alias used in match metadata.
+CORE_ROOFING_SIGNAL_TERMS = PRIMARY_CORE_ROOFING_TERMS + INSURANCE_CORE_TERMS
+
+OUT_OF_MARKET_STATE_TERMS = [
+    "colorado",
+    "texas",
+    "florida",
+    "california",
+    "arizona",
+    "ohio",
+    "alabama",
+    "tennessee",
+    "louisiana",
+    "new york",
+    "pennsylvania",
+    "michigan",
+    "illinois",
+    "virginia",
+    "maryland",
+    "north carolina",
+    "south carolina",
+    "kentucky",
+    "mississippi",
+    "arkansas",
+    "oklahoma",
+    "missouri",
+    "indiana",
+    "wisconsin",
+    "minnesota",
+    "iowa",
+    "nebraska",
+    "kansas",
+    "utah",
+    "nevada",
+    "oregon",
+    "washington state",
+    "new mexico",
+    "connecticut",
+    "massachusetts",
+    "new jersey",
+    "denver",
+    "centennial, co",
+    "boulder",
+    "phoenix",
+    "dallas",
+    "houston",
+    "miami",
+    "orlando",
+]
+
+OUT_OF_MARKET_URL_PATHS = [
+    "/news/west/",
+    "/news/midwest/",
+    "/news/northeast/",
+    "/news/northcentral/",
+    "/news/international/",
+    "/news/europe/",
+    "/news/central/",
 ]
 
 OFF_TOPIC_SIGNAL_TERMS = [
@@ -446,10 +552,33 @@ OFF_TOPIC_SIGNAL_TERMS = [
     "shooting",
     "murder",
     "homicide",
+    "murder-suicide",
     "arrest",
     "suspect sought",
     "marta train",
+    "killed family",
+    "self-defense",
+    "dog attack",
+    "stabbing",
+    "robbery",
+    "carjacking",
 ]
+
+METRO_NEWS_DOMAIN_EXCLUSIONS = {
+    "weather.gov",
+    "legis.ga.gov",
+    "dca.ga.gov",
+}
+
+GEORGIA_SCOPED_DOMAIN_MARKERS = (
+    ".ga.gov",
+    "georgiabuilds.com",
+    "insurance.georgia.gov",
+    "legis.ga.gov",
+    "fox5atlanta.com",
+    "atlantaga.gov",
+    "atlanta.curbed.com",
+)
 
 CLUSTER_TERMS = {
     "storm_damage": [
@@ -569,7 +698,16 @@ SEARCH_STAGES = [
         "search_depth": "advanced",
         "include_domains": PRIORITY_SOURCES,
         "exclude_domains": None,
-        "max_results_per_query": 6,
+        "max_results_per_query": 8,
+    },
+    {
+        "name": "priority_21_day_news",
+        "days": 21,
+        "topic": "news",
+        "search_depth": "advanced",
+        "include_domains": PRIORITY_SOURCES,
+        "exclude_domains": None,
+        "max_results_per_query": 8,
     },
     {
         "name": "priority_30_day_news",
@@ -578,7 +716,7 @@ SEARCH_STAGES = [
         "search_depth": "advanced",
         "include_domains": PRIORITY_SOURCES,
         "exclude_domains": None,
-        "max_results_per_query": 6,
+        "max_results_per_query": 8,
     },
     {
         "name": "secondary_14_day_news",
@@ -587,16 +725,34 @@ SEARCH_STAGES = [
         "search_depth": "advanced",
         "include_domains": SECONDARY_SOURCES,
         "exclude_domains": None,
-        "max_results_per_query": 6,
+        "max_results_per_query": 8,
     },
     {
-        "name": "broad_14_day_news",
-        "days": 14,
+        "name": "secondary_30_day_news",
+        "days": 30,
+        "topic": "news",
+        "search_depth": "advanced",
+        "include_domains": SECONDARY_SOURCES,
+        "exclude_domains": None,
+        "max_results_per_query": 8,
+    },
+    {
+        "name": "georgia_roofing_trade_21_day",
+        "days": 21,
+        "topic": "news",
+        "search_depth": "advanced",
+        "include_domains": GEORGIA_ROOFING_TRADE_SOURCES,
+        "exclude_domains": None,
+        "max_results_per_query": 8,
+    },
+    {
+        "name": "broad_21_day_news",
+        "days": 21,
         "topic": "news",
         "search_depth": "advanced",
         "include_domains": None,
         "exclude_domains": EXCLUDED_DOMAINS,
-        "max_results_per_query": 6,
+        "max_results_per_query": 8,
     },
     {
         "name": "official_30_day_general",
@@ -605,7 +761,7 @@ SEARCH_STAGES = [
         "search_depth": "advanced",
         "include_domains": OFFICIAL_SOURCES,
         "exclude_domains": None,
-        "max_results_per_query": 6,
+        "max_results_per_query": 8,
     },
 ]
 
@@ -793,8 +949,61 @@ def _is_within_recency_window(result: dict, max_age_days: int = DEFAULT_MAX_AGE_
     return age_days <= max_age_days
 
 
+def _headline_text(result: dict) -> str:
+    return " ".join([result.get("title", ""), result.get("url", "")]).lower()
+
+
+def _lead_body_text(result: dict, *, limit: int = 700) -> str:
+    """Article lead only — avoids WSB 'Most Read' sidebars that pollute the full snippet."""
+    content = result.get("content", "").strip()
+    if not content:
+        return ""
+
+    lowered = content.lower()
+    sidebar_markers = (
+        "## most read",
+        "trending stories:",
+        "sign up:",
+        "download:",
+    )
+    cut_at = len(content)
+    for marker in sidebar_markers:
+        index = lowered.find(marker)
+        if index != -1:
+            cut_at = min(cut_at, index)
+    return content[:cut_at][:limit].lower()
+
+
+def _is_georgia_scoped_domain(url: str) -> bool:
+    lower = url.lower()
+    domain = _source_domain(url).lower()
+    return any(marker in domain or marker in lower for marker in GEORGIA_SCOPED_DOMAIN_MARKERS)
+
+
+def _is_metro_news_domain(url: str) -> bool:
+    domain = _source_domain(url)
+    if _domain_matches_list(domain, list(METRO_NEWS_DOMAIN_EXCLUSIONS)):
+        return False
+    return _domain_matches_list(domain, PRIORITY_SOURCES + SECONDARY_SOURCES)
+
+
+def _has_roofing_headline_signal(headline: str) -> bool:
+    return bool(
+        _matched_terms(headline, PRIMARY_CORE_ROOFING_TERMS)
+        or _matched_terms(headline, INSURANCE_CORE_TERMS)
+        or _matched_terms(headline, STORM_HEADLINE_TERMS)
+    )
+
+
+def _has_roofing_content_signal(text: str) -> bool:
+    return bool(
+        _matched_terms(text, PRIMARY_CORE_ROOFING_TERMS)
+        or _matched_terms(text, INSURANCE_CORE_TERMS)
+    )
+
+
 def _article_evidence(result: dict) -> dict[str, str]:
-    title_url = " ".join([result.get("title", ""), result.get("url", "")]).lower()
+    title_url = _headline_text(result)
     early_content = " ".join(
         [
             result.get("title", ""),
@@ -848,17 +1057,42 @@ def _collect_matched_terms(result: dict) -> dict[str, object]:
 def _relevance_failure_reason(result: dict, matched: dict[str, object], max_age_days: int) -> str | None:
     if not _is_within_recency_window(result, max_age_days):
         return "outside_recency_window"
-    if not matched["local_terms"]:
-        return "missing_local_terms"
 
-    evidence = _article_evidence(result)
-    text = f"{evidence['title_url']} {evidence['early_content']}"
-    core_terms = _matched_terms(text, CORE_ROOFING_SIGNAL_TERMS)
-    off_topic_terms = _matched_terms(text, OFF_TOPIC_SIGNAL_TERMS)
-    if off_topic_terms and not core_terms:
-        return "off_topic_local_news"
-    if not core_terms:
+    url = result.get("url", "")
+    headline = _headline_text(result)
+    lead = _lead_body_text(result)
+    headline_and_lead = f"{headline} {lead}".strip()
+    georgia_scoped = _is_georgia_scoped_domain(url) or _is_official_source(url)
+
+    lower_url = url.lower()
+    if any(path in lower_url for path in OUT_OF_MARKET_URL_PATHS):
+        return "out_of_market_url_path"
+
+    out_of_market_states = _matched_terms(headline, OUT_OF_MARKET_STATE_TERMS)
+    metro_in_headline = _matched_terms(headline, METRO_LOCAL_TERMS)
+    state_in_headline = _matched_terms(headline, STATE_LOCAL_TERMS)
+    if out_of_market_states and not metro_in_headline and not (georgia_scoped and state_in_headline):
+        return "out_of_market_state_headline"
+
+    if _matched_terms(headline, OFF_TOPIC_SIGNAL_TERMS):
+        return "off_topic_headline"
+
+    local_headline_lead = _matched_terms(headline_and_lead, LOCAL_TERMS)
+    if not local_headline_lead:
+        return "missing_headline_local_terms"
+
+    if not metro_in_headline and not georgia_scoped:
+        state_only_local = set(local_headline_lead) <= set(STATE_LOCAL_TERMS)
+        georgia_policy_headline = state_in_headline and _has_roofing_headline_signal(headline)
+        if state_only_local and not georgia_policy_headline:
+            return "georgia_only_without_metro_signal"
+
+    if _is_metro_news_domain(url) and not _has_roofing_headline_signal(headline):
+        return "missing_roofing_headline_for_metro_news"
+
+    if not _has_roofing_content_signal(headline_and_lead):
         return "missing_core_roofing_topic"
+
     return None
 
 
@@ -874,9 +1108,10 @@ def _ingest_tavily_items(
     results_by_url: dict[str, dict],
     blocked_urls: set[str],
     max_age_days: int,
-) -> tuple[int, dict[str, int]]:
+) -> tuple[int, dict[str, int], list[dict]]:
     skipped_used = 0
     pipeline_rejects: dict[str, int] = {}
+    newly_added: list[dict] = []
 
     for item in raw_items:
         url = str(item.get("url", "")).strip()
@@ -901,9 +1136,12 @@ def _ingest_tavily_items(
 
         existing = results_by_url.get(url)
         if not existing or result["search_quality_score"] > existing["search_quality_score"]:
+            was_new = url not in results_by_url
             results_by_url[url] = result
+            if was_new:
+                newly_added.append(result)
 
-    return skipped_used, pipeline_rejects
+    return skipped_used, pipeline_rejects, newly_added
 
 
 def _sort_results(results: list[dict]) -> list[dict]:
@@ -932,9 +1170,20 @@ def search_roofing_news(
     use_all_queries: bool = False,
     rotation_week: int | None = None,
     preferred_cluster: str | None = None,
+    incremental_evaluate: bool = False,
+    min_evaluated_kept: int = MIN_KEPT_SOURCES,
+    evaluate_model: str | None = None,
 ) -> list[dict]:
     load_dotenv(PROJECT_ROOT / ".env")
     client = _load_client()
+    evaluator: IncrementalEvaluator | None = None
+    if incremental_evaluate:
+        evaluator = IncrementalEvaluator(model=evaluate_model)
+        print(
+            f"[{LOG_PREFIX}] Incremental evaluate: stop Tavily after "
+            f"{min_evaluated_kept} kept source(s) with score >= {KEEP_THRESHOLD}"
+        )
+    goal_reached = False
 
     blocked_urls: set[str] = set()
     if skip_used_sources:
@@ -966,23 +1215,33 @@ def search_roofing_news(
         f"[{LOG_PREFIX}] Plan: {query_count} active queries "
         f"({queries_per_cluster}/cluster, ISO week {week_number}) "
         f"from {len(SEARCH_PLAN)} total across {len(SEARCH_STAGES)} stages "
-        f"(target {target_note}, max age {max_age_days}d, max ~{max_credits} credits{trim_note})"
+        f"(target {target_note}, recency cap {max_age_days}d, "
+        f"{len(SEARCH_STAGES)} stages, max ~{max_credits} credits{trim_note})"
     )
 
     results_by_url: dict[str, dict] = {}
-    stages = [{**stage, "days": max_age_days, "max_results_per_query": max_results_per_query} for stage in SEARCH_STAGES]
+    stages = [
+        {
+            **stage,
+            "max_results_per_query": stage.get("max_results_per_query", max_results_per_query),
+            "recency_days": min(stage["days"], max_age_days),
+        }
+        for stage in SEARCH_STAGES
+    ]
     queries_run = 0
     skipped_used_sources = 0
     pipeline_rejects: dict[str, int] = {}
     credit_limit_reached = False
 
     for stage_index, stage in enumerate(stages):
-        if credit_limit_reached:
+        if credit_limit_reached or goal_reached:
             break
         print(f"[{LOG_PREFIX}] Running stage: {stage['name']}")
         is_last_stage = stage_index == len(stages) - 1
 
         for search_item in active_plan:
+            if goal_reached:
+                break
             credits_after_call = (queries_run + 1) * TAVILY_ADVANCED_SEARCH_CREDITS
             if credits_after_call > max_tavily_credits:
                 print(
@@ -1009,20 +1268,33 @@ def search_roofing_news(
                 print(f"[{LOG_PREFIX}] Query failed for {query!r}: {exc}")
                 continue
 
-            skipped, stage_rejects = _ingest_tavily_items(
+            skipped, stage_rejects, newly_added = _ingest_tavily_items(
                 response.get("results", []),
                 search_item=search_item,
                 stage=stage,
                 results_by_url=results_by_url,
                 blocked_urls=blocked_urls,
-                max_age_days=max_age_days,
+                max_age_days=stage["recency_days"],
             )
             skipped_used_sources += skipped
             for reason, count in stage_rejects.items():
                 pipeline_rejects[reason] = pipeline_rejects.get(reason, 0) + count
 
+            if evaluator:
+                for candidate in newly_added:
+                    evaluator.evaluate_search_result(candidate)
+                    if len(evaluator.kept) >= min_evaluated_kept:
+                        goal_reached = True
+                        print(
+                            f"[{LOG_PREFIX}] Goal reached: {len(evaluator.kept)} evaluated source(s) "
+                            f"kept at score >= {KEEP_THRESHOLD} — stopping Tavily search "
+                            f"(~{queries_run * TAVILY_ADVANCED_SEARCH_CREDITS} credits used so far)"
+                        )
+                        break
+
             if (
-                target_results is not None
+                not incremental_evaluate
+                and target_results is not None
                 and is_last_stage
                 and len(results_by_url) >= target_results
             ):
@@ -1032,7 +1304,18 @@ def search_roofing_news(
                 )
                 break
 
-        print(f"[{LOG_PREFIX}] Stage {stage['name']} total kept so far: {len(results_by_url)}")
+        search_kept = len(results_by_url)
+        if evaluator:
+            print(
+                f"[{LOG_PREFIX}] Stage {stage['name']}: "
+                f"{search_kept} search keep(s), {len(evaluator.kept)} evaluated keep(s)"
+            )
+        else:
+            print(f"[{LOG_PREFIX}] Stage {stage['name']} total kept so far: {search_kept}")
+
+    if evaluator:
+        evaluator.save_outputs()
+        evaluator.print_summary()
 
     results = _sort_results(list(results_by_url.values()))
     if target_results is not None:
@@ -1081,7 +1364,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Broad Metro Atlanta roofing search — 7-day recency, keyword match only."
+        description="Metro Atlanta / Georgia roofing search with multi-stage Tavily lookback."
     )
     parser.add_argument(
         "--target-results",
@@ -1111,6 +1394,23 @@ if __name__ == "__main__":
         default=os.getenv("PIPELINE_PREFERRED_CLUSTER"),
         help="Run this strategy cluster's queries first (e.g. ga_insurance_navigation).",
     )
+    parser.add_argument(
+        "--incremental-evaluate",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Evaluate each search keep immediately; stop Tavily after enough high-score sources (default: on).",
+    )
+    parser.add_argument(
+        "--min-evaluated-kept",
+        type=int,
+        default=MIN_KEPT_SOURCES,
+        help=f"With --incremental-evaluate: stop after this many kept sources (default: {MIN_KEPT_SOURCES}).",
+    )
+    parser.add_argument(
+        "--evaluate-model",
+        default=os.getenv("TOGETHER_EVALUATION_MODEL"),
+        help="Together model for incremental evaluate (default: TOGETHER_EVALUATION_MODEL or Qwen 7B).",
+    )
     args = parser.parse_args()
 
     target = None if args.target_results == 0 else args.target_results
@@ -1119,7 +1419,7 @@ if __name__ == "__main__":
     print("Peachtree Blog Pipeline - search.py")
     print(
         f"Target {target or 'all'} results | keep within {args.max_age_days}d | "
-        f"roofing + local keyword match | no score penalties"
+        f"Metro Atlanta / Georgia headline + roofing/storm signals"
     )
     print("=" * 60)
 
@@ -1134,13 +1434,34 @@ if __name__ == "__main__":
             use_all_queries=args.all_queries,
             rotation_week=args.rotation_week,
             preferred_cluster=args.preferred_cluster,
+            incremental_evaluate=args.incremental_evaluate,
+            min_evaluated_kept=args.min_evaluated_kept,
+            evaluate_model=args.evaluate_model,
         )
     except (EnvironmentError, RuntimeError) as exc:
         print(f"\n[{LOG_PREFIX}] Setup needed: {exc}")
         raise SystemExit(1) from exc
 
     save_results(results)
-    if not results:
+    if args.incremental_evaluate:
+        kept_count = 0
+        if DEFAULT_KEPT_PATH.exists():
+            with DEFAULT_KEPT_PATH.open(encoding="utf-8") as handle:
+                kept_payload = json.load(handle)
+            if isinstance(kept_payload, list):
+                kept_count = len(kept_payload)
+        if kept_count < args.min_evaluated_kept:
+            print(
+                f"\n[{LOG_PREFIX}] Incremental search finished with {kept_count} kept source(s) "
+                f"(need {args.min_evaluated_kept} at score >= {KEEP_THRESHOLD}). "
+                "Try again later, --all-queries, or --include-used-sources."
+            )
+            raise SystemExit(1)
+        print(
+            f"\n[{LOG_PREFIX}] Done — {kept_count} evaluated keep(s) ready for write "
+            f"({len(results)} search candidate(s) logged)"
+        )
+    elif not results:
         print("\n[!] No results kept. Try --include-used-sources or --all-queries.")
     else:
         print(f"\n[{LOG_PREFIX}] Done — {len(results)} results saved")

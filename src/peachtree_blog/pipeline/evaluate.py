@@ -299,6 +299,89 @@ def normalize_evaluation(evaluation: dict[str, Any], source: dict[str, Any]) -> 
     }
 
 
+class IncrementalEvaluator:
+    """Score search candidates one-by-one during Tavily ingest; track kept sources."""
+
+    def __init__(self, *, model: str | None = None) -> None:
+        self.model = model or os.getenv("TOGETHER_EVALUATION_MODEL", DEFAULT_MODEL)
+        load_dotenv(PROJECT_ROOT / ".env")
+        self.client = get_together_client()
+        self.prompt_template = load_prompt()
+        self.evaluated: list[dict[str, Any]] = []
+        self._evaluated_urls: set[str] = set()
+        self.kept: list[dict[str, Any]] = []
+        self._started = time.perf_counter()
+        self._total_usage = {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "cached_tokens": 0,
+        }
+        self._model_returned_by_api: str | None = None
+        print(f"[evaluate] Incremental mode on — model: {self.model}")
+
+    def evaluate_search_result(self, source: dict[str, Any]) -> dict[str, Any]:
+        url = str(source.get("url", "")).strip()
+        if url in self._evaluated_urls:
+            for item in self.evaluated:
+                if item.get("url") == url:
+                    return item
+            raise RuntimeError(f"URL {url!r} marked evaluated but not found")
+
+        title = source.get("title", "Untitled")
+        print(f"[evaluate] Scoring search keep ({len(self.evaluated) + 1}): {title}")
+        item, usage, model_returned = evaluate_source_with_together(
+            source,
+            self.prompt_template,
+            self.client,
+            self.model,
+        )
+        self.evaluated.append(item)
+        self._evaluated_urls.add(url)
+        for key in self._total_usage:
+            self._total_usage[key] += int(usage.get(key) or 0)
+        if model_returned:
+            self._model_returned_by_api = model_returned
+
+        score = item.get("weighted_score", 0)
+        if item.get("keep"):
+            self.kept.append(item)
+            print(
+                f"[evaluate] Kept ({len(self.kept)}): score {score} >= {KEEP_THRESHOLD} — {title}"
+            )
+        else:
+            print(f"[evaluate] Rejected: score {score} < {KEEP_THRESHOLD} — {title}")
+
+        return item
+
+    def save_outputs(
+        self,
+        *,
+        evaluated_output: Path = DEFAULT_OUTPUT_PATH,
+        kept_output: Path = DEFAULT_KEPT_PATH,
+    ) -> None:
+        evaluated_sorted = sorted(self.evaluated, key=lambda item: item["weighted_score"], reverse=True)
+        kept_sorted = sorted(self.kept, key=lambda item: item["weighted_score"], reverse=True)
+        save_json(evaluated_sorted, evaluated_output)
+        save_json(kept_sorted, kept_output)
+
+    def print_summary(self) -> None:
+        print(
+            f"[evaluate] Incremental summary: kept {len(self.kept)}/{len(self.evaluated)} "
+            f"(threshold {KEEP_THRESHOLD})"
+        )
+        report = build_generation_report(
+            model_requested=self.model,
+            model_used=self.model,
+            model_returned_by_api=self._model_returned_by_api,
+            elapsed_seconds=time.perf_counter() - self._started,
+            usage=self._total_usage,
+        )
+        report["mode"] = "evaluate_incremental"
+        report["api_calls"] = len(self.evaluated)
+        print_generation_cost_summary(report, model_used=self.model, log_prefix="[evaluate]")
+
+
 def evaluate_sources(
     sources: list[dict[str, Any]],
     *,

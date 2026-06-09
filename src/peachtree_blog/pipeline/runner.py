@@ -90,7 +90,7 @@ def run_pipeline_restart(
     preferred_cluster: str | None = None,
     rotation_offset: int = 1,
 ) -> int:
-    """Run search → evaluate → write_serverless. Returns last stage exit code."""
+    """Run incremental search+evaluate → write_serverless. Returns last stage exit code."""
     search_args: list[str] = []
     if preferred_cluster:
         search_args.extend(["--preferred-cluster", preferred_cluster])
@@ -104,15 +104,18 @@ def run_pipeline_restart(
     if write_model:
         write_args.extend(["--model", write_model])
 
+    search_args = list(search_args)
+    if "--incremental-evaluate" not in search_args and "--no-incremental-evaluate" not in search_args:
+        search_args.append("--incremental-evaluate")
+
     stages: list[tuple[str, tuple[str, ...], str]] = [
-        ("search", tuple(search_args), "Search (Tavily)"),
-        ("evaluate", (), "Evaluate sources"),
+        ("search", tuple(search_args), "Search + evaluate (incremental)"),
         ("write_serverless", tuple(write_args), "Write draft"),
     ]
 
     line = "=" * STAGE_BANNER_WIDTH
     print(f"\n{line}", flush=True)
-    print("[pipeline] Full restart: search → evaluate → write", flush=True)
+    print("[pipeline] Full restart: search+evaluate → write", flush=True)
     if preferred_cluster:
         print(f"[pipeline] Preferred cluster: {preferred_cluster}", flush=True)
     print(line, flush=True)

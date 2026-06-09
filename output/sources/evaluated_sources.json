@@ -1,12 +1,153 @@
 [
   {
-    "title": "Senior centers getting self-serve blood pressure monitors - Douglas County Sentinel",
-    "url": "https://www.douglascountysentinel.com/douglasville_sentinel/senior-centers-getting-self-serve-blood-pressure-monitors/article_531ec4c0-6ea9-516a-8e38-d73c4ce760f0.html",
-    "strategy_cluster": "roof_safety",
-    "pillar_topic": "Atlanta roof safety, fires, penetrations, structural risk",
+    "title": "StormArmour Calls for Greater Consumer Disclosure Around Wind-Driven Rain Losses Excluded by Insurance Policies and Manufacturer Warranties - Insurance Journal",
+    "url": "https://www.insurancejournal.com/services/newswire/2026/06/01/871185.htm",
+    "strategy_cluster": "ga_insurance_navigation",
+    "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
     "trigger_window_hours": 48,
     "scores": {
       "local_relevance": 7,
+      "roofing_relevance": 8,
+      "recency": 8,
+      "source_authority": 9,
+      "actionability": 7,
+      "territory_alignment": 8,
+      "semantic_relevance": 9
+    },
+    "model_weighted_score": 8.2,
+    "weighted_score": 8.2,
+    "scoring_adjustments": {
+      "territory_alignment_score": 0,
+      "semantic_relevance_score": 0,
+      "multi_territory_bonus": 0,
+      "off_topic_penalty": 0,
+      "duplicate_topic_penalty": 0,
+      "weighted_score_adjustment": 0.0,
+      "hard_reject_reasons": []
+    },
+    "keep": true,
+    "reason": "Clear connection to roofing and insurance issues in Georgia, with a focus on wind-driven rain losses.",
+    "recommended_angle": "How can homeowners in Metro Atlanta protect themselves from wind-driven rain losses in their insurance policies?",
+    "source": {
+      "title": "StormArmour Calls for Greater Consumer Disclosure Around Wind-Driven Rain Losses Excluded by Insurance Policies and Manufacturer Warranties - Insurance Journal",
+      "url": "https://www.insurancejournal.com/services/newswire/2026/06/01/871185.htm",
+      "domain": "insurancejournal.com",
+      "content": "\u201cMost homeowners and condominium owners have no idea this exclusion exists until after a storm causes catastrophic damage,\u201d said Mark Fisher, Co-Founder of StormArmour. \u201cBy that point, it is too late. They are often left facing uncovered losses, litigation, and significant special assessments.\u201d\n\nThe issue is particularly significant in condominium and multifamily buildings, where water intrusion originating from a single sliding glass door system can spread into adjacent and lower units, damaging drywall, flooring, electrical systems, and personal property throughout the building. [...] Following Hurricanes Helene and Milton, thousands of Florida property owners experienced catastrophic interior water damage caused by wind-driven rain entering through the tracks of sliding glass doors. Many later discovered that the resulting damage was excluded from both their property insurance policies and sliding glass door manufacturer warranties.\n\nAccording to the Hilb Group, a leading Florida insurance brokerage, approximately 80\u201385% of more than 2,000 condominium and multifamily claims received following the storms were tied to this single issue. [...] \u201cFlorida has spent years strengthening roofs, windows, and structural systems, but this vulnerability continues to affect tens of thousands of properties throughout Florida and other hurricane-prone states across the Southeast,\u201d Fisher said. \u201cWhen homeowners only discover these exclusions after catastrophic damage has already occurred, it undermines public trust and leaves families facing unexpected financial losses. Consumers deserve clear and upfront disclosure about these risks before the next storm strikes, not after. It is not a matter of if a catastrophic storm will hit, but only a matter of when.\u201d\n\nFor more information, visit StormArmour.\n\nTopics Profit Loss Manufacturing\n\nWas this article valuable?\n\nHere are more articles you may enjoy.",
+      "published_date": "Mon, 01 Jun 2026 09:00:58 GMT",
+      "tavily_score": 0.11447761,
+      "priority_source": false,
+      "secondary_source": false,
+      "official_source": false,
+      "query": "Georgia roof insurance deductible percentage homeowners storm",
+      "strategy_cluster": "ga_insurance_navigation",
+      "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
+      "trigger_window_hours": 48,
+      "search_stage": "georgia_roofing_trade_21_day",
+      "search_days": 21,
+      "retrieved_at": "2026-06-09T18:56:31.721250+00:00",
+      "matched_terms": {
+        "local_terms": [
+          "milton"
+        ],
+        "topic_terms": [
+          "damage",
+          "insurance",
+          "storm",
+          "structural",
+          "wind"
+        ],
+        "cluster_terms": [
+          "exclusion",
+          "insurance"
+        ],
+        "scoring_mode": "roofing_keyword_match_only"
+      },
+      "search_quality_score": 8.0,
+      "content_age_days": 8,
+      "scoring_mode": "roofing_keyword_match_only"
+    }
+  },
+  {
+    "title": "Flash flood warning as hundreds of thousands at risk: 'Life threatening' - Newsweek",
+    "url": "https://www.newsweek.com/atlanta-flash-flood-warning-severe-thunderstorm-torrential-rain-11975537",
+    "strategy_cluster": "storm_damage",
+    "pillar_topic": "Metro Atlanta storm damage inspection and repair",
+    "trigger_window_hours": 72,
+    "scores": {
+      "local_relevance": 9,
+      "roofing_relevance": 7,
+      "recency": 10,
+      "source_authority": 8,
+      "actionability": 8,
+      "territory_alignment": 9,
+      "semantic_relevance": 7
+    },
+    "model_weighted_score": 8.16,
+    "weighted_score": 8.16,
+    "scoring_adjustments": {
+      "territory_alignment_score": 0,
+      "semantic_relevance_score": 0,
+      "multi_territory_bonus": 0,
+      "off_topic_penalty": 0,
+      "duplicate_topic_penalty": 0,
+      "weighted_score_adjustment": 0.0,
+      "hard_reject_reasons": []
+    },
+    "keep": true,
+    "reason": "Clear local relevance and actionability for roofing contractors and homeowners in Metro Atlanta.",
+    "recommended_angle": "How to prepare your roof for flash floods: Tips for Metro Atlanta homeowners",
+    "source": {
+      "title": "Flash flood warning as hundreds of thousands at risk: \"Life threatening\" - Newsweek",
+      "url": "https://www.newsweek.com/atlanta-flash-flood-warning-severe-thunderstorm-torrential-rain-11975537",
+      "domain": "newsweek.com",
+      "content": "updated\n\nMay 20, 2026 at 06:33 PM EDT\n\n...\n\nBy Anna Skinner\n\nAssociate Editor\n\nNewsweek is a Trust Project member\n\nSee more of our trusted coverage when you search.to see more of our trusted coverage when you search.\n\nA flash flood warning remained in effect across parts of metro Atlanta on Wednesday evening as torrential rain inundated downtown streets and major highways, with authorities warning of life-threatening conditions.\n\nThe National Weather Service (NWS) in Peachtree City said: [...] The National Weather Service (NWS) in Peachtree City said:\n\n The warning covered eastern Fulton and west-central DeKalb counties and\n will last until 11:15 p.m. EDT. At 5:48 p.m.,\n thunderstorms had already dumped between 2 and 3 inches of rain across the city, with additional rainfall expected.\n Flash flooding was reported along the I-75/I-85 corridor near downtown.\n Some areas recorded even higher amounts.\n\n#### Read More on Weather\n\nSevere Thunderstorm Warning: Live Tracker Maps as Millions Under Alert4 min read\n\nNortheast Heat Wave is Once-in-a-Century Event as Millions Told Stay Inside4 min read\n\nSandy Fire Containment Update\u2014LA County in Blaze Path as Wind Fuels Flames5 min read [...] U.S.\n\n  NewsPoliticsTechFact CheckSports\n Global\n\n  Russia-UkraineMiddle EastChina And AsiaLive BlogBetter PlanetAll World News\n Lifestyle\n\n  Family & ParentingEntertainmentTravelPetsAutomotiveRelationshipsScienceHealthPersonal FinanceBetter WorkplacesReaders Choice\n Opinion\n\n  My TurnAll Opinion\n Rankings\n\n  HealthFinanceProductsEducationWorkplacesCorporate ResponsibilityAll Rankings\n Social\n\n  FacebookInstagramThreadsYouTubeRedditTikTokTwitter/X\n Extra\n\n  NewslettersNewsmakersUnconventionalEventsPodcastsVantageMagazineCEO CircleAnnouncementsLeadershipDev Pragad\n\nWeather\n\nBreaking NewsFlash FloodsAtlantaGeorgia\n\nNews Article\n\n# Atlanta Flash Flood Warning as Torrential Rain Inundates Downtown\n\nPublished\n\nMay 20, 2026 at 06:32 PM EDT\n\nupdated\n\nMay 20, 2026 at 06:33 PM EDT\n\n...",
+      "published_date": "Wed, 20 May 2026 22:32:00 GMT",
+      "tavily_score": 0.079732,
+      "priority_source": false,
+      "secondary_source": false,
+      "official_source": false,
+      "query": "Metro Atlanta roof storm damage inspection homeowners",
+      "strategy_cluster": "storm_damage",
+      "pillar_topic": "Metro Atlanta storm damage inspection and repair",
+      "trigger_window_hours": 72,
+      "search_stage": "broad_21_day_news",
+      "search_days": 21,
+      "retrieved_at": "2026-06-09T18:56:43.690661+00:00",
+      "matched_terms": {
+        "local_terms": [
+          "atlanta",
+          "dekalb",
+          "fulton",
+          "metro atlanta",
+          "peachtree city"
+        ],
+        "topic_terms": [
+          "fire",
+          "flooding",
+          "thunderstorm",
+          "weather",
+          "wind"
+        ],
+        "cluster_terms": [
+          "thunderstorm",
+          "weather",
+          "wind"
+        ],
+        "scoring_mode": "roofing_keyword_match_only"
+      },
+      "search_quality_score": 13.0,
+      "content_age_days": 19,
+      "scoring_mode": "roofing_keyword_match_only"
+    }
+  },
+  {
+    "title": "Insurance Agent, Former Lawmaker in Runoff in Georgia Insurance Commissioner Race - Insurance Journal",
+    "url": "https://www.insurancejournal.com/news/southeast/2026/05/21/870815.htm",
+    "strategy_cluster": "ga_insurance_navigation",
+    "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
+    "trigger_window_hours": 48,
+    "scores": {
+      "local_relevance": 5,
       "roofing_relevance": 2,
       "recency": 10,
       "source_authority": 8,
@@ -14,8 +155,8 @@
       "territory_alignment": 5,
       "semantic_relevance": 2
     },
-    "model_weighted_score": 4.64,
-    "weighted_score": 4.64,
+    "model_weighted_score": 4.4,
+    "weighted_score": 4.4,
     "scoring_adjustments": {
       "territory_alignment_score": 0,
       "semantic_relevance_score": 0,
@@ -23,62 +164,66 @@
       "off_topic_penalty": 0,
       "duplicate_topic_penalty": 0,
       "weighted_score_adjustment": 0.0,
-      "hard_reject_reasons": []
+      "hard_reject_reasons": [
+        "roofing relevance is too low"
+      ]
     },
-    "keep": true,
-    "reason": "No clear connection to roofing or exterior demand in Metro Atlanta. Kept by minimum-kept fallback (top 2 by weighted_score despite threshold 6.0).",
-    "recommended_angle": "What roof safety risks should Atlanta homeowners understand from this local report?",
+    "keep": false,
+    "reason": "No clear connection to roofing or exterior demand in Metro Atlanta. Rejected because roofing relevance is too low.",
+    "recommended_angle": "",
     "source": {
-      "title": "Senior centers getting self-serve blood pressure monitors - Douglas County Sentinel",
-      "url": "https://www.douglascountysentinel.com/douglasville_sentinel/senior-centers-getting-self-serve-blood-pressure-monitors/article_531ec4c0-6ea9-516a-8e38-d73c4ce760f0.html",
-      "domain": "douglascountysentinel.com",
-      "content": "Articles\n Images\n Videos\n Commented\n\n#### Articles\n\n Third man arrested in alleged motorcycle club assault\n Police: Teen shot man during apparent drug deal\n All five Douglas high schools named AP Honor Schools\n County launches recruitment effort to attract retail businesses\n Couple let children go unfed, unschooled\n New scoring system aims to stretch limited grant dollars\n Motorcycle gang members arrested after bar fight, police say\n City unveils $190 million transportation plan focused on growth, safety\n County to consider transportation sales tax\n Leadership Douglas Class of 2026 graduates from program\n\n#### Images\n\n#### Videos\n\n#### Commented\n\nSorry, there are no recent results for popular commented articles.\n\n#### Newsletters - Sign up Today! [...] To view our latest e-Edition click the image on the left.\n\n### Click here to Subscribe!\n\n## Latest News\n\n Couple jailed in elaborate fake ID scheme, police say\n All five Douglas high schools named AP Honor Schools\n UPDATE: NOTICE TO OUR READERS\n \ud83d\udce2 Notice to Our Readers\n Thomas Cervantes named 2026 Gates Millennium Scholar\n Beau McClain honored with new courtroom portrait\n Senior class has record $130.3 million in scholarships\n Chapel Hill valedictorian gives emotional speech about family\u2019s journey to the U.S.\n\n## Most Popular\n\n Articles\n Images\n Videos\n Commented\n\n#### Articles [...] Gilchrist said the stations are designed to be self-operated and user-friendly. They provide simple, step-by-step instructions so seniors can comfortably check their blood pressure independently.\n\n\u201cStaff members will be available to assist as needed, and they will receive basic training to help guide seniors in using the equipment properly,\u201d she said. \u201cWhile the stations are self-service, this added support ensures that residents feel confident and comfortable using them.\u201d\n\nGilchrist said the monitoring stations should be up and running within the next few weeks.\n\n Facebook\n Twitter\n WhatsApp\n SMS\n Email\n Print \"Print\")\n Save\n\n### Georgia Press Association\n\n## Latest e-Edition\n\n### Douglas County Sentinel\n\n To view our latest e-Edition click the image on the left.",
-      "published_date": "Fri, 05 Jun 2026 19:15:00 GMT",
-      "tavily_score": 0.01717839,
+      "title": "Insurance Agent, Former Lawmaker in Runoff in Georgia Insurance Commissioner Race - Insurance Journal",
+      "url": "https://www.insurancejournal.com/news/southeast/2026/05/21/870815.htm",
+      "domain": "insurancejournal.com",
+      "content": "Keisha Sean Waites, a former state legislator and Atlanta City Council member, was the largest vote-getter in the Democratic primary Tuesday, winning more than 427,000 votes and 42%. DeAndre Mathis, a State Farm insurance agent in Decatur, took home almost 20% of the vote in a field of five candidates, the Georgia Secretary of State reported.\n\nSince no candidate won a majority of the votes cast in the primary, the runoff is necessary. The winner will face incumbent Commissioner John King, a Republican, in the Nov. 3 general election. King was appointed in 2019 and elected to the post in 2022.\n\nBoth Waites and Mathis campaigned on a pledge to end insurers\u2019 use of ZIP codes and credit scores to set premiums for Georgia policyholders, according to news reports. [...] Jury Sides With Insurers, Finding Takeda Pharmaceutical Liable for $885 Million in Damages\n UK Warned of Housing Market Risks as Flood Re's Future Unclear\n Why AI Governance Is Essential for Insurance Claims Organizations\n Openly's Tech-Forward Approach Includes AI in Claims\n Wall Street Watchdogs Pause Some Cyber Exams After Mythos Shock\n\n June 4th Saving Commercial Property Insureds from an Epic Coverage Fail\n June 11th Emerging E&O Risks for 2026\n June 18th Agency Best Practices Revisited: Why The Order Taker Standard Does NOT Work to Your Detriment\n July 9th Business Auto Pollution Myths [...] Chart: Georgia Secretary of State\u2019s Office\n\nTopics Agencies Legislation Georgia\n\nWas this article valuable?\n\nHere are more articles you may enjoy.\n\nUS Personal Lines Insurers Ask for Less Rate After Period of Catch-Up\n\nBillionaire Boehly\u2019s Allies Donated Heavily to Kansas Insurance Regulator\n\nIllinois Man Receives $300K Settlement From Dog Attack\n\nBrown & Brown Wins Temporary Injunction Against Howden\n\n#### Interested in Agencies?\n\nGet automatic alerts for this topic.\n\nEmail This   Subscribe to Newsletter\n\n Categories: Southeast NewsTopics: Credit-based insurance scoring, georgia elections, Georgia Insurance Commissioner John King, redlining in insurance premiums\n Have a hot lead? Email us at newsdesk@insurancejournal.com\n\n### Insurance Jobs",
+      "published_date": "Thu, 21 May 2026 05:02:30 GMT",
+      "tavily_score": 0.058094297,
       "priority_source": false,
-      "secondary_source": true,
+      "secondary_source": false,
       "official_source": false,
-      "query": "Georgia roof fire HVAC electrical conduit homeowners safety",
-      "strategy_cluster": "roof_safety",
-      "pillar_topic": "Atlanta roof safety, fires, penetrations, structural risk",
+      "query": "Georgia roof insurance deductible percentage homeowners storm",
+      "strategy_cluster": "ga_insurance_navigation",
+      "pillar_topic": "Georgia roof insurance claims, RCV vs ACV, HB511",
       "trigger_window_hours": 48,
-      "search_stage": "secondary_14_day_news",
-      "search_days": 7,
-      "retrieved_at": "2026-06-09T15:26:00.344192+00:00",
+      "search_stage": "georgia_roofing_trade_21_day",
+      "search_days": 21,
+      "retrieved_at": "2026-06-09T18:56:31.733952+00:00",
       "matched_terms": {
         "local_terms": [
-          "douglasville"
+          "atlanta",
+          "decatur",
+          "georgia"
         ],
         "topic_terms": [
-          "safety"
+          "insurance"
         ],
         "cluster_terms": [
-          "safety"
+          "insurance"
         ],
         "scoring_mode": "roofing_keyword_match_only"
       },
-      "search_quality_score": 3.0,
-      "content_age_days": 3,
+      "search_quality_score": 5.0,
+      "content_age_days": 19,
       "scoring_mode": "roofing_keyword_match_only"
     }
   },
   {
-    "title": "Defense says man killed family members in \u2018tragic case of self-defense\u2019 - WSB-TV",
-    "url": "https://www.wsbtv.com/news/local/gwinnett-county/defense-says-man-killed-family-members-tragic-case-self-defense/JRHWFV5ESJBMBEBNKKPNXR7LE4/",
+    "title": "Late-spring freeze devastates Northeast farms, threatening peach and apple crops - Fox News",
+    "url": "https://www.foxnews.com/weather/late-april-freeze-new-jersey-farms-crop-losses",
     "strategy_cluster": "storm_damage",
     "pillar_topic": "Metro Atlanta storm damage inspection and repair",
     "trigger_window_hours": 72,
     "scores": {
-      "local_relevance": 8,
-      "roofing_relevance": 2,
-      "recency": 10,
-      "source_authority": 9,
-      "actionability": 2,
-      "territory_alignment": 8,
-      "semantic_relevance": 2
+      "local_relevance": 1,
+      "roofing_relevance": 1,
+      "recency": 5,
+      "source_authority": 8,
+      "actionability": 1,
+      "territory_alignment": 1,
+      "semantic_relevance": 1
     },
-    "model_weighted_score": 4.48,
-    "weighted_score": 4.48,
+    "model_weighted_score": 3.2,
+    "weighted_score": 3.2,
     "scoring_adjustments": {
       "territory_alignment_score": 0,
       "semantic_relevance_score": 0,
@@ -86,161 +231,37 @@
       "off_topic_penalty": 0,
       "duplicate_topic_penalty": 0,
       "weighted_score_adjustment": 0.0,
-      "hard_reject_reasons": []
+      "hard_reject_reasons": [
+        "roofing relevance is too low"
+      ]
     },
-    "keep": true,
-    "reason": "No clear connection to roofing or exterior demand in Metro Atlanta. Kept by minimum-kept fallback (top 2 by weighted_score despite threshold 6.0).",
-    "recommended_angle": "What should Metro Atlanta homeowners inspect after this storm or damage report?",
+    "keep": false,
+    "reason": "No local relevance or actionability for Metro Atlanta. Rejected because roofing relevance is too low.",
+    "recommended_angle": "",
     "source": {
-      "title": "Defense says man killed family members in \u2018tragic case of self-defense\u2019 - WSB-TV",
-      "url": "https://www.wsbtv.com/news/local/gwinnett-county/defense-says-man-killed-family-members-tragic-case-self-defense/JRHWFV5ESJBMBEBNKKPNXR7LE4/",
-      "domain": "wsbtv.com",
-      "content": "In the bond hearing motion, the defense further claimed that on the night of the incident, Gourav Kumar coerced Vijay Kumar from his home without his phone or coat. The motion stated that Vijay Kumar was physically shoved into the Chander residence.\n\nIt described the home as a place where he reportedly feared for his life after months of threats, armed intimidation and financial extortion.\n\nThe defense motion also cited \u201cthe recanted testimony of his minor daughter,\u201d to support the claim that Vijay Kumar acted in reasonable fear for his life.\n\nGwinnett County Assistant District Attorney Don Geary stated that the prosecution disputes these defense claims. \u201cWe probably seriously disagree with Counsel\u2019s rendition of the facts,\u201d he said. [...] WSB Now\n\nResize:\n\nDrag to Resize Video\n\nGwinnett County\n\n# Defense says man killed family members in \u2018tragic case of self-defense\u2019\n\nBy WSBTV.com News Staff\n\nBy WSBTV.com News Staff\n\nGWINNETT COUNTY, Ga. \u2014 Vijay Kumar pleaded not guilty to the murders of four family members in a Gwinnett County residence in January. The plea was entered during a recent court appearance.\n\nVijay Kumar is accused of killing Meenu Dogra, Nidhi Chander, Harish Chander and Gourav Kumar.\n\nChannel 2\u2019s Mark Winne reports the Gwinnett County District Attorney\u2019s Office is disputing defense claims that Kumar acted in self-defense during the incident. [...] The prosecution maintains that defense claims about Vijay Kumar being forced into the home, which belonged to two of the victims, are contradicted by evidence.\n\nMerchant also described her client as someone with no criminal history. \u201cHe has 150-something people here and 100 letters of support. He\u2019s in a highly regulated, highly visible industry,\u201d Merchant said.\n\nA daughter has described Kumar as a prominent figure in the amusement machine industry.\n\nDOWNLOAD: [Free WSB-TV News app for alerts as news breaks]\n\nSIGN UP: [WSB-TV Daily Headlines Newsletter]\n\n\u00a92026 Cox Media Group\n\n0\n\n## Most Read\n\n## Couple says arrest over birthday party was unjustified; police cite noise complaints\n\n## Sheriff accused of DUI in hospital for \u2018potentially fatal\u2019 amount of alcohol day before arrest",
-      "published_date": "Tue, 09 Jun 2026 00:39:27 GMT",
-      "tavily_score": 0.034687515,
-      "priority_source": true,
+      "title": "Late-spring freeze devastates Northeast farms, threatening peach and apple crops - Fox News",
+      "url": "https://www.foxnews.com/weather/late-april-freeze-new-jersey-farms-crop-losses",
+      "domain": "foxnews.com",
+      "content": "#### Sawmills act to relieve wildfire threat from Hurricane Helene debris\n #### Tennessee tornado cleanup faces a long road to completion\n #### Scientists in East Tennessee examine fish counts for the first time since Hurricane Helene\n #### Hurricane Helene cleanup in East Tennessee faces stiff deadline\n #### Tornado Alley shifts to the Southeast, storm shelters become more popular\n #### Southeast met with dangerous flooding while Northeast braces for snowstorms\n #### 2 boaters missing after sailing to avoid Hurricane Milton: Coast Guard\n #### Massive 28-foot wave captured inside Hurricane Milton: video\n #### Hurricane Milton forces St. Petersburg crane collapse, leaving a \u2018gaping hole\u2019 in building\n #### Residents in Texas, Oklahoma seek shelter as tornado damages homes, overturns trucks [...] #### Nebraska ranchers struggle to recover from historic wildfires as drought worsens crisis\n #### FEMA preparations for \u2018massive winter storm\u2019 set to impact more than 30 states revealed in memo\n #### Drought conditions leave pumpkin farmers with empty fields and smaller crops\n #### Volunteer pilots reflect on one year since Helene devastated western North Carolina\n #### North Carolina family still recovering a year after Hurricane Helene destroyed home\n #### How the deadly Camp Mystic flash flood is transforming summer camp safety protocols across America\n #### Volunteers help rebuild North Carolina homes 10 months after Hurricane Helene\n #### Hurricane season is back, but for parts of Florida, it feels like it never ended [...] #### Dangerous storms result in flash flooding, severe weather over Southern Plains\n #### Oklahoma shaken by 5.1 magnitude earthquake",
+      "published_date": "Thu, 28 May 2026 07:56:20 GMT",
+      "tavily_score": 0.039986104,
+      "priority_source": false,
       "secondary_source": false,
       "official_source": false,
       "query": "Cobb Gwinnett Cherokee hail storm roof replacement homeowners",
       "strategy_cluster": "storm_damage",
       "pillar_topic": "Metro Atlanta storm damage inspection and repair",
       "trigger_window_hours": 72,
-      "search_stage": "priority_7_day_news",
-      "search_days": 7,
-      "retrieved_at": "2026-06-09T15:25:49.949933+00:00",
-      "matched_terms": {
-        "local_terms": [
-          "gwinnett"
-        ],
-        "topic_terms": [
-          "claim"
-        ],
-        "cluster_terms": [
-          "claim"
-        ],
-        "scoring_mode": "roofing_keyword_match_only"
-      },
-      "search_quality_score": 3.0,
-      "content_age_days": 0,
-      "scoring_mode": "roofing_keyword_match_only"
-    }
-  },
-  {
-    "title": "Suspect sought in MARTA train shooting; law enforcement presence to increase - WSB-TV",
-    "url": "https://www.wsbtv.com/news/local/atlanta/suspect-sought-marta-train-shooting-law-enforcement-presence-increase/PS2Z3PX5RVAAJIAG6GWRCWO7CE/",
-    "strategy_cluster": "storm_damage",
-    "pillar_topic": "Metro Atlanta storm damage inspection and repair",
-    "trigger_window_hours": 72,
-    "scores": {
-      "local_relevance": 8,
-      "roofing_relevance": 2,
-      "recency": 10,
-      "source_authority": 9,
-      "actionability": 2,
-      "territory_alignment": 5,
-      "semantic_relevance": 1
-    },
-    "model_weighted_score": 4.08,
-    "weighted_score": 4.08,
-    "scoring_adjustments": {
-      "territory_alignment_score": 0,
-      "semantic_relevance_score": 0,
-      "multi_territory_bonus": 0,
-      "off_topic_penalty": 0,
-      "duplicate_topic_penalty": 0,
-      "weighted_score_adjustment": 0.0,
-      "hard_reject_reasons": []
-    },
-    "keep": false,
-    "reason": "No clear connection to roofing or exterior demand in Metro Atlanta.",
-    "recommended_angle": "",
-    "source": {
-      "title": "Suspect sought in MARTA train shooting; law enforcement presence to increase - WSB-TV",
-      "url": "https://www.wsbtv.com/news/local/atlanta/suspect-sought-marta-train-shooting-law-enforcement-presence-increase/PS2Z3PX5RVAAJIAG6GWRCWO7CE/",
-      "domain": "wsbtv.com",
-      "content": "\u00a92026 Cox Media Group\n\n0\n\n## Most Read\n\n## 3-month-old baby dies following reported dog attack in Georgia home\n\n## Man accused of stealing entire roof off Georgia home\n\n## At least 12 people were wounded, 2 critically, in shooting near an Ohio festival, police say\n\n## WATCH: Homeowner confronts suspects after Ring alert, gunfire follows\n\n## Arrests made for ID fraud after home searched for 4 days [...] Then they made eye contact, and that\u2019s when the suspect walked to the victim\u2019s car and shot him from the platform, MARTA police said.\n\nThe investigation continues into what contributed to the shooting.\n\nIn the meantime, MARTA is increasing the presence of officers on trains and in stations.\n\nPolice will be working 12-hour shifts, six days a week, with additional personnel pulled off desk duty to help.\n\nDOWNLOAD: [Free WSB-TV News app for alerts as news breaks]\n\nTRENDING STORIES:\n\n 3-month-old baby dies following reported dog attack in Georgia home\n Business owners say they\u2019re being forced out of Northlake Mall with just weeks notice\n Man accused of stealing entire roof off Georgia home\n\nSIGN UP: [WSB-TV Daily Headlines Newsletter]\n\n\u00a92026 Cox Media Group\n\n0\n\n## Most Read [...] WSB Now\n\nResize:\n\nDrag to Resize Video\n\nAtlanta\n\n# Suspect sought in MARTA train shooting; law enforcement presence to increase\n\nBy WSBTV.com News Staff\n\nBy WSBTV.com News Staff\n\nATLANTA \u2014 Police with Metro Atlanta Regional Transportation Authority provided additional details in connection to a shooting they say was targeted.\n\nSuspect sought in MARTA train shooting. What authorities say happened just before, LIVE on WSB Tonight at 11 p.m.\n\nChannel 2 Action News reported the shooting happened at Midtown Station Friday night.\n\nAccording to a preliminary police investigation, both men paid their fare to enter Midtown Station and, at first, got into separate train cars.",
-      "published_date": "Sun, 07 Jun 2026 02:05:35 GMT",
-      "tavily_score": 0.10076372,
-      "priority_source": true,
-      "secondary_source": false,
-      "official_source": false,
-      "query": "Georgia severe weather roof inspection checklist homeowners",
-      "strategy_cluster": "storm_damage",
-      "pillar_topic": "Metro Atlanta storm damage inspection and repair",
-      "trigger_window_hours": 72,
-      "search_stage": "priority_7_day_news",
-      "search_days": 7,
-      "retrieved_at": "2026-06-09T15:25:49.589090+00:00",
-      "matched_terms": {
-        "local_terms": [
-          "atlanta",
-          "georgia"
-        ],
-        "topic_terms": [
-          "roof"
-        ],
-        "cluster_terms": [
-          "roof"
-        ],
-        "scoring_mode": "roofing_keyword_match_only"
-      },
-      "search_quality_score": 4.0,
-      "content_age_days": 2,
-      "scoring_mode": "roofing_keyword_match_only"
-    }
-  },
-  {
-    "title": "North Carolina mountain community braces for hurricane season two years after Helene's brutal impact - Fox News",
-    "url": "https://www.foxnews.com/weather/north-carolina-mountain-community-braces-hurricane-season-two-years-helenes-brutal-impact",
-    "strategy_cluster": "storm_damage",
-    "pillar_topic": "Metro Atlanta storm damage inspection and repair",
-    "trigger_window_hours": 72,
-    "scores": {
-      "local_relevance": 2,
-      "roofing_relevance": 3,
-      "recency": 5,
-      "source_authority": 8,
-      "actionability": 4,
-      "territory_alignment": 3,
-      "semantic_relevance": 2
-    },
-    "model_weighted_score": 3.68,
-    "weighted_score": 3.68,
-    "scoring_adjustments": {
-      "territory_alignment_score": 0,
-      "semantic_relevance_score": 0,
-      "multi_territory_bonus": 0,
-      "off_topic_penalty": 0,
-      "duplicate_topic_penalty": 0,
-      "weighted_score_adjustment": 0.0,
-      "hard_reject_reasons": []
-    },
-    "keep": false,
-    "reason": "Primarily focuses on North Carolina, not relevant to Metro Atlanta",
-    "recommended_angle": "",
-    "source": {
-      "title": "North Carolina mountain community braces for hurricane season two years after Helene's brutal impact - Fox News",
-      "url": "https://www.foxnews.com/weather/north-carolina-mountain-community-braces-hurricane-season-two-years-helenes-brutal-impact",
-      "domain": "foxnews.com",
-      "content": "#### Hurricane season is back, but for parts of Florida, it feels like it never ended\n #### Sawmills act to relieve wildfire threat from Hurricane Helene debris\n #### Tennessee tornado cleanup faces a long road to completion\n #### Scientists in East Tennessee examine fish counts for the first time since Hurricane Helene\n #### Hurricane Helene cleanup in East Tennessee faces stiff deadline\n #### Tornado Alley shifts to the Southeast, storm shelters become more popular\n #### Southeast met with dangerous flooding while Northeast braces for snowstorms\n #### 2 boaters missing after sailing to avoid Hurricane Milton: Coast Guard\n #### Massive 28-foot wave captured inside Hurricane Milton: video\n #### Hurricane Milton forces St. Petersburg crane collapse, leaving a \u2018gaping hole\u2019 in building [...] #### FOX Weather\u2019s Amy Freeze on one year anniversary of streaming service: \u2018We\u2019re just getting started\u2019\n #### Stunning video reveals how beach storm grabbed vacationer's umbrella\n #### Adam Klotz previews weekend weather\n #### Hurricane Ian survivor spearheads effort to help elderly, those with disabilities recover\n #### Florida restaurant general manager reflects on Hurricane Ian\u2019s destruction\n #### Help after Hurricane Ian: Franklin Graham and Samaritan\u2019s Purse are in Florida\n #### Samaritan's Purse doing 'physical, spiritual work' to help Floridians recover from Hurricane Ian: Franklin Graham\n #### Hurricane Ian exceeded storm surge of Hurricane Matthew on Pawleys Island: Mayor Bri\n #### Rep. Steube: Need more funds for Florida than Ukraine [...] #### Residents in Texas, Oklahoma seek shelter as tornado damages homes, overturns trucks",
-      "published_date": "Fri, 05 Jun 2026 09:50:09 GMT",
-      "tavily_score": 0.025028326,
-      "priority_source": false,
-      "secondary_source": false,
-      "official_source": false,
-      "query": "Georgia severe weather roof inspection checklist homeowners",
-      "strategy_cluster": "storm_damage",
-      "pillar_topic": "Metro Atlanta storm damage inspection and repair",
-      "trigger_window_hours": 72,
-      "search_stage": "broad_14_day_news",
-      "search_days": 7,
-      "retrieved_at": "2026-06-09T15:26:00.593640+00:00",
+      "search_stage": "broad_21_day_news",
+      "search_days": 21,
+      "retrieved_at": "2026-06-09T18:56:35.921788+00:00",
       "matched_terms": {
         "local_terms": [
           "milton"
         ],
         "topic_terms": [
           "flooding",
+          "safety",
           "storm",
           "tornado",
           "weather"
@@ -252,136 +273,8 @@
         ],
         "scoring_mode": "roofing_keyword_match_only"
       },
-      "search_quality_score": 8.0,
-      "content_age_days": 4,
-      "scoring_mode": "roofing_keyword_match_only"
-    }
-  },
-  {
-    "title": "Jacob Misiorowski throws 103.7 mph pitch, fastest by a starter since tracking began in 2008 - 95.5 WSB",
-    "url": "https://www.wsbradio.com/sports/jacob-misiorowski/B5CXU6ESAM7IXOSRPFYYG42GAM/",
-    "strategy_cluster": "storm_damage",
-    "pillar_topic": "Metro Atlanta storm damage inspection and repair",
-    "trigger_window_hours": 72,
-    "scores": {
-      "local_relevance": 2,
-      "roofing_relevance": 1,
-      "recency": 10,
-      "source_authority": 7,
-      "actionability": 1,
-      "territory_alignment": 2,
-      "semantic_relevance": 1
-    },
-    "model_weighted_score": 3.28,
-    "weighted_score": 3.28,
-    "scoring_adjustments": {
-      "territory_alignment_score": 0,
-      "semantic_relevance_score": 0,
-      "multi_territory_bonus": 0,
-      "off_topic_penalty": 0,
-      "duplicate_topic_penalty": 0,
-      "weighted_score_adjustment": 0.0,
-      "hard_reject_reasons": []
-    },
-    "keep": false,
-    "reason": "No clear connection to roofing or exterior demand in Metro Atlanta.",
-    "recommended_angle": "",
-    "source": {
-      "title": "Jacob Misiorowski throws 103.7 mph pitch, fastest by a starter since tracking began in 2008 - 95.5 WSB",
-      "url": "https://www.wsbradio.com/sports/jacob-misiorowski/B5CXU6ESAM7IXOSRPFYYG42GAM/",
-      "domain": "wsbradio.com",
-      "content": "He threw 52 pitches 100 mph or faster Saturday night, including a record 45 of at least 101 mph. He allowed just an unearned run while striking out eight in seven innings, lowering his ERA to 1.50.\n\nMisiorowski threw a record 57 pitches 100 mph or faster in the May 25 game, including 40 of 101 mph or more.\n\n\\_\\_\\_\n\nAP MLB: \n\nCopyright 2026 The Associated Press. All rights reserved. This material may not be published, broadcast, rewritten or redistributed without permission.\n\n## Listen\n\nnews\n\nweather\n\ntraffic\n\n60\n\nTraffic\n\nI-285Road work. Left two lanes blocked in Atlanta on I-285 WB at Bouldercrest Rd/Exit 51. Reported by GDOT\n\nI-20Road work. Right lane blocked in West Atlanta on I-20 WB between ML King Jr Dr/Exit 53 and Fulton Industrial Blvd/Exit 49. Reported by GDOT [...] ## Georgia Bulldogs Coverage\n\n## What does the SEC championship game blowout do for Georgia-Alabama 2026 matchup\n\n## Presence of Jared Curtis ensures Georgia-Vanderbilt game won\u2019t be overlooked\n\n## Expect this year\u2019s Georgia-Oklahoma game to be very different from 2018 Rose Bowl\n\nMore\n\n|  |  |\n --- |\n| Download the 95.5 WSB app |  |\n\n## Audio Temporarily Unavailable\n\nYou may be offline. Please check your connection and try again using the Retry button.\n\nListen Live\n\nLearn MoreShare currently playing on Facebook (Opens a new window)Share currently playing on Twitter (Opens a new window) [...] Subscribe to 95.5 WSB newsletter(Opens a new window)\n\n95.5 WSB facebook feed(Opens a new window)\n\n95.5 WSB twitter feed(Opens a new window)\n\n95.5 WSB instagram feed(Opens a new window)\n\nSports\n\n# Jacob Misiorowski throws 103.7 mph pitch, fastest by a starter since tracking began in 2008\n\nBy Associated Press\n\nBy Associated Press\n\nDENVER \u2014 Milwaukee Brewers ace Jacob Misiorowski threw a 103.7 mph pitch Saturday night against the Colorado Rockies, the fastest by a starter since tracking began in 2008.\n\nThe 24-year-old right-hander's record-setting pitch was low and outside to Kyle Karros in the third inning.\n\nMisiorowski has thrown the 12 fastest pitches by a starter. His previous high was 103.4 mph against St. Louis on May 25.",
-      "published_date": "Sun, 07 Jun 2026 04:00:31 GMT",
-      "tavily_score": 0.0281809,
-      "priority_source": true,
-      "secondary_source": false,
-      "official_source": false,
-      "query": "Cobb Gwinnett Cherokee hail storm roof replacement homeowners",
-      "strategy_cluster": "storm_damage",
-      "pillar_topic": "Metro Atlanta storm damage inspection and repair",
-      "trigger_window_hours": 72,
-      "search_stage": "priority_7_day_news",
-      "search_days": 7,
-      "retrieved_at": "2026-06-09T15:25:49.952547+00:00",
-      "matched_terms": {
-        "local_terms": [
-          "atlanta",
-          "fulton",
-          "georgia"
-        ],
-        "topic_terms": [
-          "weather"
-        ],
-        "cluster_terms": [
-          "weather"
-        ],
-        "scoring_mode": "roofing_keyword_match_only"
-      },
-      "search_quality_score": 5.0,
-      "content_age_days": 2,
-      "scoring_mode": "roofing_keyword_match_only"
-    }
-  },
-  {
-    "title": "T.W. Josey marks graduation at Bell Auditorium - The Augusta Chronicle",
-    "url": "https://www.augustachronicle.com/videos/news/education/graduation/2026/06/05/t-w-josey-marks-graduation-at-bell-auditorium/90424292007/",
-    "strategy_cluster": "storm_damage",
-    "pillar_topic": "Metro Atlanta storm damage inspection and repair",
-    "trigger_window_hours": 72,
-    "scores": {
-      "local_relevance": 2,
-      "roofing_relevance": 1,
-      "recency": 10,
-      "source_authority": 8,
-      "actionability": 1,
-      "territory_alignment": 2,
-      "semantic_relevance": 1
-    },
-    "model_weighted_score": 2.96,
-    "weighted_score": 2.96,
-    "scoring_adjustments": {
-      "territory_alignment_score": 0,
-      "semantic_relevance_score": 0,
-      "multi_territory_bonus": 0,
-      "off_topic_penalty": 0,
-      "duplicate_topic_penalty": 0,
-      "weighted_score_adjustment": 0.0,
-      "hard_reject_reasons": []
-    },
-    "keep": false,
-    "reason": "No direct connection to roofing or exterior demand in Metro Atlanta.",
-    "recommended_angle": "",
-    "source": {
-      "title": "T.W. Josey marks graduation at Bell Auditorium - The Augusta Chronicle",
-      "url": "https://www.augustachronicle.com/videos/news/education/graduation/2026/06/05/t-w-josey-marks-graduation-at-bell-auditorium/90424292007/",
-      "domain": "augustachronicle.com",
-      "content": "More Videos\n\nTicks in Georgia are responding to weather swings, not just seasonsDooley visits Augusta before runoffHow climate change is expanding mosquito populations in GeorgiaGeorgia Boaters Urged to Stop Invasive SpeciesEl Nin\u0303o May Calm Atlantic Hurricanes in 2026\n\nWatch Next\n\nAugusta runoffs set for mayor, commission seatsWhy Georgia alligators are more visible nowVideo: Augusta hits pause on new data center developments",
-      "published_date": "Fri, 05 Jun 2026 18:34:43 GMT",
-      "tavily_score": 0.032889787,
-      "priority_source": false,
-      "secondary_source": false,
-      "official_source": false,
-      "query": "Georgia severe weather roof inspection checklist homeowners",
-      "strategy_cluster": "storm_damage",
-      "pillar_topic": "Metro Atlanta storm damage inspection and repair",
-      "trigger_window_hours": 72,
-      "search_stage": "broad_14_day_news",
-      "search_days": 7,
-      "retrieved_at": "2026-06-09T15:26:00.591875+00:00",
-      "matched_terms": {
-        "local_terms": [
-          "georgia"
-        ],
-        "topic_terms": [
-          "weather"
-        ],
-        "cluster_terms": [
-          "weather"
-        ],
-        "scoring_mode": "roofing_keyword_match_only"
-      },
-      "search_quality_score": 3.0,
-      "content_age_days": 3,
+      "search_quality_score": 9.0,
+      "content_age_days": 12,
       "scoring_mode": "roofing_keyword_match_only"
     }
   }

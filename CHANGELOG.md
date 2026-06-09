@@ -25,6 +25,87 @@ Notes / next step:
 - 
 ```
 
+## 2026-06-09 - Incremental search+evaluate with early Tavily exit
+
+Changed:
+- Search evaluates each keyword-qualified source immediately via `IncrementalEvaluator`; stops Tavily after 2 sources score `>= 6.0` (default on).
+- Pipeline restart is now two stages: `search --incremental-evaluate` → write (standalone `evaluate` remains for menu/CLI re-runs).
+- Flags: `--incremental-evaluate` / `--no-incremental-evaluate`, `--min-evaluated-kept`, `--evaluate-model`.
+
+Why:
+- Avoid burning Tavily credits after enough write-ready sources are found; fail faster when candidates score poorly.
+
+Files touched:
+- `src/peachtree_blog/pipeline/evaluate.py`
+- `src/peachtree_blog/pipeline/search.py`
+- `src/peachtree_blog/pipeline/runner.py`
+- `src/peachtree_blog/pipeline/cli.py`
+- `CHANGELOG.md`
+
+Tested:
+- `python -m py_compile` on modified modules.
+
+Notes / next step:
+- Menu option 2 (Evaluate) still re-scores `search_results.json` if you ran search with `--no-incremental-evaluate`.
+
+## 2026-06-09 - Expand search depth with longer multi-stage lookback
+
+Changed:
+- Added `priority_21_day_news`, `secondary_30_day_news`, and `georgia_roofing_trade_21_day` stages; broad stage extended to 21 days (8 stages total).
+- Fixed bug where every stage was forced to 7-day Tavily/recency — each stage now uses its own lookback capped by `--max-age-days` (default 21).
+- Raised defaults: 100 Tavily credits (was 50), 3 queries/cluster (was 2), 8 results/query, 21-day recency cap.
+
+Why:
+- Tighter geography filters returned 0 sources; need more API coverage across Atlanta TV, county papers, and GA insurance/trade outlets.
+
+Files touched:
+- `src/peachtree_blog/pipeline/search.py`
+- `CHANGELOG.md`
+
+Tested:
+- `python -m py_compile` on `search.py`.
+
+Notes / next step:
+- Full 8-stage run uses ~96 credits at 6 active queries; use `--all-queries` or `--max-credits 150` for even wider sweeps.
+
+## 2026-06-09 - Tighten search geography and roofing relevance gates
+
+Changed:
+- Search requires Metro Atlanta / Georgia signals in headline or article lead (not job-listing footers).
+- Rejects out-of-state headlines, national `/news/west/` paths, crime/health headlines, and metro TV stories without roofing in the title.
+- Primary roofing signals no longer treat standalone `insurance`/`claim` in sidebars as sufficient; insurance phrases must be explicit (`homeowners insurance`, `roof insurance`, etc.).
+
+Why:
+- Colorado insurance, WSB crime stories, and sidebar false positives passed keyword search despite zero Georgia roofing relevance.
+
+Files touched:
+- `src/peachtree_blog/pipeline/search.py`
+- `CHANGELOG.md`
+
+Tested:
+- `python -m py_compile` on `search.py`.
+
+Notes / next step:
+- Re-run search; quiet weeks may still return few results after `used_sources.json` blocks prior URLs.
+
+## 2026-06-09 - Full pipeline menu option in pipeline.py
+
+Changed:
+- Interactive `pipeline.py` menu adds option 5: full pipeline (search → evaluate → write → post to Slack → listen).
+
+Why:
+- Run the entire workflow from one CLI choice without stepping through each stage manually.
+
+Files touched:
+- `src/peachtree_blog/pipeline/cli.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run.
+
+Notes / next step:
+- Restart `python pipeline.py` to see the new menu item (option 6 is Exit).
+
 ## 2026-06-09 - Live terminal output on Slack pipeline restart
 
 Changed:

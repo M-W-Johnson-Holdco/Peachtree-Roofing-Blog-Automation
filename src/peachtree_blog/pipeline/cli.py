@@ -16,6 +16,7 @@ MENU_OPTIONS: list[tuple[str, str]] = [
     ("evaluate", "Evaluate sources"),
     ("write", "Write draft (serverless)"),
     ("approve", "Approve (post latest draft to Slack, then listen)"),
+    ("full", "Full pipeline (search → evaluate → write → approve)"),
     ("exit", "Exit"),
 ]
 
@@ -37,6 +38,16 @@ def read_menu_choice() -> int:
         print(f"Please enter a number from 1 to {len(MENU_OPTIONS)}.")
 
 
+def run_full_pipeline_and_approve() -> None:
+    """search → evaluate → write, then post to Slack and listen for approval."""
+    load_dotenv(PROJECT_ROOT / ".env")
+    code = run_pipeline_restart()
+    if code != 0:
+        print("[pipeline] Stopped before approve — fix the failed stage and try again.")
+        return
+    run_approve_post_and_listen(interactive_model_prompt=True)
+
+
 def run_menu_choice(choice: int) -> None:
     """Run one menu stage, then return so the interactive menu can show again."""
     stage_key = MENU_OPTIONS[choice - 1][0]
@@ -50,6 +61,8 @@ def run_menu_choice(choice: int) -> None:
     elif stage_key == "approve":
         load_dotenv(PROJECT_ROOT / ".env")
         run_approve_post_and_listen(interactive_model_prompt=True)
+    elif stage_key == "full":
+        run_full_pipeline_and_approve()
 
 
 def run_interactive_menu() -> None:
@@ -63,6 +76,7 @@ def run_interactive_menu() -> None:
 
 
 def run_full_pipeline(*, send_to_slack: bool) -> None:
+    # run_pipeline_restart uses incremental search+evaluate by default.
     code = run_pipeline_restart()
     if code != 0:
         raise SystemExit(code)
