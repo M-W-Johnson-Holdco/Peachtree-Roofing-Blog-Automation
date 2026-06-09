@@ -371,6 +371,40 @@ def source_display_name(source: dict[str, Any]) -> str:
     return domain or "Source"
 
 
+VENDOR_PRESS_RELEASE_HINT = (
+    "Editorial note: vendor/industry press release — cite the news outlet as authority; "
+    "do not promote the company named in the headline or quote its executives as the expert voice."
+)
+
+CTA_SENTENCE = "Contact Peachtree Roofing & Exteriors for a free inspection."
+
+COMPETITOR_VENDOR_BRANDS = [
+    "stormarmour",
+    "storm armour",
+]
+
+ROOF_SERVICE_BRIDGE_PATTERNS = [
+    r"\broof inspection\b",
+    r"\broof replacement\b",
+    r"\bflashing\b",
+    r"\baging roof\b",
+    r"\bimproperly installed roof\b",
+    r"\bnew roof\b",
+    r"\broof system\b",
+    r"\bmissing shingle\b",
+]
+
+
+def _is_vendor_press_release_title(title: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(Calls for|announces|unveils|launches|warns|urges|Co-Founder|CEO of)\b",
+            title,
+            flags=re.IGNORECASE,
+        )
+    )
+
+
 def format_sources_block(evaluated_sources: list[dict[str, Any]]) -> str:
     blocks = []
 
@@ -381,22 +415,22 @@ def format_sources_block(evaluated_sources: list[dict[str, Any]]) -> str:
         title = source.get("title") or item.get("title", "")
         published_date = source.get("published_date", "")
         outlet = source_display_name(source)
-
-        blocks.append(
-            "\n".join(
-                [
-                    f"Source {index}: {title}",
-                    f"Outlet: {outlet}",
-                    f"URL: {source.get('url', item.get('url', ''))}",
-                    f"Published: {published_date}",
-                    f"Strategy cluster: {item.get('strategy_cluster', source.get('strategy_cluster', ''))}",
-                    f"Pillar topic: {item.get('pillar_topic', source.get('pillar_topic', ''))}",
-                    f"Recommended angle: {item.get('recommended_angle', '')}",
-                    f"Evaluation reason: {item.get('reason', '')}",
-                    f"Excerpt: {excerpt}",
-                ]
-            )
-        )
+        url = source.get("url", item.get("url", ""))
+        lines = [
+            f"Source {index}: {title}",
+            f"Outlet: {outlet}",
+            f"URL: {url}",
+            f"Published: {published_date}",
+            f"Strategy cluster: {item.get('strategy_cluster', source.get('strategy_cluster', ''))}",
+            f"Pillar topic: {item.get('pillar_topic', source.get('pillar_topic', ''))}",
+            f"Recommended angle: {item.get('recommended_angle', '')}",
+            f"Evaluation reason: {item.get('reason', '')}",
+            f"Citation format for this source: (Source: [{outlet}]({url}), Month Year)",
+        ]
+        if _is_vendor_press_release_title(title):
+            lines.append(VENDOR_PRESS_RELEASE_HINT)
+        lines.append(f"Excerpt: {excerpt}")
+        blocks.append("\n".join(lines))
 
     return "\n\n---\n\n".join(blocks)
 
@@ -488,11 +522,13 @@ def validation_checklist_block(author_name: str, author_credentials: str) -> str
         "- Quick Answer block after opening with **The short answer:**, **Who this affects:**, **What to do:**, **Timeline:**.\n"
         "- Every ## heading is a question ending with ?, except the exact heading `## FAQ`.\n"
         "- At least one markdown comparison table.\n"
-        "- Exactly 3-5 inline citations formatted `(Source: Outlet Name, Month Year)`.\n"
+        "- 2–6 linked inline citations formatted `(Source: [Outlet Name](URL), Month Year)` using URLs from SOURCES — cite every citable fact, never invent one to hit a count.\n"
         f"- At least 6 different location names from this allowlist woven into the prose: {format_metro_locations_list()}.\n"
+        "- Insurance/policy posts must bridge exclusions to roof inspection, flashing, maintenance, or replacement.\n"
         "- Exactly 8 FAQ questions as ### H3 headings under `## FAQ` (answers 3-5 sentences each).\n"
         f'- Exact author byline: "Written by {author_name}, {author_credentials}. Peachtree Roofing & Exteriors serves homeowners across Metro Atlanta."\n'
-        '- Exact CTA: "Contact Peachtree Roofing & Exteriors for a free inspection."\n'
+        f'- Exact CTA at least 3 times: "{CTA_SENTENCE}"\n'
+        "- Never promote competitor/vendor brands from SOURCES as the expert voice — Peachtree is the contractor authority.\n"
         "- No generic openers such as In today's world, As a homeowner, When it comes to, or Storm season is here."
     )
 
@@ -531,7 +567,7 @@ def build_first_draft_prompt(
         "- Do not name court cases, legislation, or policy exclusions unless they appear explicitly in SOURCES.\n"
         "- Do not introduce unrelated regulatory topics (e.g., firearms exclusions in a roof-insurance post).\n"
         "- Before outputting, silently re-read the draft against SOURCES and fix fabrications, uncited numbers, and story-type mismatches.\n"
-        "- Use exactly 3 to 5 cited statistics from the provided sources; spread citations across outlets when multiple sources are provided.\n"
+        "- Cite every citable fact from SOURCES; aim for 2–6 linked citations — never add or remove one to hit a number.\n"
         "- Keep all headings and FAQ questions in question format.\n"
         "- Use the exact FAQ format: ## FAQ, then exactly eight H3 question headings and 3-5 sentence answers.\n"
         "- After the opening paragraph, include the Quick Answer block with all four labeled lines.\n"
@@ -1058,14 +1094,44 @@ def has_quick_answer_block(markdown: str) -> bool:
     return all(re.search(label, markdown, flags=re.IGNORECASE) for label in labels)
 
 
+def extract_citations(markdown: str) -> list[str]:
+    return re.findall(r"\(Source:\s*[^)]+\)", markdown)
+
+
+def citations_include_links(citations: list[str]) -> bool:
+    if not citations:
+        return False
+    return all(re.search(r"\[[^\]]+\]\(https?://", citation) for citation in citations)
+
+
+def count_cta_occurrences(markdown: str) -> int:
+    return markdown.count(CTA_SENTENCE)
+
+
+def competitor_brands_found(markdown: str) -> list[str]:
+    lowered = markdown.lower()
+    return [brand for brand in COMPETITOR_VENDOR_BRANDS if brand in lowered]
+
+
+def count_roof_service_bridge_signals(markdown: str) -> int:
+    return sum(
+        1
+        for pattern in ROOF_SERVICE_BRIDGE_PATTERNS
+        if re.search(pattern, markdown, flags=re.IGNORECASE)
+    )
+
+
 def validate_draft(markdown: str) -> dict[str, Any]:
     h2s = re.findall(r"^##\s+(.+)$", markdown, flags=re.MULTILINE)
-    citations = re.findall(r"\(Source:\s*[^)]+\)", markdown)
+    citations = extract_citations(markdown)
     tables = bool(re.search(r"^\|.+\|\s*$", markdown, flags=re.MULTILINE))
     locations = sorted({loc for loc in METRO_LOCATIONS if re.search(rf"\b{re.escape(loc)}\b", markdown)})
     opening_text = extract_opening_paragraph(markdown)
     opening_words = len(opening_text.split())
     generic_openers = [phrase for phrase in GENERIC_OPENERS if phrase.lower() in markdown[:250].lower()]
+    cta_count = count_cta_occurrences(markdown)
+    competitor_hits = competitor_brands_found(markdown)
+    roof_bridge_count = count_roof_service_bridge_signals(markdown)
 
     checks = {
         "has_h1": bool(re.search(r"^#\s+\S", markdown, flags=re.MULTILINE)),
@@ -1073,11 +1139,14 @@ def validate_draft(markdown: str) -> dict[str, Any]:
         "has_quick_answer_block": has_quick_answer_block(markdown),
         "all_h2_headings_are_questions": bool(h2s) and all(h2.strip().endswith("?") or h2.strip().lower() == "faq" for h2 in h2s),
         "has_comparison_table": tables,
-        "citation_count_3_to_5": 3 <= len(citations) <= 5,
+        "citation_count_2_to_6": 2 <= len(citations) <= 6,
+        "citations_include_links": citations_include_links(citations),
         "location_count_at_least_6": len(locations) >= 6,
+        "bridges_to_roof_service": roof_bridge_count >= 2,
         "faq_exactly_8": count_faq_pairs(markdown) == 8,
         "has_author_byline": "Written by " in markdown and "Peachtree Roofing & Exteriors serves homeowners across Metro Atlanta." in markdown,
-        "has_final_cta": "Contact Peachtree Roofing & Exteriors for a free inspection." in markdown,
+        "has_min_cta_count_3": cta_count >= 3,
+        "no_competitor_brand_voice": not competitor_hits,
         "no_generic_openers": not generic_openers,
     }
 
@@ -1086,6 +1155,9 @@ def validate_draft(markdown: str) -> dict[str, Any]:
         "checks": checks,
         "h2_headings": h2s,
         "citation_count": len(citations),
+        "cta_count": cta_count,
+        "roof_bridge_signal_count": roof_bridge_count,
+        "competitor_brands_found": competitor_hits,
         "opening_word_count": opening_words,
         "locations_found": locations,
         "faq_count": count_faq_pairs(markdown),
@@ -1108,8 +1180,16 @@ VALIDATION_CHECK_HINTS: dict[str, str] = {
         "Every ## H2 heading must be a question ending with ?, except the exact heading `## FAQ`."
     ),
     "has_comparison_table": "Include at least one markdown comparison table using | pipe | syntax.",
-    "citation_count_3_to_5": (
-        "Include exactly 3-5 inline citations formatted `(Source: Outlet Name, Month Year)`."
+    "citation_count_2_to_6": (
+        "Include 2–6 linked inline citations formatted `(Source: [Outlet Name](URL), Month Year)` — cite every fact worth citing, never invent one to hit a count."
+    ),
+    "citations_include_links": (
+        "Every citation must include a markdown link to the source URL from SOURCES — "
+        "e.g. `(Source: [Insurance Journal](https://...), June 2026)`."
+    ),
+    "bridges_to_roof_service": (
+        "Connect insurance or policy content to roof condition — mention at least two of: "
+        "roof inspection, roof replacement, flashing, aging roof, roof system, or similar."
     ),
     "location_count_at_least_6": (
         f"Name at least 6 different locations from this allowlist naturally in the prose: {format_metro_locations_list()}."
@@ -1117,8 +1197,12 @@ VALIDATION_CHECK_HINTS: dict[str, str] = {
     "faq_exactly_8": (
         "Under the exact heading `## FAQ`, include exactly 8 H3 question headings ending with ? and 3-5 sentence answers."
     ),
-    "has_final_cta": (
-        'End with this exact sentence: "Contact Peachtree Roofing & Exteriors for a free inspection."'
+    "has_min_cta_count_3": (
+        f'Include this exact sentence at least 3 times (after Quick Answer, mid-body, and end): "{CTA_SENTENCE}"'
+    ),
+    "no_competitor_brand_voice": (
+        "Do not promote competitor or vendor brands from SOURCES (e.g., StormArmour) as the expert voice — "
+        "attribute facts to the news outlet and write from Peachtree Roofing's contractor perspective."
     ),
     "no_generic_openers": (
         "Do not use generic openers such as In today's world, As a homeowner, When it comes to, or Storm season is here in the first paragraph."
@@ -1151,8 +1235,19 @@ def format_failed_validation_feedback(
 
     if report.get("generic_openers_found"):
         lines.append(f"- Remove these generic openers: {', '.join(report['generic_openers_found'])}")
-    if report.get("citation_count") is not None and not report["checks"].get("citation_count_3_to_5"):
-        lines.append(f"- Current citation count: {report['citation_count']} (need 3-5).")
+    if report.get("citation_count") is not None and not report["checks"].get("citation_count_2_to_6"):
+        lines.append(f"- Current citation count: {report['citation_count']} (need 2–6 — cite every citable fact, never invent one to hit a count).")
+    if report.get("cta_count") is not None and not report["checks"].get("has_min_cta_count_3"):
+        lines.append(f"- Current CTA count: {report['cta_count']} (need at least 3).")
+    if report.get("competitor_brands_found"):
+        lines.append(
+            f"- Remove competitor/vendor brand mentions used as authority: {', '.join(report['competitor_brands_found'])}"
+        )
+    if report.get("roof_bridge_signal_count") is not None and not report["checks"].get("bridges_to_roof_service"):
+        lines.append(
+            f"- Roof-service bridge signals: {report['roof_bridge_signal_count']} (need at least 2 — "
+            "tie insurance/policy content to inspection, flashing, or replacement)."
+        )
     if report.get("opening_word_count") is not None and not report["checks"].get(
         "answer_first_opening_roughly_50_to_120_words"
     ):

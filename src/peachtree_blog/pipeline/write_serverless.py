@@ -63,7 +63,7 @@ SERVERLESS_MODEL_CHOICES: list[dict[str, str]] = [
         "model_id": "Qwen/Qwen3.5-397B-A17B",
     },
     {
-        "label": "Qwen3 235B A22B Instruct 2507 (throughput) — fast, budget MoE (default)",
+        "label": "Qwen3 235B A22B Instruct 2507 (throughput) — fast, budget MoE",
         "model_id": "Qwen/Qwen3-235B-A22B-Instruct-2507-tput",
     },
     {
@@ -76,7 +76,20 @@ SERVERLESS_MODEL_CHOICES: list[dict[str, str]] = [
     },
 ]
 
-DEFAULT_SERVERLESS_MODEL = "Qwen/Qwen3-235B-A22B-Instruct-2507-tput"
+DEFAULT_SERVERLESS_MODEL = "Qwen/Qwen3.5-397B-A17B"
+PIPELINE_DEFAULT_WRITE_MODEL_ENV = "PIPELINE_DEFAULT_WRITE_MODEL"
+
+
+def pipeline_default_write_model_enabled() -> bool:
+    return os.getenv(PIPELINE_DEFAULT_WRITE_MODEL_ENV, "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+
+def activate_pipeline_default_write_model() -> None:
+    os.environ[PIPELINE_DEFAULT_WRITE_MODEL_ENV] = "1"
 
 
 def is_interactive_terminal() -> bool:
@@ -86,7 +99,9 @@ def is_interactive_terminal() -> bool:
 def print_model_menu() -> None:
     print("\nWhich model would you like to write the blog draft?\n")
     for index, choice in enumerate(SERVERLESS_MODEL_CHOICES, start=1):
-        print(f"  {index}. {choice['label']}")
+        suffix = " (default)" if choice["model_id"] == DEFAULT_SERVERLESS_MODEL else ""
+        print(f"  {index}. {choice['label']}{suffix}")
+    print(f"\n  Press Enter for default — {model_label(DEFAULT_SERVERLESS_MODEL)}")
     print()
 
 
@@ -94,6 +109,9 @@ def prompt_model_choice() -> str:
     print_model_menu()
     while True:
         raw = input("Enter number: ").strip()
+        if not raw:
+            print(f"[write_serverless] Selected default: {model_label(DEFAULT_SERVERLESS_MODEL)}\n")
+            return DEFAULT_SERVERLESS_MODEL
         if not raw.isdigit():
             print("Please enter a number from the list.")
             continue
@@ -163,6 +181,10 @@ def resolve_writing_model(
         if inherited:
             print(f"[write_serverless] Using model from previous draft: {model_label(inherited)}")
             return inherited
+
+    if pipeline_default_write_model_enabled():
+        print(f"[write_serverless] Using pipeline default: {model_label(DEFAULT_SERVERLESS_MODEL)}")
+        return DEFAULT_SERVERLESS_MODEL
 
     use_prompt = interactive if interactive is not None else is_interactive_terminal()
     if use_prompt:

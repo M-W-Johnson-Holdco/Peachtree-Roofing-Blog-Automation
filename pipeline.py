@@ -3,6 +3,7 @@
 
 Examples:
     python pipeline.py              # interactive menu (default)
+    python pipeline.py --default    # skip model menu; use Qwen3.5 397B for write/rewrite
     python pipeline.py --all          # search → evaluate → write (CI)
     python pipeline.py --stage write
 """

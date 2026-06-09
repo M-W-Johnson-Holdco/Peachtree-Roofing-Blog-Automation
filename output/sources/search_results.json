@@ -15,7 +15,7 @@
     "trigger_window_hours": 48,
     "search_stage": "georgia_roofing_trade_21_day",
     "search_days": 21,
-    "retrieved_at": "2026-06-09T18:56:31.721250+00:00",
+    "retrieved_at": "2026-06-09T19:28:02.038045+00:00",
     "matched_terms": {
       "local_terms": [
         "milton"
@@ -53,7 +53,7 @@
     "trigger_window_hours": 72,
     "search_stage": "broad_21_day_news",
     "search_days": 21,
-    "retrieved_at": "2026-06-09T18:56:35.921788+00:00",
+    "retrieved_at": "2026-06-09T19:28:07.864608+00:00",
     "matched_terms": {
       "local_terms": [
         "milton"
@@ -80,42 +80,37 @@
     "title": "Flash flood warning as hundreds of thousands at risk: \"Life threatening\" - Newsweek",
     "url": "https://www.newsweek.com/atlanta-flash-flood-warning-severe-thunderstorm-torrential-rain-11975537",
     "domain": "newsweek.com",
-    "content": "updated\n\nMay 20, 2026 at 06:33 PM EDT\n\n...\n\nBy Anna Skinner\n\nAssociate Editor\n\nNewsweek is a Trust Project member\n\nSee more of our trusted coverage when you search.to see more of our trusted coverage when you search.\n\nA flash flood warning remained in effect across parts of metro Atlanta on Wednesday evening as torrential rain inundated downtown streets and major highways, with authorities warning of life-threatening conditions.\n\nThe National Weather Service (NWS) in Peachtree City said: [...] The National Weather Service (NWS) in Peachtree City said:\n\n The warning covered eastern Fulton and west-central DeKalb counties and\n will last until 11:15 p.m. EDT. At 5:48 p.m.,\n thunderstorms had already dumped between 2 and 3 inches of rain across the city, with additional rainfall expected.\n Flash flooding was reported along the I-75/I-85 corridor near downtown.\n Some areas recorded even higher amounts.\n\n#### Read More on Weather\n\nSevere Thunderstorm Warning: Live Tracker Maps as Millions Under Alert4 min read\n\nNortheast Heat Wave is Once-in-a-Century Event as Millions Told Stay Inside4 min read\n\nSandy Fire Containment Update\u2014LA County in Blaze Path as Wind Fuels Flames5 min read [...] U.S.\n\n  NewsPoliticsTechFact CheckSports\n Global\n\n  Russia-UkraineMiddle EastChina And AsiaLive BlogBetter PlanetAll World News\n Lifestyle\n\n  Family & ParentingEntertainmentTravelPetsAutomotiveRelationshipsScienceHealthPersonal FinanceBetter WorkplacesReaders Choice\n Opinion\n\n  My TurnAll Opinion\n Rankings\n\n  HealthFinanceProductsEducationWorkplacesCorporate ResponsibilityAll Rankings\n Social\n\n  FacebookInstagramThreadsYouTubeRedditTikTokTwitter/X\n Extra\n\n  NewslettersNewsmakersUnconventionalEventsPodcastsVantageMagazineCEO CircleAnnouncementsLeadershipDev Pragad\n\nWeather\n\nBreaking NewsFlash FloodsAtlantaGeorgia\n\nNews Article\n\n# Atlanta Flash Flood Warning as Torrential Rain Inundates Downtown\n\nPublished\n\nMay 20, 2026 at 06:32 PM EDT\n\nupdated\n\nMay 20, 2026 at 06:33 PM EDT\n\n...",
+    "content": "updated\n\nMay 20, 2026 at 06:33 PM EDT\n\n...\n\nBy Anna Skinner\n\nAssociate Editor\n\nNewsweek is a Trust Project member\n\nSee more of our trusted coverage when you search.to see more of our trusted coverage when you search.\n\nA flash flood warning remained in effect across parts of metro Atlanta on Wednesday evening as torrential rain inundated downtown streets and major highways, with authorities warning of life-threatening conditions.\n\nThe National Weather Service (NWS) in Peachtree City said: [...] U.S.\n\n  NewsPoliticsTechFact CheckSports\n Global\n\n  Russia-UkraineMiddle EastChina And AsiaLive BlogBetter PlanetAll World News\n Lifestyle\n\n  Family & ParentingEntertainmentTravelPetsAutomotiveRelationshipsScienceHealthPersonal FinanceBetter WorkplacesReaders Choice\n Opinion\n\n  My TurnAll Opinion\n Rankings\n\n  HealthFinanceProductsEducationWorkplacesCorporate ResponsibilityAll Rankings\n Social\n\n  FacebookInstagramThreadsYouTubeRedditTikTokTwitter/X\n Extra\n\n  NewslettersNewsmakersUnconventionalEventsPodcastsVantageMagazineCEO CircleAnnouncementsLeadershipDev Pragad\n\nWeather\n\nBreaking NewsFlash FloodsAtlantaGeorgia\n\nNews Article\n\n# Atlanta Flash Flood Warning as Torrential Rain Inundates Downtown\n\nPublished\n\nMay 20, 2026 at 06:32 PM EDT\n\nupdated\n\nMay 20, 2026 at 06:33 PM EDT\n\n... [...] The National Weather Service (NWS) in Peachtree City said:\n\n The warning covered eastern Fulton and west-central DeKalb counties and\n will last until 11:15 p.m. EDT. At 5:48 p.m.,\n thunderstorms had already dumped between 2 and 3 inches of rain across the city, with additional rainfall expected.\n Flash flooding was reported along the I-75/I-85 corridor near downtown.\n Some areas recorded even higher amounts.\n\n#### Read More on Weather\n\nSevere Thunderstorm Warning: Live Tracker Maps as Millions Under Alert4 min read\n\nNortheast Heat Wave is Once-in-a-Century Event as Millions Told Stay Inside4 min read\n\nSandy Fire Containment Update\u2014LA County in Blaze Path as Wind Fuels Flames5 min read",
     "published_date": "Wed, 20 May 2026 22:32:00 GMT",
-    "tavily_score": 0.079732,
+    "tavily_score": 0.067307346,
     "priority_source": false,
     "secondary_source": false,
     "official_source": false,
-    "query": "Metro Atlanta roof storm damage inspection homeowners",
+    "query": "Atlanta metro microburst roof structural damage homeowners",
     "strategy_cluster": "storm_damage",
     "pillar_topic": "Metro Atlanta storm damage inspection and repair",
     "trigger_window_hours": 72,
     "search_stage": "broad_21_day_news",
     "search_days": 21,
-    "retrieved_at": "2026-06-09T18:56:43.690661+00:00",
+    "retrieved_at": "2026-06-09T19:28:11.274456+00:00",
     "matched_terms": {
       "local_terms": [
         "atlanta",
-        "dekalb",
         "fulton",
         "metro atlanta",
         "peachtree city"
       ],
       "topic_terms": [
-        "fire",
-        "flooding",
         "thunderstorm",
-        "weather",
-        "wind"
+        "weather"
       ],
       "cluster_terms": [
         "thunderstorm",
-        "weather",
-        "wind"
+        "weather"
       ],
       "scoring_mode": "roofing_keyword_match_only"
     },
-    "search_quality_score": 13.0,
+    "search_quality_score": 8.0,
     "content_age_days": 19,
     "scoring_mode": "roofing_keyword_match_only"
   },
@@ -135,7 +130,7 @@
     "trigger_window_hours": 48,
     "search_stage": "georgia_roofing_trade_21_day",
     "search_days": 21,
-    "retrieved_at": "2026-06-09T18:56:31.733952+00:00",
+    "retrieved_at": "2026-06-09T19:28:02.051354+00:00",
     "matched_terms": {
       "local_terms": [
         "atlanta",

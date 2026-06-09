@@ -25,6 +25,97 @@ Notes / next step:
 - 
 ```
 
+## 2026-06-09 - Shift blog prompt from SEO to GEO: quality gates over count floors
+
+Changed:
+- `prompts/blog.txt`: removed 800–1,200 word count floor; replaced with "write as long as content requires."
+- `prompts/blog.txt`: removed "each H2 must contain a Metro Atlanta location" keyword rule; location in heading only when it makes the question more precise.
+- `prompts/blog.txt`: replaced "4+ neighborhoods" hard count with a quality gate — name a location only when a concrete specific reason attaches to it.
+- `prompts/blog.txt`: removed "include named Metro Atlanta locations in the table where possible" — location column only when it genuinely changes the answer.
+- `prompts/blog.txt`: renamed Section 5 from STATISTICS to CITATIONS; reframed as "cite every citable fact" rather than hitting a count; aim 3–5 but fewer or more is valid.
+- `prompts/blog.txt`: Section 6 (locations) now leads with the quality rule, not the count floor.
+- `prompts/blog.txt`: validation checklist and STEP 2 audit updated to match relaxed citation and location guidance.
+- `write_common.py`: citation validation widened from `3 <= n <= 5` to `2 <= n <= 6`; check renamed `citation_count_2_to_6`.
+- `write_common.py`: all retry-feedback and checklist strings updated to match.
+
+Why:
+- Hard SEO-style count floors (word count, location count, citation count) were pushing the model to pad copy, name-drop locations without reason, and invent statistics to hit a number — all of which hurt GEO signal. GEO rewards specificity and quotability, not volume.
+
+Files touched:
+- `prompts/blog.txt`
+- `src/peachtree_blog/write_common.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (prompt/validation change only — re-run write to regenerate draft).
+
+Notes / next step:
+- Re-run write on kept sources; watch validation JSON for citation_count_2_to_6 and location quality on the next draft.
+
+## 2026-06-09 - Prompt table/FAQ/location guidance from 152847 vs 145848 review
+
+Changed:
+- `prompts/blog.txt`: prefer location × housing-type × scenario tables; construction-era location detail; varied insurance FAQ topics; named storms only from SOURCES.
+- `feedback/style_notes.txt`: logged publishable patterns from draft 152847 and table/FAQ borrowings from 145848.
+
+Why:
+- 152847 fixed brand/CTA/bridge issues; Claude review flagged weaker table format and repetitive FAQ vs older draft.
+
+Files touched:
+- `prompts/blog.txt`
+- `feedback/style_notes.txt`
+- `CHANGELOG.md`
+
+Tested:
+- Not run.
+
+Notes / next step:
+- 152847 is publishable as-is; next write should produce stronger scenario tables and FAQ variety.
+
+## 2026-06-09 - pipeline.py --default uses Qwen3.5 397B for write/rewrite
+
+Changed:
+- `python pipeline.py --default` sets Qwen3.5 397B as write and Slack rewrite model without the interactive model menu.
+- Model picker marks Qwen3.5 397B with `(default)`; Enter selects it.
+
+Why:
+- Prefer strongest instruction-following model for routine pipeline runs without re-picking each session.
+
+Files touched:
+- `src/peachtree_blog/pipeline/write_serverless.py`
+- `src/peachtree_blog/pipeline/cli.py`
+- `src/peachtree_blog/pipeline/runner.py`
+- `pipeline.py`
+- `CHANGELOG.md`
+
+Tested:
+- `python -m py_compile` on modified modules.
+
+Notes / next step:
+- Use `python pipeline.py --default` (double dash). Model menu still available without the flag.
+
+## 2026-06-09 - Blog prompt fixes from draft 145848 review
+
+Changed:
+- `prompts/blog.txt`: Peachtree as authority (not vendor brands), linked citations, 3+ CTAs, insurance-to-roof bridge section.
+- `write_common.py`: validation for linked citations, min 3 CTAs, no competitor brand voice, roof-service bridge signals; vendor press-release hints in sources block.
+- `feedback/style_notes.txt`: editor notes from Claude review of wind-driven rain draft.
+
+Why:
+- Draft 145848 centered StormArmour, used weak single CTA, unlinked citations, and under-connected insurance content to roof replacement.
+
+Files touched:
+- `prompts/blog.txt`
+- `src/peachtree_blog/write_common.py`
+- `feedback/style_notes.txt`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (prompt/validation only — re-run write to regenerate draft).
+
+Notes / next step:
+- Re-run write on kept sources or `:repeat:` to produce a publishable revision.
+
 ## 2026-06-09 - Incremental search+evaluate with early Tavily exit
 
 Changed:

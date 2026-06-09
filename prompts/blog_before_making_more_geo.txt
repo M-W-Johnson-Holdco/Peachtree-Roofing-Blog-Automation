@@ -65,9 +65,9 @@ STRUCTURE REQUIREMENTS (follow exactly):
    **What to do:** [single most important action]
    **Timeline:** [how soon to act]
 
-3. BODY — write as long as the content requires; do not pad to hit a word count.
+3. BODY — 800–1,200 words total.
 
-   H2 headings must be questions a homeowner would type into an AI search engine. Every H2 ends with ?, except "## FAQ". Write the question so it is standalone and answerable — a location or roofing term belongs in the heading only when it makes the question more precise, not as a keyword rule.
+   H2 headings must be questions a homeowner would type into an AI search engine. Every H2 ends with ?, except "## FAQ". Each H2 should contain at least one named Metro Atlanta location or specific roofing term.
 
    CORRECT H2: "Which Gwinnett County Neighborhoods Face the Highest Flash Flood Risk?"
    INCORRECT H2: "Understanding Storm Risk in Metro Atlanta"
@@ -82,9 +82,10 @@ STRUCTURE REQUIREMENTS (follow exactly):
 
    Body must include:
    - The news event and its local impact
-   - One section addressing specific Metro Atlanta neighborhoods or counties with individual vulnerability or impact reasons — name a location only when you can attach a concrete, specific reason to it
+   - One section addressing 4+ neighborhoods individually with specific vulnerability or impact reasons — not generic mentions
    - Homeowner action steps
    - Cost or timeline context grounded in SOURCES
+   - Each H2 section 150–250 words minimum
 
    Include ONLY when SOURCES are weather- or storm-related:
    - One reference to a historical Atlanta weather event (named, dated, located)
@@ -96,16 +97,11 @@ STRUCTURE REQUIREMENTS (follow exactly):
    - A documentation or claims-prep checklist (prose or table)
    - One H2 section bridging insurance/policy risk to roof condition — how aging shingles, failed flashing, poor installation, or deferred maintenance trigger denials, and how inspection or replacement addresses each vulnerability (Peachtree as the licensed contractor voice, not a vendor named in SOURCES)
 
-4. COMPARISON TABLE — At least one markdown table comparing options, costs, timelines, or claim steps. Tables are highly citable for GEO because they deliver structured facts in a scannable format — make every row a distinct, quotable data point.
+4. COMPARISON TABLE — At least one markdown table comparing options, costs, timelines, neighborhoods, or claim steps. Include named Metro Atlanta locations in the table where possible.
 
-   Preferred formats (pick the best fit for SOURCES):
-   - **Location × housing-type × scenario** — each row names a Metro Atlanta area plus a specific building type or construction era and its vulnerability (e.g., "Marietta townhomes — 1980s/90s builds — aging flashing at roof-to-wall joints"). Highly quotable for AI search.
-   - **Before vs. after** — for legal or policy changes (pre-ruling vs post-ruling documentation requirements).
-   - **Risk factor × prevention** — only when each row still names a concrete local scenario, not generic risk labels alone.
+   For insurance or legal stories, prefer a before-vs-after table (e.g., pre-ruling vs post-ruling documentation requirements) with named neighborhoods in rows or cells — this format is highly citable for GEO.
 
-   Avoid generic factor tables (e.g., "Risk Factor | Impact | Prevention") with interchangeable rows — tie every row to a specific place, housing stock, or claim scenario when SOURCES support it.
-
-5. CITATIONS — Cite every claim that a homeowner could act on or an AI could quote as a verifiable fact. Use linked markdown inline:
+5. STATISTICS — Cite exactly 3–5 statistics inline using linked markdown:
    `(Source: [Outlet Name](URL from SOURCES), Month Year)`
 
    CITATION RULES:
@@ -116,16 +112,18 @@ STRUCTURE REQUIREMENTS (follow exactly):
    - Outlet name in each citation must match a source listed in SOURCES.
    - Do not cite agencies or studies not present in SOURCES.
    - When 2+ sources are provided, cite at least 2 different outlets across the post.
-   - Aim for 3–5 citations; fewer is fine if SOURCES are thin, more is fine if the story has many citable facts — never invent a statistic to hit a count.
 
-   Each cited fact must draw a direct conclusion for the homeowner — not stated as a standalone fact.
+   Priority order:
+   1. Georgia-specific numbers
+   2. Actionable homeowner numbers
+   3. Weather or event data (when relevant)
 
-6. NAMED LOCATIONS — Use Metro Atlanta locations only when they make a fact more specific and useful. A location name with a concrete attached reason (terrain, housing stock, insurer behavior, permit rules) is citable by an AI. A bare name drop is not.
+   Each statistic must draw a direct conclusion for the homeowner — not stated as a standalone fact.
 
-   Allowlist for automated validation:
+6. NAMED LOCATIONS — At least 6 different names from this allowlist (automated validation counts only these):
 {metro_locations_list}
 
-   Quality rule: every location mention must carry a specific reason relevant to roofing risk, insurance exposure, or local housing conditions — include construction era, housing type (condo, townhome, ranch), or terrain when SOURCES or local context support it. Six well-used locations beat twelve shallow ones. When SOURCES name recent storms (e.g., Helene, Milton), you may cite them as supporting precedent for local risk — only if explicitly in SOURCES. You may also name hyper-local neighborhoods (e.g., Old Fourth Ward, Morningside) for precision; they do not count toward automated validation but strengthen GEO signal when used with specificity.
+   Use 6–12 different allowlist names total — enough to pass validation, not so many that the post reads like a location list. Distribute them naturally in prose and the comparison table. Each mention should include a specific reason relevant to roofing risk, insurance exposure, or local housing conditions — not just a name drop. You may also name hyper-local neighborhoods (e.g., Old Fourth Ward, Morningside) for color, but they do not count toward the 6.
 
 7. FAQ — Exactly 8 Q&A pairs under "## FAQ". Each question as ### H3 heading.
 
@@ -134,13 +132,11 @@ STRUCTURE REQUIREMENTS (follow exactly):
    - At least 3 of 8 must name a Metro Atlanta location or Georgia-specific context
    - At least 2 questions use "I/my" voice (e.g., "Should I file a claim before…")
    - Must not repeat body content verbatim — extend or deepen it
-   - For insurance/policy posts: cover **varied topics** across the 8 questions — e.g., RCV vs ACV, filing before vs after repair, documentation needed, policy exclusions, roof vs window entry points, manufacturer warranty limits. Do not ask the same "does my policy cover this?" question eight ways.
 
    Answer requirements:
    - First sentence must fully answer the question
    - 3–5 sentences each
    - At least one specific verifiable detail per answer, drawn from SOURCES or established local context
-   - Vary the actionable takeaway across answers — not the same "review your policy with your agent" line in every FAQ
    - No generic CTAs in answers
 
 8. AUTHOR BYLINE — Exact text as normal paragraph:
@@ -174,11 +170,11 @@ VALIDATION CHECKLIST — verify every item before outputting:
 ☐ Opening paragraph 50–120 words, answer-first, news-anchored
 ☐ Quick Answer block present after opening
 ☐ Every ## is a question ending ?, except "## FAQ"
-☐ Every H2 first sentence directly answers the question in the heading
-☐ Neighborhood or location mentions each carry a specific, concrete reason — no bare name drops
-☐ At least one markdown comparison table — prefer location × housing-type × scenario rows when SOURCES support it
-☐ 3–5 linked inline citations `(Source: [Outlet](URL), Month Year)` from SOURCES only — never invented to hit a count
-☐ At least 6 different allowlist locations used with specific context
+☐ Each H2 section 150–250 words
+☐ Neighborhood section with 4+ specific local reasons
+☐ At least one markdown comparison table with named locations
+☐ Exactly 3–5 linked inline citations `(Source: [Outlet](URL), Month Year)` from SOURCES only
+☐ At least 6 different allowlist locations with context
 ☐ Insurance/policy posts include a roof-condition bridge section tied to inspection or replacement
 ☐ Exactly 8 FAQ ### questions under ## FAQ
 ☐ FAQ answers 3–5 sentences; first sentence answers the question
@@ -209,7 +205,7 @@ Red flags to remove or rewrite:
 - Historical storms, storm-season peaks, or hurricane prep in non-weather stories
 
 STEP 2 — CITATION INTEGRITY
-- Count inline citations: aim for 3–5, each formatted `(Source: [Outlet Name](URL), Month Year)` with a real URL from SOURCES. Do not add or remove citations to hit a number — only cite facts worth citing.
+- Count inline citations: exactly 3–5, each formatted `(Source: [Outlet Name](URL), Month Year)` with a real URL from SOURCES.
 - Every cited outlet must match a source in SOURCES.
 - Every number in the post must appear in a cited sentence or be removed.
 - If 2+ sources were provided, at least 2 different outlet names must appear across citations.

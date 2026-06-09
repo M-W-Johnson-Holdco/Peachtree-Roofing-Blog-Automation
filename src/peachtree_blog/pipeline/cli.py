@@ -8,6 +8,11 @@ import argparse
 
 from peachtree_blog.pipeline.approve_listen import run_approve_post_and_listen
 from peachtree_blog.pipeline.runner import run_module, run_modules, run_pipeline_restart
+from peachtree_blog.pipeline.write_serverless import (
+    DEFAULT_SERVERLESS_MODEL,
+    activate_pipeline_default_write_model,
+    pipeline_default_write_model_enabled,
+)
 from peachtree_blog.paths import PROJECT_ROOT
 from dotenv import load_dotenv
 
@@ -45,7 +50,7 @@ def run_full_pipeline_and_approve() -> None:
     if code != 0:
         print("[pipeline] Stopped before approve — fix the failed stage and try again.")
         return
-    run_approve_post_and_listen(interactive_model_prompt=True)
+    run_approve_post_and_listen(interactive_model_prompt=not pipeline_default_write_model_enabled())
 
 
 def run_menu_choice(choice: int) -> None:
@@ -60,7 +65,7 @@ def run_menu_choice(choice: int) -> None:
         run_module("write_serverless")
     elif stage_key == "approve":
         load_dotenv(PROJECT_ROOT / ".env")
-        run_approve_post_and_listen(interactive_model_prompt=True)
+        run_approve_post_and_listen(interactive_model_prompt=not pipeline_default_write_model_enabled())
     elif stage_key == "full":
         run_full_pipeline_and_approve()
 
@@ -104,7 +109,19 @@ def main(argv: list[str] | None = None) -> None:
         choices=("search", "evaluate", "write", "approve_post", "approve_listen", "clean"),
         help="Run one stage non-interactively (skips the menu).",
     )
+    parser.add_argument(
+        "--default",
+        action="store_true",
+        help=(
+            "Use Qwen3.5 397B for write and Slack rewrite/revision without the model menu "
+            f"({DEFAULT_SERVERLESS_MODEL})."
+        ),
+    )
     args = parser.parse_args(argv)
+
+    if args.default:
+        activate_pipeline_default_write_model()
+        print(f"[pipeline] Default write model: {DEFAULT_SERVERLESS_MODEL}")
 
     if args.all:
         run_full_pipeline(send_to_slack=args.send_to_slack)

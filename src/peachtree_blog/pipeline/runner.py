@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 from peachtree_blog.paths import BYTECODE_CACHE_DIR, PROJECT_ROOT, SRC_DIR
+from peachtree_blog.pipeline.write_serverless import (
+    DEFAULT_SERVERLESS_MODEL,
+    pipeline_default_write_model_enabled,
+)
 
 import os
 import subprocess
@@ -103,6 +107,8 @@ def run_pipeline_restart(
         write_args.append("--clear-drafts")
     if write_model:
         write_args.extend(["--model", write_model])
+    elif pipeline_default_write_model_enabled():
+        write_args.extend(["--model", DEFAULT_SERVERLESS_MODEL])
 
     search_args = list(search_args)
     if "--incremental-evaluate" not in search_args and "--no-incremental-evaluate" not in search_args:
