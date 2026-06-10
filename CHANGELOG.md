@@ -25,6 +25,114 @@ Notes / next step:
 - 
 ```
 
+## 2026-06-10 - Slack notice when approval listener stops (e + Enter)
+
+Changed:
+- `approve_listen.py`: typing `e` + Enter to stop listening posts a thread reply on the active approval message warning that reactions/feedback are paused until the listener runs again.
+
+Why:
+- Reviewers should know when the terminal listener is no longer processing Slack events.
+
+Files touched:
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (Slack UI change only).
+
+Notes / next step:
+- Restart `approve_listen` and press `e` to verify the thread reply.
+
+## 2026-06-10 - Cap PSAI social description at 150 characters
+
+Changed:
+- `post.py`: `social.description` now truncated to 150 chars (PSAI `share-desc` limit); `meta.meta_description` stays at 160.
+
+Why:
+- Live publish returned HTTP 400: "Sharing Description Must Be No More Than 150 Characters".
+
+Files touched:
+- `src/peachtree_blog/post.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (validation limit fix).
+
+Notes / next step:
+- Re-approve and react 🌐 to retry publish.
+
+## 2026-06-10 - Fix PSAI blogId response parsing and API logging
+
+Changed:
+- `post.py`: read `blogId` (camelCase) from PSAI 201 responses via `_get_blog_id()`; audit trail and Slack success text now work.
+- `post.py`: URL extraction checks `url`, `blogUrl`, `blog_url`, and legacy keys; debug-logs response keys when missing.
+- `post.py`: request logging (endpoint, title, status, author) and error logging on failure; timeout 30s.
+- `post.py`: parse `requestId` from error responses.
+- `.env.template` / `README.md`: document confirmed base URL `https://developers.predictivesalesai.com`.
+
+Why:
+- Swagger confirms PSAI returns `blogId`, not `blog_id`; silent None broke duplicate detection and success messages.
+
+Files touched:
+- `src/peachtree_blog/post.py`
+- `.env.template`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- `python -m py_compile src/peachtree_blog/post.py`
+
+Notes / next step:
+- Set `PSAI_API_URL=https://developers.predictivesalesai.com` and `PSAI_AUTHOR` to your PSAI login email, then `--dry-run` before live post.
+
+## 2026-06-10 - Pre-add globe Slack reaction for website publish
+
+Changed:
+- `approve_listen.py`: bot now adds `:globe_with_meridians:` alongside checkmark/x/repeat when PSAI is configured (and auto-publish is off); intro text mentions it.
+- `post.py`: post-approval reminder says to click the pre-added globe reaction.
+
+Why:
+- Reviewers should not have to search Slack's emoji picker to publish an approved draft.
+
+Files touched:
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `src/peachtree_blog/post.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (Slack UI change only).
+
+Notes / next step:
+- Post a new draft to Slack to see the fourth reaction; existing messages keep their old reactions.
+
+## 2026-06-10 - Implement PSAI website publish after Slack approval
+
+Changed:
+- `src/peachtree_blog/post.py`: full Predictive Sales AI client for `POST /v1/blogs` (Markdown → HTML, meta/categories/tags, CLI, dry-run).
+- `src/peachtree_blog/draft_pdf.py`: shared `markdown_body_to_html()` for CMS body HTML.
+- `src/peachtree_blog/pipeline/approve_listen.py`: after approval, offer `:globe_with_meridians:` reaction to publish; optional `PSAI_AUTO_PUBLISH=true` for immediate post.
+- `.env.template`: PSAI API key, URL, author, status, and publish toggles.
+- `.github/workflows/approve.yml`: pass draft path and decision into `post.py`.
+- `README.md`: website publishing section.
+
+Why:
+- Approved drafts should be publishable to the company website via Spectrum Predictive Sales AI without manual copy-paste.
+
+Files touched:
+- `src/peachtree_blog/post.py`
+- `src/peachtree_blog/draft_pdf.py`
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `.env.template`
+- `.github/workflows/approve.yml`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- `python -m py_compile` on modified modules.
+
+Notes / next step:
+- Add `PSAI_API_KEY`, `PSAI_API_URL`, and `PSAI_AUTHOR` to `.env` and GitHub secrets; set `PSAI_DEFAULT_STATUS=published` when ready to go live.
+
 ## 2026-06-09 - Shift blog prompt from SEO to GEO: quality gates over count floors
 
 Changed:

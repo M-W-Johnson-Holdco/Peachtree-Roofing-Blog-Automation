@@ -515,6 +515,7 @@ The message asks reviewers to react on the **intro message** (not the PDF thread
 - `:white_check_mark:` — approve (records sources in `used_sources.json`)
 - `:x:` — request revisions (reply in thread with feedback)
 - `:repeat:` (🔁) — discard the draft and rerun **search → evaluate → write**, then post a new draft for approval
+- `:globe_with_meridians:` — after approval, publish to the company website (when PSAI env vars are set)
 
 The bot pre-adds those reaction prompts on the intro message.
 
@@ -548,7 +549,7 @@ Run the Socket Mode listener:
 conda run -n blog-automation python -m peachtree_blog.pipeline.approve_listen listen
 ```
 
-When a reviewer reacts with `:white_check_mark:` on the **intro message** (not the PDF thread reply), the validation JSON `approval.status` changes to `approved`, the draft moves to `output/approved/`, and the bot replies in the thread.
+When a reviewer reacts with `:white_check_mark:` on the **intro message** (not the PDF thread reply), the validation JSON `approval.status` changes to `approved`, the draft moves to `output/approved/`, and the bot replies in the thread. If Predictive Sales AI is configured, the bot also offers a `:globe_with_meridians:` reaction to publish the post to the website (or publishes immediately when `PSAI_AUTO_PUBLISH=true`).
 
 When a reviewer reacts with `:x:`, the bot asks for feedback in the Slack thread. The next human thread reply is saved into the validation JSON and `write_serverless.py` is rerun with:
 
@@ -588,6 +589,53 @@ To run the normal pipeline and post the created draft to Slack:
 ```bash
 conda run -n blog-automation python pipeline.py --all --send-to-slack
 ```
+
+## Website Publishing (Predictive Sales AI)
+
+After a draft is approved, you can publish it to the Peachtree website through Spectrum Predictive Sales AI (`POST /v1/blogs`).
+
+Add these to `.env` (and matching GitHub Actions secrets for CI):
+
+```env
+PSAI_API_KEY=your-bearer-key-with-blogs-write-scope
+PSAI_API_URL=https://developers.predictivesalesai.com
+PSAI_AUTHOR=author@peachtreeroofing.com
+PSAI_DEFAULT_STATUS=draft
+PSAI_AUTO_PUBLISH=false
+PSAI_NOTIFY_SUBSCRIBERS=false
+```
+
+`PSAI_AUTHOR` must match a user under your tenant (email or username). `PSAI_DEFAULT_STATUS` is `published`, `draft`, or `submitted` (defaults to `draft` so the first live test does not go public accidentally).
+
+### Slack flow
+
+1. Approve with `:white_check_mark:` as usual.
+2. If `PSAI_AUTO_PUBLISH=false` (default), the bot replies with instructions to react `:globe_with_meridians:` on the approval message.
+3. On publish success, the thread shows the blog ID and public URL. The validation JSON stores `approval.psai` metadata.
+
+Set `PSAI_AUTO_PUBLISH=true` to skip the extra reaction and publish immediately after approval.
+
+### CLI
+
+Publish an approved draft manually (Markdown path or `*-validation.json`):
+
+```bash
+conda run -n blog-automation python -m peachtree_blog.post output/approved/drafts_json/example-validation.json
+```
+
+Preview the JSON payload without calling the API:
+
+```bash
+conda run -n blog-automation python -m peachtree_blog.post output/approved/drafts_md/example.md --dry-run
+```
+
+Override status or opt into subscriber email:
+
+```bash
+conda run -n blog-automation python -m peachtree_blog.post output/approved/drafts_md/example.md --status published --notify-subscribers
+```
+
+The GitHub **Approval Webhook** workflow (`approve.yml`) calls the same module when triggered with `decision: approve`.
 
 ## Cleaning Test Output
 

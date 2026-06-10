@@ -11,6 +11,7 @@ Subcommands:
     python -m peachtree_blog.pipeline.approve_listen clear-channel --yes
 
 While listening, type ``e`` + Enter to stop and return to the ``pipeline.py`` menu.
+The bot posts a thread reply when the listener stops that way.
 
 Posting uploads the existing PDF from `output/drafts/drafts_pdf/`. Run write first.
 
@@ -18,8 +19,10 @@ Slack reactions on the approval message:
 - :white_check_mark: — approve (records sources in used_sources.json)
 - :x: — request revisions (reply in thread with feedback)
 - :repeat: — discard and rerun search → evaluate → write → post new draft
+- :globe_with_meridians: — after approval, publish to the company website (when PSAI is configured)
 
 Required: SLACK_APPROVAL_BOT_TOKEN, SLACK_APPROVAL_CHANNEL, SLACK_APPROVAL_TOKEN (listen).
+Optional PSAI: PSAI_API_KEY, PSAI_API_URL, PSAI_AUTHOR (website publish after approval).
 """
 
 from __future__ import annotations
@@ -61,12 +64,22 @@ from peachtree_blog.draft_approval import (
     clear_rejection_status as clear_validation_rejection_status,
     find_validation_for_slack_message,
     get_approval_block,
+    iter_validation_json_paths,
     load_validation_report,
     mark_approval_status,
     new_approval_block,
     relocate_draft_artifacts,
     resolve_draft_path_from_report,
     save_validation_report,
+)
+from peachtree_blog.post import (
+    PSAI_PUBLISH_REACTIONS,
+    load_psai_config,
+    psai_already_published,
+    psai_configured,
+    psai_publish_offer_text,
+    psai_publish_success_text,
+    publish_from_validation_path,
 )
 from peachtree_blog.used_sources import record_used_sources_from_validation_report
 from peachtree_blog.write_common import (
@@ -162,6 +175,98 @@ def record_approved_draft_sources(report: dict[str, Any]) -> int:
     return len(recorded)
 
 
+def _maybe_auto_publish_to_website(
+    client: Any,
+    *,
+    channel: str,
+    thread_ts: str,
+    validation_path: Path,
+    report: dict[str, Any],
+    user: str,
+) -> None:
+    if not psai_configured():
+        return
+
+    config = load_psai_config()
+    if config is None:
+        return
+
+    if config.auto_publish:
+        try:
+            response = publish_from_validation_path(
+                validation_path,
+                published_by=user,
+            )
+            client.chat_postMessage(
+                channel=channel,
+                thread_ts=thread_ts,
+                text=psai_publish_success_text(response, status=config.default_status),
+            )
+        except Exception as exc:
+            print(f"[approve] PSAI auto-publish failed: {exc}")
+            client.chat_postMessage(
+                channel=channel,
+                thread_ts=thread_ts,
+                text=f"Website publish failed: {exc}",
+            )
+        return
+
+    client.chat_postMessage(
+        channel=channel,
+        thread_ts=thread_ts,
+        text=psai_publish_offer_text(),
+    )
+
+
+def _handle_website_publish_reaction(
+    client: Any,
+    *,
+    channel: str,
+    ts: str,
+    validation_path: Path,
+    report: dict[str, Any],
+    user: str,
+) -> None:
+    if approval_status(report) != APPROVAL_STATUS_APPROVED:
+        print("[approve] Ignoring website publish reaction; draft is not approved yet")
+        return
+
+    if psai_already_published(report):
+        print("[approve] Ignoring website publish reaction; post already recorded")
+        return
+
+    if not psai_configured():
+        client.chat_postMessage(
+            channel=channel,
+            thread_ts=ts,
+            text="Website publishing is not configured (set PSAI_API_KEY, PSAI_API_URL, PSAI_AUTHOR).",
+        )
+        return
+
+    config = load_psai_config()
+    if config is None:
+        return
+
+    try:
+        response = publish_from_validation_path(
+            validation_path,
+            published_by=user,
+        )
+        client.chat_postMessage(
+            channel=channel,
+            thread_ts=ts,
+            text=psai_publish_success_text(response, status=config.default_status),
+        )
+        print(f"[approve] Published draft to website via PSAI for {validation_path}")
+    except Exception as exc:
+        print(f"[approve] PSAI publish failed: {exc}")
+        client.chat_postMessage(
+            channel=channel,
+            thread_ts=ts,
+            text=f"Website publish failed: {exc}",
+        )
+
+
 def build_approval_intro(
     title: str,
     relative_path: Path,
@@ -212,10 +317,19 @@ def build_approval_intro(
 
     intro.append("The draft PDF is attached in this thread.")
     intro.append("")
-    intro.append(
+    reaction_help = (
         "React to this message with :white_check_mark: to approve, :x: to request revisions, "
         "or :repeat: to discard and rerun search → evaluate → write."
     )
+    if psai_configured():
+        config = load_psai_config()
+        if config and not config.auto_publish:
+            reaction_help = (
+                "React to this message with :white_check_mark: to approve, :x: to request revisions, "
+                ":repeat: to discard and rerun search → evaluate → write, or :globe_with_meridians: "
+                f"(after approval) to publish to the website as `{config.default_status}`."
+            )
+    intro.append(reaction_help)
     return "\n".join(intro)
 
 
@@ -366,8 +480,17 @@ def clear_bot_messages_from_channel(
     return deleted
 
 
+def approval_prompt_reaction_names() -> tuple[str, ...]:
+    names = ["white_check_mark", "x", "repeat"]
+    if psai_configured():
+        config = load_psai_config()
+        if config and not config.auto_publish:
+            names.append("globe_with_meridians")
+    return tuple(names)
+
+
 def add_approval_prompt_reactions(client: Any, channel: str, message_ts: str) -> None:
-    for name in ("white_check_mark", "x", "repeat"):
+    for name in approval_prompt_reaction_names():
         response = client.reactions_add(channel=channel, timestamp=message_ts, name=name)
         if response.get("ok"):
             print(f"[approve] Added :{name}: reaction prompt on message {message_ts}")
@@ -663,6 +786,23 @@ def handle_reaction(
                 report = load_validation_report(validation_path)
             record_approved_draft_sources(report)
             client.chat_postMessage(channel=channel, thread_ts=ts, text=f"Approved by <@{user}>.")
+            _maybe_auto_publish_to_website(
+                client,
+                channel=channel,
+                thread_ts=ts,
+                validation_path=validation_path,
+                report=report,
+                user=user,
+            )
+    elif reaction in PSAI_PUBLISH_REACTIONS:
+        _handle_website_publish_reaction(
+            client,
+            channel=channel,
+            ts=ts,
+            validation_path=validation_path,
+            report=report,
+            user=user,
+        )
     elif reaction in REJECT_REACTIONS:
         if status in {
             APPROVAL_STATUS_NEEDS_FEEDBACK,
@@ -844,13 +984,62 @@ LISTEN_EXIT_COMMAND = "e"
 LISTEN_EXIT_HINT = (
     f"[approve] Type {LISTEN_EXIT_COMMAND!r} + Enter to stop listening and return to the pipeline menu."
 )
+LISTENER_STOPPED_SLACK_TEXT = (
+    "Approval listener stopped in the terminal (`e` + Enter). "
+    "Reactions and feedback will not be processed until the listener is running again."
+)
 
 
-def _watch_stdin_for_exit(stop_event: threading.Event) -> None:
+def slack_thread_from_report(report: dict[str, Any]) -> tuple[str, str] | None:
+    approval = get_approval_block(report)
+    channel = str(approval.get("channel") or "").strip()
+    thread_ts = str(approval.get("message_ts") or "").strip()
+    if channel and thread_ts:
+        return channel, thread_ts
+    return None
+
+
+def slack_thread_from_validation_path(validation_path: Path) -> tuple[str, str] | None:
+    return slack_thread_from_report(load_validation_report(validation_path))
+
+
+def find_latest_listen_slack_thread() -> tuple[str, str] | None:
+    """Return the most recently posted approval message (by Slack message ts)."""
+    latest: tuple[str, str] | None = None
+    latest_score = 0.0
+    for validation_path in iter_validation_json_paths(DEFAULT_OUTPUT_DIR, APPROVED_OUTPUT_DIR):
+        thread = slack_thread_from_validation_path(validation_path)
+        if not thread:
+            continue
+        try:
+            score = float(thread[1])
+        except ValueError:
+            continue
+        if score >= latest_score:
+            latest_score = score
+            latest = thread
+    return latest
+
+
+def notify_listener_stopped(client: Any, channel: str, thread_ts: str) -> None:
+    response = client.chat_postMessage(
+        channel=channel,
+        thread_ts=thread_ts,
+        text=LISTENER_STOPPED_SLACK_TEXT,
+    )
+    if not response.get("ok"):
+        print(f"[approve] Warning: Could not post listener-stopped message: {response}")
+
+
+def _watch_stdin_for_exit(
+    stop_event: threading.Event,
+    user_typed_exit: threading.Event,
+) -> None:
     """Background thread: exit listen loop when the user types ``e`` (+ Enter)."""
     try:
         for line in sys.stdin:
             if line.strip().lower() == LISTEN_EXIT_COMMAND:
+                user_typed_exit.set()
                 stop_event.set()
                 return
     except (EOFError, KeyboardInterrupt):
@@ -873,6 +1062,7 @@ def listen(
     *,
     rewrite_module_key: str = REWRITE_MODULE_KEY,
     rewrite_model: str | None = None,
+    slack_thread: tuple[str, str] | None = None,
 ) -> bool:
     try:
         from slack_sdk.socket_mode import SocketModeClient
@@ -925,9 +1115,14 @@ def listen(
     socket_client.connect()
 
     stop_event = threading.Event()
+    user_typed_exit = threading.Event()
     watcher: threading.Thread | None = None
     if sys.stdin.isatty():
-        watcher = threading.Thread(target=_watch_stdin_for_exit, args=(stop_event,), daemon=True)
+        watcher = threading.Thread(
+            target=_watch_stdin_for_exit,
+            args=(stop_event, user_typed_exit),
+            daemon=True,
+        )
         watcher.start()
 
     try:
@@ -949,6 +1144,14 @@ def listen(
         _disconnect_socket_client(socket_client)
 
     user_exit = stop_event.is_set()
+    if user_typed_exit.is_set() and sys.stdin.isatty():
+        thread = slack_thread or find_latest_listen_slack_thread()
+        if thread:
+            try:
+                notify_listener_stopped(web_client, thread[0], thread[1])
+                print("[approve] Posted listener-stopped notice to Slack thread.")
+            except Exception as exc:
+                print(f"[approve] Warning: Could not post listener-stopped message: {exc}")
     if user_exit and sys.stdin.isatty():
         print("[approve] Stopped listening (returning to pipeline menu).")
     else:
@@ -977,7 +1180,7 @@ def run_approve_post_and_listen(
     draft_path = latest_draft_path()
     print(f"[approve_listen] Using latest draft: {draft_path.relative_to(PROJECT_ROOT)}")
     prepare_new_approval_post()
-    post_draft(
+    validation_path = post_draft(
         draft_path,
         rewrite_model=rewrite_model,
         auto_rewrite=auto_rewrite,
@@ -985,6 +1188,7 @@ def run_approve_post_and_listen(
     return listen(
         auto_rewrite=auto_rewrite,
         rewrite_model=rewrite_model,
+        slack_thread=slack_thread_from_validation_path(validation_path),
     )
 
 
@@ -1064,7 +1268,7 @@ def main() -> None:
         listen_rewrite_model = rewrite_model
         if args.then_listen and not listen_rewrite_model:
             listen_rewrite_model = resolve_writing_model(None)
-        post_draft(
+        validation_path = post_draft(
             draft_path,
             rewrite_model=listen_rewrite_model if args.then_listen else rewrite_model,
             auto_rewrite=auto_rewrite,
@@ -1073,6 +1277,7 @@ def main() -> None:
             listen(
                 auto_rewrite=auto_rewrite,
                 rewrite_model=listen_rewrite_model,
+                slack_thread=slack_thread_from_validation_path(validation_path),
             )
     elif args.command == "listen":
         if not args.model:

@@ -1,12 +1,542 @@
-"""Predictive Sales AI posting client.
+"""Predictive Sales AI (PSAI) blog posting client.
 
-This remains a placeholder until the PSAI API details are confirmed.
+Posts approved Markdown drafts to the company website via POST /v1/blogs.
+API docs: https://developers.predictivesalesai.com/swagger/index.html
 """
 
+from __future__ import annotations
 
-def main() -> None:
-    raise NotImplementedError("post.py needs Predictive Sales AI API details before implementation.")
+import argparse
+import json
+import logging
+import os
+import re
+import sys
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+import requests
+from dotenv import load_dotenv
+
+from peachtree_blog.draft_approval import (
+    get_approval_block,
+    load_validation_report,
+    resolve_draft_path_from_report,
+    save_validation_report,
+)
+from peachtree_blog.draft_pdf import markdown_body_to_html, normalize_text_for_pdf
+from peachtree_blog.paths import PROJECT_ROOT
+from peachtree_blog.write_common import (
+    draft_validation_json_path,
+    extract_opening_paragraph,
+    first_heading,
+)
+
+STRATEGY_CATEGORY_LABELS: dict[str, str] = {
+    "storm_damage": "Storm Damage",
+    "ga_insurance_navigation": "Insurance",
+    "roof_safety": "Roof Safety",
+    "county_guides": "County Guides",
+    "local_roofing": "Roofing",
+}
+
+DEFAULT_SITE_BRAND = "Peachtree Roofing & Exteriors"
+VALID_STATUSES = frozenset({"published", "draft", "submitted"})
+META_DESCRIPTION_MAX = 160
+SOCIAL_DESCRIPTION_MAX = 150
+# Used by approve_listen.py to identify publish-to-website Slack reactions.
+PSAI_PUBLISH_REACTIONS = frozenset({"globe_with_meridians"})
+RESPONSE_URL_KEYS = ("url", "blogUrl", "blog_url", "friendly_url", "public_url")
+DEFAULT_REQUEST_TIMEOUT = 30.0
+
+logger = logging.getLogger(__name__)
+
+
+class PsaiError(RuntimeError):
+    """PSAI API request failed."""
+
+
+@dataclass(frozen=True)
+class PsaiConfig:
+    api_key: str
+    api_url: str
+    author: str
+    default_status: str = "draft"
+    notify_subscribers: bool = False
+    auto_publish: bool = False
+    display_author_details: bool = True
+    site_brand: str = DEFAULT_SITE_BRAND
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def load_psai_config() -> PsaiConfig | None:
+    """Return PSAI settings when posting is configured, else None."""
+    api_key = os.getenv("PSAI_API_KEY", "").strip()
+    if not api_key:
+        return None
+
+    api_url = os.getenv("PSAI_API_URL", "").strip().rstrip("/")
+    author = os.getenv("PSAI_AUTHOR", "").strip()
+    if not api_url:
+        raise EnvironmentError("PSAI_API_KEY is set but PSAI_API_URL is missing.")
+    if not author:
+        raise EnvironmentError("PSAI_API_KEY is set but PSAI_AUTHOR is missing.")
+
+    default_status = os.getenv("PSAI_DEFAULT_STATUS", "draft").strip().lower() or "draft"
+    if default_status not in VALID_STATUSES:
+        raise ValueError(
+            f"PSAI_DEFAULT_STATUS must be one of {sorted(VALID_STATUSES)}; got {default_status!r}."
+        )
+
+    return PsaiConfig(
+        api_key=api_key,
+        api_url=api_url,
+        author=author,
+        default_status=default_status,
+        notify_subscribers=_env_bool("PSAI_NOTIFY_SUBSCRIBERS", False),
+        auto_publish=_env_bool("PSAI_AUTO_PUBLISH", False),
+        display_author_details=_env_bool("PSAI_DISPLAY_AUTHOR_DETAILS", True),
+        site_brand=os.getenv("PSAI_SITE_BRAND", DEFAULT_SITE_BRAND).strip() or DEFAULT_SITE_BRAND,
+    )
+
+
+def psai_configured() -> bool:
+    try:
+        return load_psai_config() is not None
+    except (EnvironmentError, ValueError):
+        return False
+
+
+def blogs_endpoint(config: PsaiConfig) -> str:
+    return f"{config.api_url}/v1/blogs"
+
+
+def _get_blog_id(response: dict[str, Any]) -> str | None:
+    value = response.get("blogId") or response.get("blog_id")
+    if value is None:
+        return None
+    return str(value)
+
+
+def _get_request_id(body: dict[str, Any]) -> str | None:
+    value = body.get("requestId") or body.get("request_id")
+    if value is None:
+        return None
+    return str(value)
+
+
+def publish_result_url(response: dict[str, Any]) -> str | None:
+    for key in RESPONSE_URL_KEYS:
+        value = response.get(key)
+        if value:
+            return str(value)
+    logger.debug(
+        "No URL key found in PSAI response; keys=%s",
+        sorted(response.keys()),
+    )
+    return None
+
+
+def _truncate(text: str, limit: int) -> str:
+    cleaned = re.sub(r"\s+", " ", text).strip()
+    if len(cleaned) <= limit:
+        return cleaned
+    return cleaned[: limit - 1].rstrip() + "…"
+
+
+def _infer_strategy_cluster(report: dict[str, Any] | None) -> str:
+    if not report:
+        return "local_roofing"
+
+    selection = report.get("source_selection")
+    if isinstance(selection, dict):
+        cluster = str(selection.get("strategy_cluster") or "").strip()
+        if cluster:
+            return cluster
+
+    sources = report.get("sources_used") or []
+    for item in sources:
+        if isinstance(item, dict):
+            cluster = str(item.get("strategy_cluster") or "").strip()
+            if cluster:
+                return cluster
+    return "local_roofing"
+
+
+def _categories_and_tags(report: dict[str, Any] | None) -> tuple[list[str], list[str]]:
+    cluster = _infer_strategy_cluster(report)
+    category = STRATEGY_CATEGORY_LABELS.get(cluster, "Roofing")
+    categories = ["Roofing", category]
+
+    tags = ["Metro Atlanta", "Georgia"]
+    if report:
+        locations = report.get("locations_found")
+        if isinstance(locations, list):
+            for location in locations[:4]:
+                name = str(location).strip()
+                if name and name not in tags:
+                    tags.append(name)
+
+    deduped_categories: list[str] = []
+    for name in categories:
+        if name and name not in deduped_categories:
+            deduped_categories.append(name)
+
+    deduped_tags: list[str] = []
+    for name in tags:
+        if name and name not in deduped_tags and "," not in name:
+            deduped_tags.append(name)
+
+    return deduped_categories, deduped_tags
+
+
+def _meta_keywords(title: str, report: dict[str, Any] | None) -> list[str]:
+    keywords = ["Metro Atlanta roofing", "Georgia homeowners"]
+    cluster = _infer_strategy_cluster(report)
+    label = STRATEGY_CATEGORY_LABELS.get(cluster)
+    if label:
+        keywords.append(label.lower())
+    title_words = [word for word in re.findall(r"[A-Za-z0-9']+", title) if len(word) > 3][:4]
+    for word in title_words:
+        lowered = word.lower()
+        if lowered not in {item.lower() for item in keywords}:
+            keywords.append(lowered)
+    return keywords[:8]
+
+
+def build_blog_payload(
+    markdown: str,
+    report: dict[str, Any] | None,
+    config: PsaiConfig,
+    *,
+    status: str | None = None,
+    notify_subscribers: bool | None = None,
+) -> dict[str, Any]:
+    title = first_heading(markdown) or "Blog post"
+    opening = extract_opening_paragraph(markdown)
+    meta_description = _truncate(opening, META_DESCRIPTION_MAX)
+    social_description = _truncate(opening, SOCIAL_DESCRIPTION_MAX)
+    categories, tags = _categories_and_tags(report)
+    page_title = f"{title} | {config.site_brand}"
+
+    resolved_status = (status or config.default_status).strip().lower()
+    if resolved_status not in VALID_STATUSES:
+        raise ValueError(f"Invalid status {resolved_status!r}; expected one of {sorted(VALID_STATUSES)}.")
+
+    payload: dict[str, Any] = {
+        "title": title,
+        "status": resolved_status,
+        "author": config.author,
+        "display_author_details": config.display_author_details,
+        "content": markdown_body_to_html(normalize_text_for_pdf(markdown)),
+        "categories": categories,
+        "tags": tags,
+        "meta": {
+            "page_title": page_title,
+            "meta_description": meta_description,
+            "meta_keywords": _meta_keywords(title, report),
+        },
+        "is_private": False,
+        "notify_subscribers": config.notify_subscribers if notify_subscribers is None else notify_subscribers,
+        "social": {
+            "title": title,
+            "description": social_description,
+        },
+    }
+    return payload
+
+
+def _parse_api_error(response: requests.Response) -> str:
+    try:
+        body = response.json()
+    except ValueError:
+        return response.text.strip() or f"HTTP {response.status_code}"
+
+    if isinstance(body, dict):
+        details = body.get("details")
+        if isinstance(details, list) and details:
+            rendered = []
+            for item in details:
+                if isinstance(item, dict):
+                    field = item.get("field") or item.get("path") or "field"
+                    message = item.get("message") or item.get("detail") or str(item)
+                    rendered.append(f"{field}: {message}")
+                else:
+                    rendered.append(str(item))
+            if rendered:
+                return "; ".join(rendered)
+        for key in ("message", "error", "detail"):
+            value = body.get(key)
+            if value:
+                return str(value)
+    return str(body)
+
+
+def create_blog_post(
+    payload: dict[str, Any],
+    config: PsaiConfig,
+    *,
+    timeout: float = DEFAULT_REQUEST_TIMEOUT,
+) -> dict[str, Any]:
+    endpoint = blogs_endpoint(config)
+    title = payload.get("title", "")
+    status = payload.get("status", "")
+    author = payload.get("author", "")
+
+    logger.info("Posting to %s", endpoint)
+    logger.info("Title: %s", title)
+    logger.info("Status: %s", status)
+    logger.info("Author: %s", author)
+
+    response = requests.post(
+        endpoint,
+        headers={
+            "Authorization": f"Bearer {config.api_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        json=payload,
+        timeout=timeout,
+    )
+
+    if response.status_code == 201:
+        body = response.json()
+        if not isinstance(body, dict):
+            raise PsaiError("PSAI returned 201 but the response body was not a JSON object.")
+        blog_id = _get_blog_id(body)
+        logger.info("Created successfully — blogId=%s", blog_id or "n/a")
+        if not publish_result_url(body):
+            logger.debug("201 response keys: %s", sorted(body.keys()))
+        return body
+
+    message = _parse_api_error(response)
+    logger.error("PSAI request failed with HTTP %s: %s", response.status_code, message)
+    if response.status_code == 401:
+        raise PsaiError(f"PSAI unauthorized (check PSAI_API_KEY and blogs:write scope): {message}")
+    if response.status_code == 403:
+        raise PsaiError(f"PSAI forbidden (API key lacks blogs:write scope): {message}")
+    if response.status_code == 400:
+        raise PsaiError(f"PSAI validation failed: {message}")
+    if response.status_code >= 500:
+        request_id = ""
+        try:
+            body = response.json()
+            if isinstance(body, dict):
+                parsed_request_id = _get_request_id(body)
+                if parsed_request_id:
+                    request_id = f" (requestId={parsed_request_id})"
+        except ValueError:
+            pass
+        raise PsaiError(f"PSAI server error{request_id}: {message}")
+
+    raise PsaiError(f"PSAI request failed with HTTP {response.status_code}: {message}")
+
+
+def publish_markdown(
+    markdown: str,
+    report: dict[str, Any] | None = None,
+    *,
+    status: str | None = None,
+    notify_subscribers: bool | None = None,
+    config: PsaiConfig | None = None,
+) -> dict[str, Any]:
+    resolved_config = config or load_psai_config()
+    if resolved_config is None:
+        raise EnvironmentError("PSAI posting is not configured (set PSAI_API_KEY, PSAI_API_URL, PSAI_AUTHOR).")
+
+    payload = build_blog_payload(
+        markdown,
+        report,
+        resolved_config,
+        status=status,
+        notify_subscribers=notify_subscribers,
+    )
+    return create_blog_post(payload, resolved_config)
+
+
+def resolve_validation_path(path: Path) -> Path:
+    resolved = path if path.is_absolute() else PROJECT_ROOT / path
+    if resolved.suffix == ".json" and resolved.name.endswith("-validation.json"):
+        return resolved
+    if resolved.suffix == ".md":
+        return draft_validation_json_path(resolved)
+    raise ValueError(
+        "Expected a Markdown draft path or *-validation.json file "
+        f"(got {path})."
+    )
+
+
+def publish_from_validation_path(
+    validation_path: Path,
+    *,
+    status: str | None = None,
+    notify_subscribers: bool | None = None,
+    published_by: str | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    validation_path = resolve_validation_path(validation_path)
+    report = load_validation_report(validation_path)
+    draft_path = resolve_draft_path_from_report(report)
+    if not draft_path or not draft_path.is_file():
+        raise FileNotFoundError(f"Draft Markdown not found for {validation_path}")
+
+    markdown = draft_path.read_text(encoding="utf-8")
+    config = load_psai_config()
+    if config is None:
+        raise EnvironmentError("PSAI posting is not configured.")
+
+    payload = build_blog_payload(
+        markdown,
+        report,
+        config,
+        status=status,
+        notify_subscribers=notify_subscribers,
+    )
+
+    if dry_run:
+        return {"dry_run": True, "payload": payload, "validation_path": str(validation_path)}
+
+    response = create_blog_post(payload, config)
+    record_publish_result(
+        validation_path,
+        report,
+        response,
+        published_by=published_by,
+        status=payload["status"],
+    )
+    return response
+
+
+def record_publish_result(
+    validation_path: Path,
+    report: dict[str, Any],
+    response: dict[str, Any],
+    *,
+    published_by: str | None = None,
+    status: str,
+    error: str | None = None,
+) -> None:
+    approval = report.setdefault("approval", {})
+    psai = approval.setdefault("psai", {})
+    psai["status"] = status
+    if error:
+        psai["error"] = error
+        psai.pop("blog_id", None)
+        psai.pop("url", None)
+    else:
+        psai["published_at"] = datetime.now(timezone.utc).isoformat()
+        psai.pop("error", None)
+        blog_id = _get_blog_id(response)
+        if blog_id is not None:
+            psai["blog_id"] = blog_id
+        url = publish_result_url(response)
+        if url:
+            psai["url"] = url
+    if published_by:
+        psai["published_by"] = published_by
+    save_validation_report(validation_path, report)
+
+
+def psai_publish_offer_text() -> str:
+    return (
+        "Website publishing is enabled. Click the :globe_with_meridians: reaction on this message "
+        f"to post the approved draft to the site as `{os.getenv('PSAI_DEFAULT_STATUS', 'draft')}`. "
+        "Set `PSAI_AUTO_PUBLISH=true` to publish immediately on approval."
+    )
+
+
+def psai_publish_success_text(response: dict[str, Any], *, status: str) -> str:
+    url = publish_result_url(response)
+    blog_id = _get_blog_id(response)
+    parts = [f"Posted to the website as *{status}*."]
+    if blog_id:
+        parts.append(f"Blog ID: `{blog_id}`.")
+    if url:
+        parts.append(f"<{url}|View post>")
+    return " ".join(parts)
+
+
+def psai_already_published(report: dict[str, Any]) -> bool:
+    psai = get_approval_block(report).get("psai")
+    if not isinstance(psai, dict):
+        return False
+    return bool(psai.get("blog_id") or psai.get("url"))
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Publish an approved blog draft to Predictive Sales AI (POST /v1/blogs).",
+    )
+    parser.add_argument(
+        "target",
+        nargs="?",
+        type=Path,
+        help="Markdown draft path or drafts_json/*-validation.json path.",
+    )
+    parser.add_argument(
+        "--status",
+        choices=sorted(VALID_STATUSES),
+        help="Override PSAI_DEFAULT_STATUS (published, draft, or submitted).",
+    )
+    parser.add_argument(
+        "--notify-subscribers",
+        action="store_true",
+        help="Email subscribers when publishing (published, non-private posts only).",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Build the JSON payload without calling the API.",
+    )
+    parser.add_argument(
+        "--decision",
+        choices=("approve", "revise"),
+        help="GitHub Actions input: only publish when decision is approve.",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> None:
+    load_dotenv(PROJECT_ROOT / ".env")
+    logging.basicConfig(level=logging.INFO, format="[post] %(message)s")
+    parser = build_arg_parser()
+    args = parser.parse_args(argv)
+
+    if args.decision == "revise":
+        print("[post] Decision is revise; skipping website publish.")
+        return
+
+    if not args.target:
+        parser.error("target draft or validation JSON path is required unless --decision revise")
+
+    result = publish_from_validation_path(
+        args.target,
+        status=args.status,
+        notify_subscribers=True if args.notify_subscribers else None,
+        dry_run=args.dry_run,
+    )
+
+    if args.dry_run:
+        print(json.dumps(result["payload"], indent=2))
+        print(f"[post] Dry run only — no API call made for {result['validation_path']}")
+        return
+
+    url = publish_result_url(result)
+    blog_id = _get_blog_id(result)
+    logger.info("Created blog post (blog_id=%s, url=%s)", blog_id or "n/a", url or "n/a")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (PsaiError, EnvironmentError, ValueError, FileNotFoundError) as exc:
+        print(f"[post] Error: {exc}", file=sys.stderr)
+        raise SystemExit(1) from exc
