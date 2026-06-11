@@ -594,18 +594,26 @@ conda run -n blog-automation python pipeline.py --all --send-to-slack
 
 After a draft is approved, you can publish it to the Peachtree website through Spectrum Predictive Sales AI (`POST /v1/blogs`).
 
-Add these to `.env` (and matching GitHub Actions secrets for CI):
+**Secret (`.env` and GitHub Actions):** only `PSAI_API_KEY`.
+
+**Non-secret settings** live in [`config/psai.json`](config/psai.json) (committed to the repo):
+
+```json
+{
+  "api_url": "https://developers.predictivesalesai.com",
+  "author": "j.gil@peachtreerestorations.com",
+  "default_status": "draft",
+  "auto_publish": false
+}
+```
+
+Local `.env`:
 
 ```env
 PSAI_API_KEY=your-bearer-key-with-blogs-write-scope
-PSAI_API_URL=https://developers.predictivesalesai.com
-PSAI_AUTHOR=author@peachtreeroofing.com
-PSAI_DEFAULT_STATUS=draft
-PSAI_AUTO_PUBLISH=false
-PSAI_NOTIFY_SUBSCRIBERS=false
 ```
 
-`PSAI_AUTHOR` must match a user under your tenant (email or username). `PSAI_DEFAULT_STATUS` is `published`, `draft`, or `submitted` (defaults to `draft` so the first live test does not go public accidentally).
+`author` must match a PSAI tenant user (email or username). `default_status` is `published`, `draft`, or `submitted`. Env vars still override `config/psai.json` when set.
 
 ### Slack flow
 
@@ -613,7 +621,7 @@ PSAI_NOTIFY_SUBSCRIBERS=false
 2. If `PSAI_AUTO_PUBLISH=false` (default), the bot replies with instructions to react `:globe_with_meridians:` on the approval message.
 3. On publish success, the thread shows the blog ID and public URL. The validation JSON stores `approval.psai` metadata.
 
-Set `PSAI_AUTO_PUBLISH=true` to skip the extra reaction and publish immediately after approval.
+Set `auto_publish` to `true` in `config/psai.json` to skip the extra reaction and publish immediately after approval.
 
 ### CLI
 
@@ -635,7 +643,18 @@ Override status or opt into subscriber email:
 conda run -n blog-automation python -m peachtree_blog.post output/approved/drafts_md/example.md --status published --notify-subscribers
 ```
 
-The GitHub **Approval Webhook** workflow (`approve.yml`) calls the same module when triggered with `decision: approve`.
+The GitHub **Publish to Website** workflow (`publish.yml`) calls the same module for manual PSAI posts. See [docs/github-actions.md](docs/github-actions.md) for the full automation setup (weekly schedule, secrets, and what still runs locally).
+
+## GitHub Actions automation
+
+| Workflow | When | What |
+|----------|------|------|
+| **Weekly Blog Pipeline** | Monday 8 AM ET + manual | Search → evaluate → write → post draft to Slack |
+| **Publish to Website** | Manual | PSAI `POST /v1/blogs` for an approved draft |
+
+Slack **reactions** (✅ approve, 🌐 publish) still require `approve_listen listen` on your machine — GitHub Actions cannot run the Socket Mode listener.
+
+Setup checklist: [docs/github-actions.md](docs/github-actions.md)
 
 ## Cleaning Test Output
 

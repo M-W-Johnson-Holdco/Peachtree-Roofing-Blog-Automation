@@ -43,6 +43,7 @@ STRATEGY_CATEGORY_LABELS: dict[str, str] = {
 }
 
 DEFAULT_SITE_BRAND = "Peachtree Roofing & Exteriors"
+PSAI_CONFIG_PATH = PROJECT_ROOT / "config" / "psai.json"
 VALID_STATUSES = frozenset({"published", "draft", "submitted"})
 META_DESCRIPTION_MAX = 160
 SOCIAL_DESCRIPTION_MAX = 150
@@ -77,34 +78,94 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def load_psai_settings_file() -> dict[str, Any]:
+    """Load non-secret PSAI settings from config/psai.json (committed to the repo)."""
+    if not PSAI_CONFIG_PATH.is_file():
+        return {}
+    with PSAI_CONFIG_PATH.open("r", encoding="utf-8") as handle:
+        data = json.load(handle)
+    if not isinstance(data, dict):
+        raise ValueError(f"Expected a JSON object in {PSAI_CONFIG_PATH}")
+    return data
+
+
+def _file_str(settings: dict[str, Any], key: str, default: str = "") -> str:
+    value = settings.get(key)
+    if value is None:
+        return default
+    return str(value).strip()
+
+
+def _file_bool(settings: dict[str, Any], key: str, default: bool) -> bool:
+    if key not in settings:
+        return default
+    value = settings[key]
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
+
+
+def _env_or_file_str(env_name: str, settings: dict[str, Any], file_key: str, default: str = "") -> str:
+    env_value = os.getenv(env_name, "").strip()
+    if env_value:
+        return env_value
+    file_value = _file_str(settings, file_key)
+    return file_value or default
+
+
 def load_psai_config() -> PsaiConfig | None:
     """Return PSAI settings when posting is configured, else None."""
     api_key = os.getenv("PSAI_API_KEY", "").strip()
     if not api_key:
         return None
 
-    api_url = os.getenv("PSAI_API_URL", "").strip().rstrip("/")
-    author = os.getenv("PSAI_AUTHOR", "").strip()
+    settings = load_psai_settings_file()
+    api_url = _env_or_file_str("PSAI_API_URL", settings, "api_url").rstrip("/")
+    author = _env_or_file_str("PSAI_AUTHOR", settings, "author")
     if not api_url:
-        raise EnvironmentError("PSAI_API_KEY is set but PSAI_API_URL is missing.")
+        raise EnvironmentError(
+            f"PSAI_API_KEY is set but api_url is missing. Set PSAI_API_URL or add api_url to {PSAI_CONFIG_PATH}."
+        )
     if not author:
-        raise EnvironmentError("PSAI_API_KEY is set but PSAI_AUTHOR is missing.")
+        raise EnvironmentError(
+            f"PSAI_API_KEY is set but author is missing. Set PSAI_AUTHOR or add author to {PSAI_CONFIG_PATH}."
+        )
 
-    default_status = os.getenv("PSAI_DEFAULT_STATUS", "draft").strip().lower() or "draft"
+    default_status = _env_or_file_str("PSAI_DEFAULT_STATUS", settings, "default_status", "draft").lower()
     if default_status not in VALID_STATUSES:
         raise ValueError(
-            f"PSAI_DEFAULT_STATUS must be one of {sorted(VALID_STATUSES)}; got {default_status!r}."
+            f"PSAI default_status must be one of {sorted(VALID_STATUSES)}; got {default_status!r}."
         )
+
+    site_brand = _env_or_file_str("PSAI_SITE_BRAND", settings, "site_brand", DEFAULT_SITE_BRAND)
+
+    notify_subscribers = (
+        _env_bool("PSAI_NOTIFY_SUBSCRIBERS")
+        if os.getenv("PSAI_NOTIFY_SUBSCRIBERS") is not None
+        else _file_bool(settings, "notify_subscribers", False)
+    )
+    auto_publish = (
+        _env_bool("PSAI_AUTO_PUBLISH")
+        if os.getenv("PSAI_AUTO_PUBLISH") is not None
+        else _file_bool(settings, "auto_publish", False)
+    )
+    display_author_details = (
+        _env_bool("PSAI_DISPLAY_AUTHOR_DETAILS", True)
+        if os.getenv("PSAI_DISPLAY_AUTHOR_DETAILS") is not None
+        else _file_bool(settings, "display_author_details", True)
+    )
 
     return PsaiConfig(
         api_key=api_key,
         api_url=api_url,
         author=author,
         default_status=default_status,
-        notify_subscribers=_env_bool("PSAI_NOTIFY_SUBSCRIBERS", False),
-        auto_publish=_env_bool("PSAI_AUTO_PUBLISH", False),
-        display_author_details=_env_bool("PSAI_DISPLAY_AUTHOR_DETAILS", True),
-        site_brand=os.getenv("PSAI_SITE_BRAND", DEFAULT_SITE_BRAND).strip() or DEFAULT_SITE_BRAND,
+        notify_subscribers=notify_subscribers,
+        auto_publish=auto_publish,
+        display_author_details=display_author_details,
+        site_brand=site_brand or DEFAULT_SITE_BRAND,
     )
 
 
@@ -446,11 +507,20 @@ def record_publish_result(
 
 
 def psai_publish_offer_text() -> str:
-    return (
-        "Website publishing is enabled. Click the :globe_with_meridians: reaction on this message "
-        f"to post the approved draft to the site as `{os.getenv('PSAI_DEFAULT_STATUS', 'draft')}`. "
-        "Set `PSAI_AUTO_PUBLISH=true` to publish immediately on approval."
+    settings = load_psai_settings_file()
+    default_status = _env_or_file_str("PSAI_DEFAULT_STATUS", settings, "default_status", "draft")
+    auto_publish = (
+        _env_bool("PSAI_AUTO_PUBLISH")
+        if os.getenv("PSAI_AUTO_PUBLISH") is not None
+        else _file_bool(settings, "auto_publish", False)
     )
+    lines = [
+        "Website publishing is enabled. Click the :globe_with_meridians: reaction on this message "
+        f"to post the approved draft to the site as `{default_status}`.",
+    ]
+    if not auto_publish:
+        lines.append("Set `auto_publish` to true in `config/psai.json` to publish immediately on approval.")
+    return " ".join(lines)
 
 
 def psai_publish_success_text(response: dict[str, Any], *, status: str) -> str:

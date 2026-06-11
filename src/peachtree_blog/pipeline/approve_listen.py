@@ -22,7 +22,7 @@ Slack reactions on the approval message:
 - :globe_with_meridians: — after approval, publish to the company website (when PSAI is configured)
 
 Required: SLACK_APPROVAL_BOT_TOKEN, SLACK_APPROVAL_CHANNEL, SLACK_APPROVAL_TOKEN (listen).
-Optional PSAI: PSAI_API_KEY, PSAI_API_URL, PSAI_AUTHOR (website publish after approval).
+Optional PSAI: PSAI_API_KEY in `.env` / GitHub Secrets; `api_url` and `author` in `config/psai.json`.
 """
 
 from __future__ import annotations
@@ -239,7 +239,7 @@ def _handle_website_publish_reaction(
         client.chat_postMessage(
             channel=channel,
             thread_ts=ts,
-            text="Website publishing is not configured (set PSAI_API_KEY, PSAI_API_URL, PSAI_AUTHOR).",
+            text="Website publishing is not configured (set PSAI_API_KEY; see config/psai.json).",
         )
         return
 

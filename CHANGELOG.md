@@ -25,6 +25,60 @@ Notes / next step:
 - 
 ```
 
+## 2026-06-10 - Move PSAI api_url and author to config/psai.json
+
+Changed:
+- Added `config/psai.json` for non-secret PSAI settings (api_url, author, default_status, etc.).
+- `post.py` loads from that file; only `PSAI_API_KEY` required in `.env` / GitHub Secrets.
+- Updated workflows, `.env.template`, README, and `docs/github-actions.md`.
+
+Why:
+- API URL and author email are not secrets; keeping them in repo config avoids duplicate GitHub Secrets.
+
+Files touched:
+- `config/psai.json`
+- `src/peachtree_blog/post.py`
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `.env.template`
+- `.github/workflows/weekly.yml`
+- `.github/workflows/publish.yml`
+- `.github/workflows/approve.yml`
+- `README.md`
+- `docs/github-actions.md`
+- `CHANGELOG.md`
+
+Tested:
+- Not run.
+
+Notes / next step:
+- Remove `PSAI_API_URL` and `PSAI_AUTHOR` from local `.env` if still present; edit `config/psai.json` instead.
+
+## 2026-06-10 - Add GitHub Actions automation workflows and setup doc
+
+Changed:
+- `.github/workflows/weekly.yml`: search → evaluate → write on schedule (Mon 8 AM ET) or manual dispatch; optional Slack post; draft artifacts.
+- `.github/workflows/publish.yml`: manual PSAI publish workflow.
+- `.github/workflows/approve.yml`: fixed args/env; legacy alias for publish.
+- `docs/github-actions.md`: secrets checklist, architecture, local listener requirement, workflow-scope push note.
+- `README.md`: link to GitHub Actions doc.
+
+Why:
+- Start automating weekly draft generation while Slack approval and PSAI publish remain partially local until Spectrum platform migration completes.
+
+Files touched:
+- `.github/workflows/weekly.yml`
+- `.github/workflows/publish.yml`
+- `.github/workflows/approve.yml`
+- `docs/github-actions.md`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (workflow YAML only — test via Actions → Run workflow after secrets are set).
+
+Notes / next step:
+- Add repository secrets from `docs/github-actions.md`, push with `workflow` scope, run Weekly Blog Pipeline manually once.
+
 ## 2026-06-10 - Slack notice when approval listener stops (e + Enter)
 
 Changed:
