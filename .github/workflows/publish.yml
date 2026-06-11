@@ -1,26 +1,25 @@
-# Legacy alias — prefer publish.yml. Kept for older docs/links.
-name: Approval Webhook
+name: Publish to Website
 
 on:
   workflow_dispatch:
     inputs:
       draft_path:
-        description: "Markdown draft or *-validation.json path"
+        description: "Markdown draft or *-validation.json path (e.g. output/approved/drafts_json/example-validation.json)"
         required: true
-      decision:
-        description: "approve (publish) or revise (skip)"
-        required: true
-        default: approve
       status:
-        description: "PSAI status when decision is approve"
+        description: "PSAI status override (published, draft, or submitted)"
         required: false
         default: draft
+      notify_subscribers:
+        description: Email subscribers when publishing (published posts only)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
-  approval:
+  publish:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -35,14 +34,17 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
 
-      - name: Handle approval
+      - name: Publish via PSAI
         env:
           PYTHONPATH: src
           PSAI_API_KEY: ${{ secrets.PSAI_API_KEY }}
         run: |
           set -euo pipefail
-          ARGS=("${{ inputs.draft_path }}" --decision "${{ inputs.decision }}")
-          if [ "${{ inputs.decision }}" = "approve" ] && [ -n "${{ inputs.status }}" ]; then
+          ARGS=("${{ inputs.draft_path }}")
+          if [ -n "${{ inputs.status }}" ]; then
             ARGS+=(--status "${{ inputs.status }}")
+          fi
+          if [ "${{ inputs.notify_subscribers }}" = "true" ]; then
+            ARGS+=(--notify-subscribers)
           fi
           python -m peachtree_blog.post "${ARGS[@]}"

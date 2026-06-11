@@ -137,11 +137,29 @@ def iter_validation_json_paths(*roots: Path) -> Iterator[Path]:
 
 
 def find_validation_for_slack_message(channel: str, ts: str) -> tuple[Path, dict[str, Any]] | None:
-    for validation_path in iter_validation_json_paths(DEFAULT_OUTPUT_DIR, APPROVED_OUTPUT_DIR):
+    from peachtree_blog.generated_store import lookup_validation_path
+
+    indexed = lookup_validation_path(channel, ts)
+    if indexed is not None:
+        return indexed, load_validation_report(indexed)
+
+    for validation_path in iter_validation_json_paths(
+        DEFAULT_OUTPUT_DIR,
+        APPROVED_OUTPUT_DIR,
+    ):
         report = load_validation_report(validation_path)
         approval = get_approval_block(report)
         if approval.get("channel") == channel and approval.get("message_ts") == ts:
             return validation_path, report
+
+    from peachtree_blog.generated_store import iter_generated_validation_paths
+
+    for validation_path in iter_generated_validation_paths():
+        report = load_validation_report(validation_path)
+        approval = get_approval_block(report)
+        if approval.get("channel") == channel and approval.get("message_ts") == ts:
+            return validation_path, report
+
     return _find_legacy_approval_for_message(channel, ts)
 
 
@@ -204,8 +222,21 @@ def _relative_project_path(path: Path) -> str:
     return str(path.relative_to(PROJECT_ROOT))
 
 
-def relocate_draft_artifacts(draft_path: Path, *, destination_root: Path) -> Path:
+def approval_destination_root(draft_path: Path) -> Path:
+    """Use generated/approved for CI drafts archived under generated/runs/."""
+    from peachtree_blog.paths import GENERATED_APPROVED_DIR, GENERATED_RUNS_DIR
+
+    try:
+        draft_path.resolve().relative_to(GENERATED_RUNS_DIR.resolve())
+        return GENERATED_APPROVED_DIR
+    except ValueError:
+        return APPROVED_OUTPUT_DIR
+
+
+def relocate_draft_artifacts(draft_path: Path, *, destination_root: Path | None = None) -> Path:
     """Move one draft's md/pdf/validation JSON to another output root; return new md path."""
+    if destination_root is None:
+        destination_root = approval_destination_root(draft_path)
     stem = draft_stem_from_path(draft_path)
     source_root = resolve_drafts_root(draft_path)
     src_md_dir, src_pdf_dir, src_json_dir = draft_subdirs(source_root)
@@ -229,9 +260,9 @@ def relocate_draft_artifacts(draft_path: Path, *, destination_root: Path) -> Pat
         shutil.move(src_pdf, dst_pdf)
     report["draft_path"] = _relative_project_path(dst_md)
     report["pdf_path"] = _relative_project_path(dst_pdf) if dst_pdf.is_file() else None
-    save_validation_report(dst_json, report)
     if src_json.resolve() != dst_json.resolve():
-        src_json.unlink(missing_ok=True)
+        shutil.move(src_json, dst_json)
+    save_validation_report(dst_json, report)
     return dst_md
 
 

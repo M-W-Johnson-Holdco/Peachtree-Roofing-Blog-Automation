@@ -25,6 +25,234 @@ Notes / next step:
 - 
 ```
 
+## 2026-06-10 - Add Cloudflare Worker + Actions Slack approval path
+
+Changed:
+- Cloudflare Worker (`workers/slack-events/`) verifies Slack Events and dispatches `slack_approve.yml`.
+- `.github/workflows/slack_approve.yml` runs `scripts/process_slack_event.py` with existing `approve_listen` handlers.
+- Shared routing in `src/peachtree_blog/slack_actions/processor.py`; Render webhook refactored to use the same module.
+- Setup guide: `docs/cloudflare-workers-setup.md`.
+
+Why:
+- Always-on Slack approval without Mac listener or paid Render; heavy approve/rewrite stays in GitHub Actions Python.
+
+Files touched:
+- `workers/slack-events/`
+- `.github/workflows/slack_approve.yml`
+- `src/peachtree_blog/slack_actions/`
+- `scripts/process_slack_event.py`
+- `src/peachtree_blog/slack_webhook/events.py`
+- `src/peachtree_blog/slack_webhook/app.py`
+- `docs/cloudflare-workers-setup.md`
+- `docs/github-actions.md`
+- `.env.template`
+- `.gitignore`
+- `CHANGELOG.md`
+
+Tested:
+- Python import smoke test; Worker deploy requires Cloudflare account.
+
+Notes / next step:
+- Follow `docs/cloudflare-workers-setup.md`: Cloudflare account, `wrangler deploy`, Slack Request URL.
+
+## 2026-06-10 - Add cloud Slack webhook for approval without Mac listener
+
+Changed:
+- FastAPI Slack Events handler (`src/peachtree_blog/slack_webhook/`) with signature verification and background processing.
+- CI archives drafts to `generated/runs/<run_id>/` via `scripts/archive_ci_draft.py`; `weekly.yml` commits `generated/` after Slack post.
+- `generated_store.py` + `slack_index.json` map Slack message timestamps to validation JSON paths.
+- Webhook syncs approval state back via `github_sync.py` (`generated/` + `output/sources/used_sources.json`).
+- Docker/deploy files under `webhook/`; `requirements-webhook.txt`; docs in `docs/slack-webhook-setup.md`.
+- Approval moves CI drafts to `generated/approved/`; fixed validation JSON move on relocate.
+
+Why:
+- GitHub Actions can post drafts but cannot run Socket Mode; a hosted webhook replaces the local Mac listener.
+
+Files touched:
+- `src/peachtree_blog/slack_webhook/`
+- `src/peachtree_blog/generated_store.py`
+- `src/peachtree_blog/draft_approval.py`
+- `src/peachtree_blog/paths.py`
+- `scripts/archive_ci_draft.py`
+- `.github/workflows/weekly.yml`
+- `.gitignore`
+- `generated/slack_index.json`
+- `webhook/Dockerfile`
+- `webhook/docker-compose.yml`
+- `requirements-webhook.txt`
+- `docs/slack-webhook-setup.md`
+- `docs/github-actions.md`
+- `.env.template`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (deploy + Slack URL verification required).
+
+Notes / next step:
+- Deploy webhook per `docs/slack-webhook-setup.md`, set Slack Request URL, run weekly workflow once to populate `generated/`.
+
+## 2026-06-10 - Move PSAI api_url and author to config/psai.json
+
+Changed:
+- Added `config/psai.json` for non-secret PSAI settings (api_url, author, default_status, etc.).
+- `post.py` loads from that file; only `PSAI_API_KEY` required in `.env` / GitHub Secrets.
+- Updated workflows, `.env.template`, README, and `docs/github-actions.md`.
+
+Why:
+- API URL and author email are not secrets; keeping them in repo config avoids duplicate GitHub Secrets.
+
+Files touched:
+- `config/psai.json`
+- `src/peachtree_blog/post.py`
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `.env.template`
+- `.github/workflows/weekly.yml`
+- `.github/workflows/publish.yml`
+- `.github/workflows/approve.yml`
+- `README.md`
+- `docs/github-actions.md`
+- `CHANGELOG.md`
+
+Tested:
+- Not run.
+
+Notes / next step:
+- Remove `PSAI_API_URL` and `PSAI_AUTHOR` from local `.env` if still present; edit `config/psai.json` instead.
+
+## 2026-06-10 - Add GitHub Actions automation workflows and setup doc
+
+Changed:
+- `.github/workflows/weekly.yml`: search → evaluate → write on schedule (Mon 8 AM ET) or manual dispatch; optional Slack post; draft artifacts.
+- `.github/workflows/publish.yml`: manual PSAI publish workflow.
+- `.github/workflows/approve.yml`: fixed args/env; legacy alias for publish.
+- `docs/github-actions.md`: secrets checklist, architecture, local listener requirement, workflow-scope push note.
+- `README.md`: link to GitHub Actions doc.
+
+Why:
+- Start automating weekly draft generation while Slack approval and PSAI publish remain partially local until Spectrum platform migration completes.
+
+Files touched:
+- `.github/workflows/weekly.yml`
+- `.github/workflows/publish.yml`
+- `.github/workflows/approve.yml`
+- `docs/github-actions.md`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (workflow YAML only — test via Actions → Run workflow after secrets are set).
+
+Notes / next step:
+- Add repository secrets from `docs/github-actions.md`, push with `workflow` scope, run Weekly Blog Pipeline manually once.
+
+## 2026-06-10 - Slack notice when approval listener stops (e + Enter)
+
+Changed:
+- `approve_listen.py`: typing `e` + Enter to stop listening posts a thread reply on the active approval message warning that reactions/feedback are paused until the listener runs again.
+
+Why:
+- Reviewers should know when the terminal listener is no longer processing Slack events.
+
+Files touched:
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (Slack UI change only).
+
+Notes / next step:
+- Restart `approve_listen` and press `e` to verify the thread reply.
+
+## 2026-06-10 - Cap PSAI social description at 150 characters
+
+Changed:
+- `post.py`: `social.description` now truncated to 150 chars (PSAI `share-desc` limit); `meta.meta_description` stays at 160.
+
+Why:
+- Live publish returned HTTP 400: "Sharing Description Must Be No More Than 150 Characters".
+
+Files touched:
+- `src/peachtree_blog/post.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (validation limit fix).
+
+Notes / next step:
+- Re-approve and react 🌐 to retry publish.
+
+## 2026-06-10 - Fix PSAI blogId response parsing and API logging
+
+Changed:
+- `post.py`: read `blogId` (camelCase) from PSAI 201 responses via `_get_blog_id()`; audit trail and Slack success text now work.
+- `post.py`: URL extraction checks `url`, `blogUrl`, `blog_url`, and legacy keys; debug-logs response keys when missing.
+- `post.py`: request logging (endpoint, title, status, author) and error logging on failure; timeout 30s.
+- `post.py`: parse `requestId` from error responses.
+- `.env.template` / `README.md`: document confirmed base URL `https://developers.predictivesalesai.com`.
+
+Why:
+- Swagger confirms PSAI returns `blogId`, not `blog_id`; silent None broke duplicate detection and success messages.
+
+Files touched:
+- `src/peachtree_blog/post.py`
+- `.env.template`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- `python -m py_compile src/peachtree_blog/post.py`
+
+Notes / next step:
+- Set `PSAI_API_URL=https://developers.predictivesalesai.com` and `PSAI_AUTHOR` to your PSAI login email, then `--dry-run` before live post.
+
+## 2026-06-10 - Pre-add globe Slack reaction for website publish
+
+Changed:
+- `approve_listen.py`: bot now adds `:globe_with_meridians:` alongside checkmark/x/repeat when PSAI is configured (and auto-publish is off); intro text mentions it.
+- `post.py`: post-approval reminder says to click the pre-added globe reaction.
+
+Why:
+- Reviewers should not have to search Slack's emoji picker to publish an approved draft.
+
+Files touched:
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `src/peachtree_blog/post.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (Slack UI change only).
+
+Notes / next step:
+- Post a new draft to Slack to see the fourth reaction; existing messages keep their old reactions.
+
+## 2026-06-10 - Implement PSAI website publish after Slack approval
+
+Changed:
+- `src/peachtree_blog/post.py`: full Predictive Sales AI client for `POST /v1/blogs` (Markdown → HTML, meta/categories/tags, CLI, dry-run).
+- `src/peachtree_blog/draft_pdf.py`: shared `markdown_body_to_html()` for CMS body HTML.
+- `src/peachtree_blog/pipeline/approve_listen.py`: after approval, offer `:globe_with_meridians:` reaction to publish; optional `PSAI_AUTO_PUBLISH=true` for immediate post.
+- `.env.template`: PSAI API key, URL, author, status, and publish toggles.
+- `.github/workflows/approve.yml`: pass draft path and decision into `post.py`.
+- `README.md`: website publishing section.
+
+Why:
+- Approved drafts should be publishable to the company website via Spectrum Predictive Sales AI without manual copy-paste.
+
+Files touched:
+- `src/peachtree_blog/post.py`
+- `src/peachtree_blog/draft_pdf.py`
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `.env.template`
+- `.github/workflows/approve.yml`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- `python -m py_compile` on modified modules.
+
+Notes / next step:
+- Add `PSAI_API_KEY`, `PSAI_API_URL`, and `PSAI_AUTHOR` to `.env` and GitHub secrets; set `PSAI_DEFAULT_STATUS=published` when ready to go live.
+
 ## 2026-06-09 - Shift blog prompt from SEO to GEO: quality gates over count floors
 
 Changed:

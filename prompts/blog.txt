@@ -4,7 +4,7 @@ SOURCES TO DRAW FROM:
 {sources_block}
 
 TODAY'S DATE: {today}
-AUTHOR: {author_name}, {author_credentials}
+AUTHOR: Jonathan Gil, {author_credentials}
 
 Plan silently. Output only the final Markdown post — no planning, no checklist, no "Thinking Process", no meta-commentary.
 

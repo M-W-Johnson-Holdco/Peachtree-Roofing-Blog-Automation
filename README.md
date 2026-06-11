@@ -515,6 +515,7 @@ The message asks reviewers to react on the **intro message** (not the PDF thread
 - `:white_check_mark:` — approve (records sources in `used_sources.json`)
 - `:x:` — request revisions (reply in thread with feedback)
 - `:repeat:` (🔁) — discard the draft and rerun **search → evaluate → write**, then post a new draft for approval
+- `:globe_with_meridians:` — after approval, publish to the company website (when PSAI env vars are set)
 
 The bot pre-adds those reaction prompts on the intro message.
 
@@ -548,7 +549,7 @@ Run the Socket Mode listener:
 conda run -n blog-automation python -m peachtree_blog.pipeline.approve_listen listen
 ```
 
-When a reviewer reacts with `:white_check_mark:` on the **intro message** (not the PDF thread reply), the validation JSON `approval.status` changes to `approved`, the draft moves to `output/approved/`, and the bot replies in the thread.
+When a reviewer reacts with `:white_check_mark:` on the **intro message** (not the PDF thread reply), the validation JSON `approval.status` changes to `approved`, the draft moves to `output/approved/`, and the bot replies in the thread. If Predictive Sales AI is configured, the bot also offers a `:globe_with_meridians:` reaction to publish the post to the website (or publishes immediately when `PSAI_AUTO_PUBLISH=true`).
 
 When a reviewer reacts with `:x:`, the bot asks for feedback in the Slack thread. The next human thread reply is saved into the validation JSON and `write_serverless.py` is rerun with:
 
@@ -588,6 +589,72 @@ To run the normal pipeline and post the created draft to Slack:
 ```bash
 conda run -n blog-automation python pipeline.py --all --send-to-slack
 ```
+
+## Website Publishing (Predictive Sales AI)
+
+After a draft is approved, you can publish it to the Peachtree website through Spectrum Predictive Sales AI (`POST /v1/blogs`).
+
+**Secret (`.env` and GitHub Actions):** only `PSAI_API_KEY`.
+
+**Non-secret settings** live in [`config/psai.json`](config/psai.json) (committed to the repo):
+
+```json
+{
+  "api_url": "https://developers.predictivesalesai.com",
+  "author": "j.gil@peachtreerestorations.com",
+  "default_status": "draft",
+  "auto_publish": false
+}
+```
+
+Local `.env`:
+
+```env
+PSAI_API_KEY=your-bearer-key-with-blogs-write-scope
+```
+
+`author` must match a PSAI tenant user (email or username). `default_status` is `published`, `draft`, or `submitted`. Env vars still override `config/psai.json` when set.
+
+### Slack flow
+
+1. Approve with `:white_check_mark:` as usual.
+2. If `PSAI_AUTO_PUBLISH=false` (default), the bot replies with instructions to react `:globe_with_meridians:` on the approval message.
+3. On publish success, the thread shows the blog ID and public URL. The validation JSON stores `approval.psai` metadata.
+
+Set `auto_publish` to `true` in `config/psai.json` to skip the extra reaction and publish immediately after approval.
+
+### CLI
+
+Publish an approved draft manually (Markdown path or `*-validation.json`):
+
+```bash
+conda run -n blog-automation python -m peachtree_blog.post output/approved/drafts_json/example-validation.json
+```
+
+Preview the JSON payload without calling the API:
+
+```bash
+conda run -n blog-automation python -m peachtree_blog.post output/approved/drafts_md/example.md --dry-run
+```
+
+Override status or opt into subscriber email:
+
+```bash
+conda run -n blog-automation python -m peachtree_blog.post output/approved/drafts_md/example.md --status published --notify-subscribers
+```
+
+The GitHub **Publish to Website** workflow (`publish.yml`) calls the same module for manual PSAI posts. See [docs/github-actions.md](docs/github-actions.md) for the full automation setup (weekly schedule, secrets, and what still runs locally).
+
+## GitHub Actions automation
+
+| Workflow | When | What |
+|----------|------|------|
+| **Weekly Blog Pipeline** | Monday 8 AM ET + manual | Search → evaluate → write → post draft to Slack |
+| **Publish to Website** | Manual | PSAI `POST /v1/blogs` for an approved draft |
+
+Slack **reactions** (✅ approve, 🌐 publish) still require `approve_listen listen` on your machine — GitHub Actions cannot run the Socket Mode listener.
+
+Setup checklist: [docs/github-actions.md](docs/github-actions.md)
 
 ## Cleaning Test Output
 

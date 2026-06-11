@@ -1,6 +1,6 @@
 {
-  "updated_at": "2026-06-09T05:22:39.129464+00:00",
-  "source_count": 6,
+  "updated_at": "2026-06-10T19:34:36.359982+00:00",
+  "source_count": 7,
   "sources": [
     {
       "url": "https://markets.ft.com/data/announce/detail?dockey=600-202606031451PR_NEWS_USPRX____CL75458-1",
@@ -73,6 +73,18 @@
       "last_draft_path": "output/approved/drafts_md/2026-06-08-170125-atlanta-roof-safety-protecting-homes-from-local-arson-risks.md",
       "last_runner": "peachtree_blog.pipeline.approve_listen",
       "use_count": 2
+    },
+    {
+      "url": "https://www.insurancejournal.com/services/newswire/2026/06/01/871185.htm",
+      "normalized_url": "https://insurancejournal.com/services/newswire/2026/06/01/871185.htm",
+      "domain": "insurancejournal.com",
+      "title": "StormArmour Calls for Greater Consumer Disclosure Around Wind-Driven Rain Losses Excluded by Insurance Policies and Manufacturer Warranties - Insurance Journal",
+      "strategy_cluster": "ga_insurance_navigation",
+      "first_used_at": "2026-06-10T17:43:57.951898+00:00",
+      "last_used_at": "2026-06-10T19:34:36.359797+00:00",
+      "last_draft_path": "output/approved/drafts_md/2026-06-09-152847-atlanta-roof-insurance-protecting-against-wind-driven-rain-e.md",
+      "last_runner": "peachtree_blog.pipeline.approve_listen",
+      "use_count": 9
     }
   ]
 }

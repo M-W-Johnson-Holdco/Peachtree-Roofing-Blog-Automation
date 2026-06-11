@@ -70,7 +70,8 @@ def normalize_text_for_pdf(text: str) -> str:
     return text.translate(_UNICODE_DASHES)
 
 
-def markdown_to_html(markdown_text: str) -> str:
+def markdown_body_to_html(markdown_text: str) -> str:
+    """Return an HTML fragment suitable for CMS blog body fields."""
     try:
         import markdown as markdown_lib
     except ImportError as exc:
@@ -79,10 +80,14 @@ def markdown_to_html(markdown_text: str) -> str:
             "`python -m pip install -r requirements.txt`."
         ) from exc
 
-    body = markdown_lib.markdown(
+    return markdown_lib.markdown(
         markdown_text,
         extensions=["extra", "tables", "sane_lists"],
     )
+
+
+def markdown_to_html(markdown_text: str) -> str:
+    body = markdown_body_to_html(markdown_text)
     return (
         "<!DOCTYPE html>"
         "<html><head><meta charset=\"utf-8\">"
