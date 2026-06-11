@@ -25,7 +25,50 @@ Notes / next step:
 - 
 ```
 
-## 2026-06-10 - Add Cloudflare Worker + Actions Slack approval path
+## 2026-06-11 - Fix Actions pip install (pycairo / libcairo2)
+
+Changed:
+- Added `scripts/ci-apt-packages.sh` to install `libcairo2-dev` and `pkg-config` before `pip install` in CI.
+- Applied to `weekly.yml`, `slack_approve.yml`, `publish.yml`, and `approve.yml`.
+- Render webhook Dockerfile installs the same native libs for `xhtml2pdf`.
+
+Why:
+- Weekly Blog Pipeline failed at Install dependencies: `pycairo` could not find system `cairo` on ubuntu-latest.
+
+Files touched:
+- `scripts/ci-apt-packages.sh`
+- `.github/workflows/weekly.yml`
+- `.github/workflows/slack_approve.yml`
+- `.github/workflows/publish.yml`
+- `.github/workflows/approve.yml`
+- `webhook/Dockerfile`
+- `CHANGELOG.md`
+
+Tested:
+- Root cause confirmed from Actions run 27150200902 logs.
+
+Notes / next step:
+- Push and re-run Weekly Blog Pipeline.
+
+## 2026-06-11 - Set Cloudflare wrangler repo to M-W-Johnson-Holdco
+
+Changed:
+- `workers/slack-events/wrangler.toml`: `GITHUB_REPOSITORY` set to `M-W-Johnson-Holdco/Peachtree-Roofing-Blog-Automation`.
+
+Why:
+- Ready for Worker deploy without manual placeholder edit.
+
+Files touched:
+- `workers/slack-events/wrangler.toml`
+- `CHANGELOG.md`
+
+Tested:
+- Not run.
+
+Notes / next step:
+- Deploy Worker per `docs/cloudflare-workers-setup.md`.
+
+## 2026-06-11 - Add Cloudflare Worker + Actions Slack approval path
 
 Changed:
 - Cloudflare Worker (`workers/slack-events/`) verifies Slack Events and dispatches `slack_approve.yml`.
@@ -55,7 +98,7 @@ Tested:
 Notes / next step:
 - Follow `docs/cloudflare-workers-setup.md`: Cloudflare account, `wrangler deploy`, Slack Request URL.
 
-## 2026-06-10 - Add cloud Slack webhook for approval without Mac listener
+## 2026-06-11 - Add cloud Slack webhook for approval without Mac listener
 
 Changed:
 - FastAPI Slack Events handler (`src/peachtree_blog/slack_webhook/`) with signature verification and background processing.
@@ -91,7 +134,7 @@ Tested:
 Notes / next step:
 - Deploy webhook per `docs/slack-webhook-setup.md`, set Slack Request URL, run weekly workflow once to populate `generated/`.
 
-## 2026-06-10 - Move PSAI api_url and author to config/psai.json
+## 2026-06-11 - Move PSAI api_url and author to config/psai.json
 
 Changed:
 - Added `config/psai.json` for non-secret PSAI settings (api_url, author, default_status, etc.).
@@ -119,7 +162,7 @@ Tested:
 Notes / next step:
 - Remove `PSAI_API_URL` and `PSAI_AUTHOR` from local `.env` if still present; edit `config/psai.json` instead.
 
-## 2026-06-10 - Add GitHub Actions automation workflows and setup doc
+## 2026-06-11 - Add GitHub Actions automation workflows and setup doc
 
 Changed:
 - `.github/workflows/weekly.yml`: search → evaluate → write on schedule (Mon 8 AM ET) or manual dispatch; optional Slack post; draft artifacts.

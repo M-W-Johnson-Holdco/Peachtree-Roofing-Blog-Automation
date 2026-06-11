@@ -37,6 +37,9 @@ jobs:
           cache: pip
           cache-dependency-path: requirements.txt
 
+      - name: Install system packages for PDF generation
+        run: bash scripts/ci-apt-packages.sh
+
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
 
