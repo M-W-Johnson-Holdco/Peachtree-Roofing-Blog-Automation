@@ -1,12 +1,13 @@
 # GitHub Actions automation
 
-This repo uses GitHub Actions for **scheduled draft generation** and **manual website publishing**. Slack **approval reactions** still need a running listener (local machine or future hosted runner).
+This repo uses GitHub Actions for **scheduled draft generation** and **manual website publishing**. Slack **approval reactions** can run on your Mac (Socket Mode) or on a **hosted webhook** — see [slack-webhook-setup.md](./slack-webhook-setup.md).
 
 ## Workflows
 
 | Workflow | Trigger | What it does |
 |----------|---------|--------------|
 | **Weekly Blog Pipeline** (`weekly.yml`) | Mon 8 AM ET (cron) or manual | `search → evaluate → write`, then posts the latest draft to Slack |
+| **Slack Approval Handler** (`slack_approve.yml`) | Dispatched by Cloudflare Worker | Processes Slack ✅/🌐/feedback via Python; commits `generated/` |
 | **Publish to Website** (`publish.yml`) | Manual only | `POST /v1/blogs` to PSAI for an approved draft |
 | **Approval Webhook** (`approve.yml`) | Manual only | Legacy alias of `publish.yml` with `decision: approve \| revise` |
 
@@ -26,13 +27,18 @@ React ✅ approve · 🌐 publish (when PSAI platform is ready)
 Optional: Actions → Publish to Website (manual backup)
 ```
 
+**Option A — Local (Socket Mode)**  
 GitHub Actions **cannot** run the Slack Socket Mode listener — it is a long-lived process. After the weekly job posts to Slack, start the listener on your Mac:
 
 ```bash
 conda run -n blog-automation python -m peachtree_blog.pipeline.approve_listen listen
 ```
 
-Or use `pipeline.py` menu option **Approve**.
+**Option B — Cloud webhook (no Mac)**  
+Deploy the **Cloudflare Worker** + `slack_approve.yml` (recommended, free at low volume): **[cloudflare-workers-setup.md](./cloudflare-workers-setup.md)**.  
+Or use the **Render FastAPI webhook**: **[slack-webhook-setup.md](./slack-webhook-setup.md)**.
+
+Without either listener, the weekly job still posts drafts to Slack, but reactions will not approve or publish.
 
 ## Required repository secrets
 
@@ -70,6 +76,16 @@ Author bylines use code defaults (`Jonathan Gil`, etc.) unless you set optional 
 | `SLACK_APPROVAL_TOKEN` | `.env` only (`xapp-…` Socket Mode) |
 
 Do **not** put the Socket Mode app token in GitHub unless you later run a hosted listener.
+
+### Slack webhook (cloud — host env vars, not Actions secrets)
+
+| Variable | Used for |
+|----------|----------|
+| `SLACK_SIGNING_SECRET` | Verify Slack Events API requests |
+| `GITHUB_TOKEN` | Pull/push `generated/` and `used_sources.json` |
+| `GITHUB_REPOSITORY` | e.g. `owner/repo` |
+
+Setup: [slack-webhook-setup.md](./slack-webhook-setup.md).
 
 ## Pushing workflow files
 

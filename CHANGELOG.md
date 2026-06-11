@@ -25,6 +25,72 @@ Notes / next step:
 - 
 ```
 
+## 2026-06-10 - Add Cloudflare Worker + Actions Slack approval path
+
+Changed:
+- Cloudflare Worker (`workers/slack-events/`) verifies Slack Events and dispatches `slack_approve.yml`.
+- `.github/workflows/slack_approve.yml` runs `scripts/process_slack_event.py` with existing `approve_listen` handlers.
+- Shared routing in `src/peachtree_blog/slack_actions/processor.py`; Render webhook refactored to use the same module.
+- Setup guide: `docs/cloudflare-workers-setup.md`.
+
+Why:
+- Always-on Slack approval without Mac listener or paid Render; heavy approve/rewrite stays in GitHub Actions Python.
+
+Files touched:
+- `workers/slack-events/`
+- `.github/workflows/slack_approve.yml`
+- `src/peachtree_blog/slack_actions/`
+- `scripts/process_slack_event.py`
+- `src/peachtree_blog/slack_webhook/events.py`
+- `src/peachtree_blog/slack_webhook/app.py`
+- `docs/cloudflare-workers-setup.md`
+- `docs/github-actions.md`
+- `.env.template`
+- `.gitignore`
+- `CHANGELOG.md`
+
+Tested:
+- Python import smoke test; Worker deploy requires Cloudflare account.
+
+Notes / next step:
+- Follow `docs/cloudflare-workers-setup.md`: Cloudflare account, `wrangler deploy`, Slack Request URL.
+
+## 2026-06-10 - Add cloud Slack webhook for approval without Mac listener
+
+Changed:
+- FastAPI Slack Events handler (`src/peachtree_blog/slack_webhook/`) with signature verification and background processing.
+- CI archives drafts to `generated/runs/<run_id>/` via `scripts/archive_ci_draft.py`; `weekly.yml` commits `generated/` after Slack post.
+- `generated_store.py` + `slack_index.json` map Slack message timestamps to validation JSON paths.
+- Webhook syncs approval state back via `github_sync.py` (`generated/` + `output/sources/used_sources.json`).
+- Docker/deploy files under `webhook/`; `requirements-webhook.txt`; docs in `docs/slack-webhook-setup.md`.
+- Approval moves CI drafts to `generated/approved/`; fixed validation JSON move on relocate.
+
+Why:
+- GitHub Actions can post drafts but cannot run Socket Mode; a hosted webhook replaces the local Mac listener.
+
+Files touched:
+- `src/peachtree_blog/slack_webhook/`
+- `src/peachtree_blog/generated_store.py`
+- `src/peachtree_blog/draft_approval.py`
+- `src/peachtree_blog/paths.py`
+- `scripts/archive_ci_draft.py`
+- `.github/workflows/weekly.yml`
+- `.gitignore`
+- `generated/slack_index.json`
+- `webhook/Dockerfile`
+- `webhook/docker-compose.yml`
+- `requirements-webhook.txt`
+- `docs/slack-webhook-setup.md`
+- `docs/github-actions.md`
+- `.env.template`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (deploy + Slack URL verification required).
+
+Notes / next step:
+- Deploy webhook per `docs/slack-webhook-setup.md`, set Slack Request URL, run weekly workflow once to populate `generated/`.
+
 ## 2026-06-10 - Move PSAI api_url and author to config/psai.json
 
 Changed:

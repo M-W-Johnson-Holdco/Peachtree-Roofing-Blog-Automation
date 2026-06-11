@@ -1,0 +1,14 @@
+services:
+  slack-webhook:
+    build:
+      context: ..
+      dockerfile: webhook/Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - ../.env
+    environment:
+      PYTHONPATH: /app/src
+      GITHUB_REPOSITORY: ${GITHUB_REPOSITORY:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_REF_NAME: ${GITHUB_REF_NAME:-main}

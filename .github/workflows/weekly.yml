@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   draft:
@@ -54,6 +54,22 @@ jobs:
           SLACK_APPROVAL_CHANNEL: ${{ secrets.SLACK_APPROVAL_CHANNEL }}
           PSAI_API_KEY: ${{ secrets.PSAI_API_KEY }}
         run: python pipeline.py --stage approve_post
+
+      - name: Archive draft for Slack webhook
+        if: github.event_name == 'schedule' || inputs.send_to_slack == true
+        env:
+          PYTHONPATH: src
+        run: python scripts/archive_ci_draft.py --run-id "${{ github.run_id }}"
+
+      - name: Commit generated draft archive
+        if: github.event_name == 'schedule' || inputs.send_to_slack == true
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add generated/
+          git diff --cached --quiet && exit 0
+          git commit -m "Archive CI draft run ${{ github.run_id }} for Slack webhook"
+          git push
 
       - name: Upload draft artifacts
         if: success()

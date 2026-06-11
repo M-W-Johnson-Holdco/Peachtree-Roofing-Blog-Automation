@@ -1,0 +1,12 @@
+# Copy to wrangler.toml and set GITHUB_REPOSITORY to your owner/repo.
+name = "peachtree-slack-events"
+main = "src/index.js"
+compatibility_date = "2024-06-01"
+
+[vars]
+GITHUB_REPOSITORY = "YOUR_GITHUB_ORG/Peachtree-Roofing-Blog-Automation"
+GITHUB_REF_NAME = "main"
+
+# Secrets (set with `npx wrangler secret put NAME`):
+# - SLACK_SIGNING_SECRET
+# - GITHUB_TOKEN  (PAT with repo + actions:write)

@@ -1,0 +1,70 @@
+name: Slack Approval Handler
+
+on:
+  workflow_dispatch:
+    inputs:
+      event_b64:
+        description: Base64-encoded Slack event JSON
+        required: true
+      event_id:
+        description: Slack event_id for deduplication
+        required: false
+        default: manual
+
+concurrency:
+  group: slack-approve-${{ inputs.event_id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Pull latest generated drafts
+        run: git pull --rebase origin "${GITHUB_REF_NAME:-main}"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Process Slack event
+        id: slack
+        env:
+          PYTHONPATH: src
+          SLACK_EVENT_B64: ${{ inputs.event_b64 }}
+          SLACK_APPROVAL_BOT_TOKEN: ${{ secrets.SLACK_APPROVAL_BOT_TOKEN }}
+          SLACK_APPROVAL_CHANNEL: ${{ secrets.SLACK_APPROVAL_CHANNEL }}
+          TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+          TOGETHER_WRITING_MODEL: ${{ secrets.TOGETHER_WRITING_MODEL }}
+          PSAI_API_KEY: ${{ secrets.PSAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          python scripts/process_slack_event.py --event-b64 "${SLACK_EVENT_B64}" | tee slack_result.json
+          changed="$(python -c "import json; print(json.load(open('slack_result.json'))['changed'])")"
+          echo "changed=${changed}" >> "$GITHUB_OUTPUT"
+
+      - name: Commit approval state
+        if: steps.slack.outputs.changed == 'True'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add generated/ output/sources/used_sources.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Sync Slack approval from event ${{ inputs.event_id }}"
+          git push

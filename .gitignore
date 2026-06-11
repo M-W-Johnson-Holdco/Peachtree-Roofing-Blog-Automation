@@ -15,6 +15,12 @@ src/__pycache__/
 
 # Output drafts (not tracked in git — stored in Google Drive)
 output/
+!output/sources/
+!output/sources/used_sources.json
+
+# CI drafts archived for cloud Slack webhooks (tracked)
+!generated/
+!generated/**
 
 # macOS
 .DS_Store
@@ -25,3 +31,7 @@ output/
 !.vscode/settings.json
 .idea/
 *.swp
+
+# Cloudflare Worker
+workers/slack-events/node_modules/
+workers/slack-events/.wrangler/

@@ -781,7 +781,7 @@ def handle_reaction(
         else:
             draft_path = resolve_draft_path_from_report(report)
             if draft_path and draft_path.is_file():
-                relocated = relocate_draft_artifacts(draft_path, destination_root=APPROVED_OUTPUT_DIR)
+                relocated = relocate_draft_artifacts(draft_path)
                 validation_path = draft_validation_json_path(relocated)
                 report = load_validation_report(validation_path)
             record_approved_draft_sources(report)
