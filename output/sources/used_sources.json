@@ -1,30 +1,5 @@
 {
-  "updated_at": "2026-06-12T16:51:08.885830+00:00",
-  "source_count": 2,
-  "sources": [
-    {
-      "url": "https://www.nbcnews.com/weather/floods/millions-risk-heavy-rains-threaten-floods-south-rcna346927",
-      "normalized_url": "https://nbcnews.com/weather/floods/millions-risk-heavy-rains-threaten-floods-south-rcna346927",
-      "domain": "nbcnews.com",
-      "title": "Millions at risk as heavy rains threaten floods across the South - NBC News",
-      "strategy_cluster": "storm_damage",
-      "first_used_at": "2026-06-12T16:51:08.885664+00:00",
-      "last_used_at": "2026-06-12T16:51:08.885664+00:00",
-      "last_draft_path": "generated/approved/drafts_md/2026-06-12-162151-atlanta-roof-leaks-how-to-prepare-for-heavy-rains-and-flood-.md",
-      "last_runner": "peachtree_blog.pipeline.approve_listen",
-      "use_count": 1
-    },
-    {
-      "url": "https://markets.ft.com/data/announce/detail?dockey=600-202606031451PR_NEWS_USPRX____CL75458-1",
-      "normalized_url": "https://markets.ft.com/data/announce/detail",
-      "domain": "markets.ft.com",
-      "title": "Georgia Power encourages customers to prepare for hurricane season \u2013 Company Announcement - Financial Times",
-      "strategy_cluster": "storm_damage",
-      "first_used_at": "2026-06-12T16:51:08.885664+00:00",
-      "last_used_at": "2026-06-12T16:51:08.885664+00:00",
-      "last_draft_path": "generated/approved/drafts_md/2026-06-12-162151-atlanta-roof-leaks-how-to-prepare-for-heavy-rains-and-flood-.md",
-      "last_runner": "peachtree_blog.pipeline.approve_listen",
-      "use_count": 1
-    }
-  ]
+  "updated_at": "2026-06-12T16:56:22.437311+00:00",
+  "source_count": 0,
+  "sources": []
 }
