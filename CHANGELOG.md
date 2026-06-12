@@ -25,6 +25,48 @@ Notes / next step:
 - 
 ```
 
+## 2026-06-12 - Relax search content filters for Georgia-wide and trade stories
+
+Changed:
+- Added `southeast` to `LOCAL_TERMS` and `STATE_LOCAL_TERMS`.
+- Relaxed `georgia_only_without_metro_signal`: Georgia/Southeast + roofing, insurance, or trade terms in headline/lead now pass (not headline-only).
+- Expanded `PRIMARY_CORE_ROOFING_TERMS` with `contractor`, `restoration`, `roof restoration`, and `milestone`.
+
+Why:
+- Broad search was rejecting valid Georgia-wide storm/insurance and trade/PR stories that lacked a metro city in the headline.
+
+Files touched:
+- `src/peachtree_blog/pipeline/search.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (no Tavily key in this session).
+
+Notes / next step:
+- Push and re-run weekly workflow.
+
+## 2026-06-12 - Proceed with one kept source; keep searching for two
+
+Changed:
+- Incremental search requires **1** evaluated keep to proceed (`MIN_EVALUATED_KEPT_TO_PROCEED`); stops early at **2** (`TARGET_EVALUATED_KEPT`) or when the Tavily credit cap is hit.
+- Added `--target-evaluated-kept` CLI flag; `--min-evaluated-kept` now means minimum to pass search (default 1).
+- Cleared `output/sources/used_sources.json` (no published blogs yet).
+
+Why:
+- Weekly CI failed with one strong keep (8.57) because the old minimum was 2; pipeline should draft on one source but still try for a second until credits run out.
+
+Files touched:
+- `src/peachtree_blog/pipeline/evaluate.py`
+- `src/peachtree_blog/pipeline/search.py`
+- `output/sources/used_sources.json`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (no Tavily key in this session).
+
+Notes / next step:
+- Push and re-run weekly workflow.
+
 ## 2026-06-10 - Default search to broad + official (content-first)
 
 Changed:

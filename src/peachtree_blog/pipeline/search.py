@@ -35,7 +35,8 @@ from peachtree_blog.pipeline.evaluate import (
     DEFAULT_KEPT_PATH,
     IncrementalEvaluator,
     KEEP_THRESHOLD,
-    MIN_KEPT_SOURCES,
+    MIN_EVALUATED_KEPT_TO_PROCEED,
+    TARGET_EVALUATED_KEPT,
 )
 from peachtree_blog.used_sources import normalize_source_url, used_source_urls
 
@@ -294,12 +295,15 @@ LOCAL_TERMS = [
     "hapeville",
     "forest park",
     "jonesboro",
+    "southeast",
 ]
 
-# Counties/cities/Metro labels — stronger than bare "georgia" alone.
-METRO_LOCAL_TERMS = [term for term in LOCAL_TERMS if term not in {"georgia", "north georgia"}]
+# Counties/cities/Metro labels — stronger than bare regional labels alone.
+METRO_LOCAL_TERMS = [
+    term for term in LOCAL_TERMS if term not in {"georgia", "north georgia", "southeast"}
+]
 
-STATE_LOCAL_TERMS = ["georgia", "north georgia"]
+STATE_LOCAL_TERMS = ["georgia", "north georgia", "southeast"]
 
 TOPIC_TERMS = [
     "roof",
@@ -450,6 +454,10 @@ PRIMARY_CORE_ROOFING_TERMS = [
     "building permit",
     "hb511",
     "house bill 511",
+    "contractor",
+    "restoration",
+    "roof restoration",
+    "milestone",
 ]
 
 INSURANCE_CORE_TERMS = [
@@ -1092,9 +1100,14 @@ def _relevance_failure_reason(result: dict, matched: dict[str, object], max_age_
         return "missing_headline_local_terms"
 
     if not metro_in_headline and not georgia_scoped:
+        regional_in_headline_lead = _matched_terms(headline_and_lead, STATE_LOCAL_TERMS)
         state_only_local = set(local_headline_lead) <= set(STATE_LOCAL_TERMS)
-        georgia_policy_headline = state_in_headline and _has_roofing_headline_signal(headline)
-        if state_only_local and not georgia_policy_headline:
+        georgia_wide_story = bool(regional_in_headline_lead) and (
+            _has_roofing_headline_signal(headline)
+            or _has_roofing_content_signal(headline_and_lead)
+            or bool(_matched_terms(headline_and_lead, INSURANCE_CORE_TERMS))
+        )
+        if state_only_local and not georgia_wide_story:
             return "georgia_only_without_metro_signal"
 
     if _is_metro_news_domain(url) and not _has_roofing_headline_signal(headline):
@@ -1181,18 +1194,26 @@ def search_roofing_news(
     rotation_week: int | None = None,
     preferred_cluster: str | None = None,
     incremental_evaluate: bool = False,
-    min_evaluated_kept: int = MIN_KEPT_SOURCES,
+    min_evaluated_kept: int = MIN_EVALUATED_KEPT_TO_PROCEED,
+    target_evaluated_kept: int = TARGET_EVALUATED_KEPT,
     evaluate_model: str | None = None,
     use_domain_stages: bool = False,
 ) -> list[dict]:
     load_dotenv(PROJECT_ROOT / ".env")
     client = _load_client()
     evaluator: IncrementalEvaluator | None = None
+    if target_evaluated_kept < min_evaluated_kept:
+        raise ValueError(
+            f"target_evaluated_kept ({target_evaluated_kept}) must be >= "
+            f"min_evaluated_kept ({min_evaluated_kept})"
+        )
+
     if incremental_evaluate:
         evaluator = IncrementalEvaluator(model=evaluate_model)
         print(
-            f"[{LOG_PREFIX}] Incremental evaluate: stop Tavily after "
-            f"{min_evaluated_kept} kept source(s) with score >= {KEEP_THRESHOLD}"
+            f"[{LOG_PREFIX}] Incremental evaluate: proceed with >= {min_evaluated_kept} kept, "
+            f"stop early at {target_evaluated_kept} (score >= {KEEP_THRESHOLD}); "
+            f"otherwise search until credit cap"
         )
     goal_reached = False
 
@@ -1302,10 +1323,10 @@ def search_roofing_news(
             if evaluator:
                 for candidate in newly_added:
                     evaluator.evaluate_search_result(candidate)
-                    if len(evaluator.kept) >= min_evaluated_kept:
+                    if len(evaluator.kept) >= target_evaluated_kept:
                         goal_reached = True
                         print(
-                            f"[{LOG_PREFIX}] Goal reached: {len(evaluator.kept)} evaluated source(s) "
+                            f"[{LOG_PREFIX}] Target reached: {len(evaluator.kept)} evaluated source(s) "
                             f"kept at score >= {KEEP_THRESHOLD} — stopping Tavily search "
                             f"(~{queries_run * TAVILY_ADVANCED_SEARCH_CREDITS} credits used so far)"
                         )
@@ -1430,8 +1451,20 @@ if __name__ == "__main__":
     parser.add_argument(
         "--min-evaluated-kept",
         type=int,
-        default=MIN_KEPT_SOURCES,
-        help=f"With --incremental-evaluate: stop after this many kept sources (default: {MIN_KEPT_SOURCES}).",
+        default=MIN_EVALUATED_KEPT_TO_PROCEED,
+        help=(
+            "With --incremental-evaluate: minimum kept sources required to proceed "
+            f"(default: {MIN_EVALUATED_KEPT_TO_PROCEED})."
+        ),
+    )
+    parser.add_argument(
+        "--target-evaluated-kept",
+        type=int,
+        default=TARGET_EVALUATED_KEPT,
+        help=(
+            "With --incremental-evaluate: stop Tavily early after this many kept sources "
+            f"(default: {TARGET_EVALUATED_KEPT}; search continues until credit cap if below target)."
+        ),
     )
     parser.add_argument(
         "--evaluate-model",
@@ -1439,6 +1472,12 @@ if __name__ == "__main__":
         help="Together model for incremental evaluate (default: TOGETHER_EVALUATION_MODEL or Qwen 7B).",
     )
     args = parser.parse_args()
+
+    if args.target_evaluated_kept < args.min_evaluated_kept:
+        parser.error(
+            f"--target-evaluated-kept ({args.target_evaluated_kept}) must be >= "
+            f"--min-evaluated-kept ({args.min_evaluated_kept})"
+        )
 
     target = None if args.target_results == 0 else args.target_results
 
@@ -1464,6 +1503,7 @@ if __name__ == "__main__":
             preferred_cluster=args.preferred_cluster,
             incremental_evaluate=args.incremental_evaluate,
             min_evaluated_kept=args.min_evaluated_kept,
+            target_evaluated_kept=args.target_evaluated_kept,
             evaluate_model=args.evaluate_model,
             use_domain_stages=args.domain_stages,
         )
