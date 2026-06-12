@@ -299,7 +299,7 @@ TOGETHER_EVALUATION_MODEL=Qwen/Qwen2.5-7B-Instruct-Turbo
 5. Preserves the strategy metadata from search, including `strategy_cluster`, `pillar_topic`, and `trigger_window_hours`.
 6. Adds a `recommended_angle` for the future blog-writing stage.
 7. Writes all scored sources to `output/sources/evaluated_sources.json`.
-8. Writes sources with `weighted_score >= 6.0` to `output/sources/kept_sources.json`.
+8. Writes sources with `weighted_score >= 5.0` to `output/sources/kept_sources.json`.
 
 Run evaluation with:
 

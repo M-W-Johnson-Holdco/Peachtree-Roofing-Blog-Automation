@@ -58,4 +58,4 @@ OUTPUT FORMAT (JSON only, no prose):
   "recommended_angle": "<question-format blog angle if kept, otherwise empty string>"
 }}
 
-Keep the source if weighted_score >= 6.0. Be strict — only sources that clearly connect to roofing or exterior demand in Metro Atlanta should be kept.
+Keep the source if weighted_score >= 5.0. Be strict — only sources that clearly connect to roofing or exterior demand in Metro Atlanta should be kept.

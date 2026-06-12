@@ -7,6 +7,14 @@ on:
         description: Post the new draft to Slack after writing
         type: boolean
         default: true
+      widen_search:
+        description: Run all search queries (helps on quiet news weeks)
+        type: boolean
+        default: true
+      include_used_sources:
+        description: Allow previously used story URLs in search
+        type: boolean
+        default: false
   schedule:
     # Monday 8:00 AM America/New_York ≈ 12:00 UTC (EDT). Use 13:00 UTC during EST.
     - cron: "0 12 * * 1"
@@ -47,7 +55,14 @@ jobs:
           AUTHOR_CREDENTIALS: ${{ secrets.AUTHOR_CREDENTIALS }}
         run: |
           set -euo pipefail
-          python pipeline.py --all --default
+          EXTRA=()
+          if [ "${{ github.event_name == 'workflow_dispatch' && inputs.widen_search == true }}" = "true" ]; then
+            EXTRA+=(--all-queries)
+          fi
+          if [ "${{ github.event_name == 'workflow_dispatch' && inputs.include_used_sources == true }}" = "true" ]; then
+            EXTRA+=(--include-used-sources)
+          fi
+          python pipeline.py --all --default "${EXTRA[@]}"
 
       - name: Post draft to Slack
         if: github.event_name == 'schedule' || inputs.send_to_slack == true

@@ -80,9 +80,17 @@ def run_interactive_menu() -> None:
         run_menu_choice(choice)
 
 
-def run_full_pipeline(*, send_to_slack: bool) -> None:
+def run_full_pipeline(
+    *,
+    send_to_slack: bool,
+    all_queries: bool = False,
+    include_used_sources: bool = False,
+) -> None:
     # run_pipeline_restart uses incremental search+evaluate by default.
-    code = run_pipeline_restart()
+    code = run_pipeline_restart(
+        all_queries=all_queries,
+        include_used_sources=include_used_sources,
+    )
     if code != 0:
         raise SystemExit(code)
     if send_to_slack:
@@ -117,6 +125,16 @@ def main(argv: list[str] | None = None) -> None:
             f"({DEFAULT_SERVERLESS_MODEL})."
         ),
     )
+    parser.add_argument(
+        "--all-queries",
+        action="store_true",
+        help="With --all: run every search query (not just the credit-capped rotation).",
+    )
+    parser.add_argument(
+        "--include-used-sources",
+        action="store_true",
+        help="With --all: do not skip URLs already listed in used_sources.json.",
+    )
     args = parser.parse_args(argv)
 
     if args.default:
@@ -124,7 +142,11 @@ def main(argv: list[str] | None = None) -> None:
         print(f"[pipeline] Default write model: {DEFAULT_SERVERLESS_MODEL}")
 
     if args.all:
-        run_full_pipeline(send_to_slack=args.send_to_slack)
+        run_full_pipeline(
+            send_to_slack=args.send_to_slack,
+            all_queries=args.all_queries,
+            include_used_sources=args.include_used_sources,
+        )
         return
 
     if args.stage:

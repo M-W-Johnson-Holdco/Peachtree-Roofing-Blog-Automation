@@ -25,6 +25,66 @@ Notes / next step:
 - 
 ```
 
+## 2026-06-11 - Shorten STRATEGY_CLUSTERS Tavily queries
+
+Changed:
+- Rewrote all 58 queries in `STRATEGY_CLUSTERS` to shorter geo + topic phrases (removed repeated "Metro Atlanta"/"homeowners" stacks).
+
+Why:
+- Broader Tavily recall while downstream filters and evaluate still gate relevance.
+
+Files touched:
+- `src/peachtree_blog/pipeline/search.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run.
+
+Notes / next step:
+- Run search locally or Weekly workflow with widen search; compare `evaluated_sources.json` scores.
+
+## 2026-06-11 - Lower evaluate keep threshold to 5.0
+
+Changed:
+- `KEEP_THRESHOLD` in `evaluate.py` from 6.0 to 5.0 (incremental search stop condition and kept_sources filter).
+- Updated `prompts/evaluate.txt` and README to match.
+
+Why:
+- Quiet news weeks were failing CI with 0 kept sources (e.g. scores 3.2 and 4.68 on the only two candidates).
+
+Files touched:
+- `src/peachtree_blog/pipeline/evaluate.py`
+- `prompts/evaluate.txt`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Not run.
+
+Notes / next step:
+- Re-run Weekly Blog Pipeline; Newton County tornado (4.68) would still fail — need sources scoring >= 5.0.
+
+## 2026-06-11 - Widen search option for manual Weekly workflow runs
+
+Changed:
+- `pipeline.py --all` accepts `--all-queries` and `--include-used-sources` (passed through `run_pipeline_restart`).
+- `weekly.yml` workflow_dispatch inputs `widen_search` (default true) and `include_used_sources`; scheduled Monday runs unchanged.
+
+Why:
+- Manual CI runs failed when incremental search found 0 sources scoring >= 6.0 on a quiet news week.
+
+Files touched:
+- `src/peachtree_blog/pipeline/runner.py`
+- `src/peachtree_blog/pipeline/cli.py`
+- `.github/workflows/weekly.yml`
+- `CHANGELOG.md`
+
+Tested:
+- Not run.
+
+Notes / next step:
+- Push and Run workflow with widen search enabled (default on manual runs).
+
 ## 2026-06-11 - Fix Actions pip install (pycairo / libcairo2)
 
 Changed:
