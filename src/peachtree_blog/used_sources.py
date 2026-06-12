@@ -52,8 +52,11 @@ def load_used_sources(path: Path = DEFAULT_USED_SOURCES_PATH) -> list[dict[str, 
     if not path.exists():
         return []
 
-    with path.open("r", encoding="utf-8") as handle:
-        data = json.load(handle)
+    raw = path.read_text(encoding="utf-8").strip()
+    if not raw:
+        return []
+
+    data = json.loads(raw)
 
     if isinstance(data, list):
         return [entry for entry in data if isinstance(entry, dict)]

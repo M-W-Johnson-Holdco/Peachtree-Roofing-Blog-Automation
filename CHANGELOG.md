@@ -25,6 +25,26 @@ Notes / next step:
 - 
 ```
 
+## 2026-06-12 - Fix empty used_sources.json crash in CI
+
+Changed:
+- Restored valid `output/sources/used_sources.json` (accidentally emptied in prior commit).
+- `load_used_sources()` treats missing/blank file as empty list instead of JSONDecodeError.
+
+Why:
+- Weekly pipeline crashed at search when checkout contained an empty used_sources.json.
+
+Files touched:
+- `output/sources/used_sources.json`
+- `src/peachtree_blog/used_sources.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run.
+
+Notes / next step:
+- Push and re-run Weekly Blog Pipeline.
+
 ## 2026-06-11 - Shorten STRATEGY_CLUSTERS Tavily queries
 
 Changed:

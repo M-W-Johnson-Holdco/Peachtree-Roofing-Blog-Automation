@@ -1,0 +1,90 @@
+{
+  "updated_at": "2026-06-10T19:34:36.359982+00:00",
+  "source_count": 7,
+  "sources": [
+    {
+      "url": "https://markets.ft.com/data/announce/detail?dockey=600-202606031451PR_NEWS_USPRX____CL75458-1",
+      "normalized_url": "https://markets.ft.com/data/announce/detail",
+      "domain": "markets.ft.com",
+      "title": "Georgia Power encourages customers to prepare for hurricane season \u2013 Company Announcement - Financial Times",
+      "strategy_cluster": "storm_damage",
+      "first_used_at": "2026-06-05T17:38:42.939453+00:00",
+      "last_used_at": "2026-06-05T18:13:16.967576+00:00",
+      "last_draft_path": "/Users/peachtreeroofing/Desktop/projects/Peachtree-Roofing-Blog-Automation/output/drafts/drafts_md/2026-06-05-141316-metro-atlanta-roof-prep-hurricane-flash-flood-guide.md",
+      "last_runner": "peachtree_blog.pipeline.write_serverless",
+      "use_count": 5
+    },
+    {
+      "url": "https://nypost.com/2026/05/29/us-news/tropical-storms-trigger-flash-flood-threat-across-southeast-as-heavy-rains-bring-drought-relief/",
+      "normalized_url": "https://nypost.com/2026/05/29/us-news/tropical-storms-trigger-flash-flood-threat-across-southeast-as-heavy-rains-bring-drought-relief",
+      "domain": "nypost.com",
+      "title": "Tropical storms trigger flash flood threat across Southeast as heavy rains bring drought relief",
+      "strategy_cluster": "storm_damage",
+      "first_used_at": "2026-06-05T17:38:42.939453+00:00",
+      "last_used_at": "2026-06-05T18:13:16.967576+00:00",
+      "last_draft_path": "/Users/peachtreeroofing/Desktop/projects/Peachtree-Roofing-Blog-Automation/output/drafts/drafts_md/2026-06-05-141316-metro-atlanta-roof-prep-hurricane-flash-flood-guide.md",
+      "last_runner": "peachtree_blog.pipeline.write_serverless",
+      "use_count": 5
+    },
+    {
+      "url": "https://www.businessinsider.com/top-worst-states-hurricane-damage-risk-2026-5",
+      "normalized_url": "https://businessinsider.com/top-worst-states-hurricane-damage-risk-2026-5",
+      "domain": "businessinsider.com",
+      "title": "The top 15 states at risk of hurricane damage include some surprises - Business Insider",
+      "strategy_cluster": "roof_safety",
+      "first_used_at": "2026-06-05T18:34:34.425326+00:00",
+      "last_used_at": "2026-06-05T18:57:14.872566+00:00",
+      "last_draft_path": "/Users/peachtreeroofing/Desktop/projects/Peachtree-Roofing-Blog-Automation/output/drafts/drafts_md/2026-06-05-145714-how-alpharetta-homeowners-can-shield-their-roofs-from-hurric.md",
+      "last_runner": "peachtree_blog.pipeline.write_serverless",
+      "use_count": 4
+    },
+    {
+      "url": "https://www.insurancejournal.com/news/southeast/2026/06/04/872383.htm",
+      "normalized_url": "https://insurancejournal.com/news/southeast/2026/06/04/872383.htm",
+      "domain": "insurancejournal.com",
+      "title": "Georgia Brokers and Agents Alarmed After Court Ruling Expands Liability for Them - Insurance Journal",
+      "strategy_cluster": "ga_insurance_navigation",
+      "first_used_at": "2026-06-08T15:16:30.577410+00:00",
+      "last_used_at": "2026-06-08T20:12:18.356507+00:00",
+      "last_draft_path": "/Users/peachtreeroofing/Desktop/projects/Peachtree-Roofing-Blog-Automation/output/drafts/drafts_md/2026-06-08-111923-atlanta-roof-insurance-how-the-2026-court-ruling-affects-you.md",
+      "last_runner": "seed-validation",
+      "use_count": 6
+    },
+    {
+      "url": "https://markets.businessinsider.com/news/stocks/florida-s-2024-hurricane-season-cost-billions-in-claims-and-reece-windows-doors-sees-surge-in-demand-for-impact-windows-across-jacksonville-tampa-and-orlando-1036229924",
+      "normalized_url": "https://markets.businessinsider.com/news/stocks/florida-s-2024-hurricane-season-cost-billions-in-claims-and-reece-windows-doors-sees-surge-in-demand-for-impact-windows-across-jacksonville-tampa-and-orlando-1036229924",
+      "domain": "markets.businessinsider.com",
+      "title": "Florida's 2024 Hurricane Season Cost Billions in Claims, and Reece Windows & Doors Sees Surge in Demand for Impact Windows Across Jacksonville, Tampa, and Orlando",
+      "strategy_cluster": "ga_insurance_navigation",
+      "first_used_at": "2026-06-08T15:16:30.577410+00:00",
+      "last_used_at": "2026-06-08T20:12:18.356507+00:00",
+      "last_draft_path": "/Users/peachtreeroofing/Desktop/projects/Peachtree-Roofing-Blog-Automation/output/drafts/drafts_md/2026-06-08-111923-atlanta-roof-insurance-how-the-2026-court-ruling-affects-you.md",
+      "last_runner": "seed-validation",
+      "use_count": 6
+    },
+    {
+      "url": "https://www.insurancejournal.com/news/southeast/2026/06/05/872664.htm",
+      "normalized_url": "https://insurancejournal.com/news/southeast/2026/06/05/872664.htm",
+      "domain": "insurancejournal.com",
+      "title": "Georgia Commissioner\u2019s Office Offers $10,000 Reward for Help on String of Arsons",
+      "strategy_cluster": "roof_safety",
+      "first_used_at": "2026-06-08T21:04:30.348874+00:00",
+      "last_used_at": "2026-06-09T05:22:39.128817+00:00",
+      "last_draft_path": "output/approved/drafts_md/2026-06-08-170125-atlanta-roof-safety-protecting-homes-from-local-arson-risks.md",
+      "last_runner": "peachtree_blog.pipeline.approve_listen",
+      "use_count": 2
+    },
+    {
+      "url": "https://www.insurancejournal.com/services/newswire/2026/06/01/871185.htm",
+      "normalized_url": "https://insurancejournal.com/services/newswire/2026/06/01/871185.htm",
+      "domain": "insurancejournal.com",
+      "title": "StormArmour Calls for Greater Consumer Disclosure Around Wind-Driven Rain Losses Excluded by Insurance Policies and Manufacturer Warranties - Insurance Journal",
+      "strategy_cluster": "ga_insurance_navigation",
+      "first_used_at": "2026-06-10T17:43:57.951898+00:00",
+      "last_used_at": "2026-06-10T19:34:36.359797+00:00",
+      "last_draft_path": "output/approved/drafts_md/2026-06-09-152847-atlanta-roof-insurance-protecting-against-wind-driven-rain-e.md",
+      "last_runner": "peachtree_blog.pipeline.approve_listen",
+      "use_count": 9
+    }
+  ]
+}
