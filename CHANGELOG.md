@@ -25,7 +25,7 @@ Notes / next step:
 - 
 ```
 
-## 2026-06-12 - Relax search content filters for Georgia-wide and trade stories
+## 2026-06-11 - Relax search content filters for Georgia-wide and trade stories
 
 Changed:
 - Added `southeast` to `LOCAL_TERMS` and `STATE_LOCAL_TERMS`.
@@ -45,7 +45,7 @@ Tested:
 Notes / next step:
 - Push and re-run weekly workflow.
 
-## 2026-06-12 - Proceed with one kept source; keep searching for two
+## 2026-06-11 - Proceed with one kept source; keep searching for two
 
 Changed:
 - Incremental search requires **1** evaluated keep to proceed (`MIN_EVALUATED_KEPT_TO_PROCEED`); stops early at **2** (`TARGET_EVALUATED_KEPT`) or when the Tavily credit cap is hit.
@@ -67,7 +67,7 @@ Tested:
 Notes / next step:
 - Push and re-run weekly workflow.
 
-## 2026-06-10 - Default search to broad + official (content-first)
+## 2026-06-11 - Default search to broad + official (content-first)
 
 Changed:
 - Search default skips PRIORITY/SECONDARY/trade domain-locked Tavily stages; runs `broad_21_day_news` and `official_30_day_general` only.
