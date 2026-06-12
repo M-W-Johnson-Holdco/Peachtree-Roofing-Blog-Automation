@@ -620,7 +620,6 @@ def psai_publish_offer_text() -> str:
 
 
 def psai_publish_success_text(response: dict[str, Any], *, status: str) -> str:
-    url = publish_result_url(response)
     blog_id = _get_blog_id(response)
     if status == "draft":
         lead = "Sent to PSAI as a *draft* (not live on the site yet)."
@@ -629,8 +628,6 @@ def psai_publish_success_text(response: dict[str, Any], *, status: str) -> str:
     parts = [lead]
     if blog_id:
         parts.append(f"Blog ID: `{blog_id}`.")
-    if url:
-        parts.append(f"<{url}|View post>")
     return " ".join(parts)
 
 

@@ -28,6 +28,21 @@ Notes / next step:
 Notes / next step:
 - Push `.github/workflows/slack_approve.yml` so ✅ approvals persist on GitHub before 🌐 publish works.
 
+## 2026-06-12 - Omit View post link from PSAI Slack success message
+
+Changed:
+- `psai_publish_success_text()` no longer appends the PSAI preview URL link in Slack replies.
+
+Why:
+- Success replies should show status and Blog ID only.
+
+Files touched:
+- `src/peachtree_blog/post.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run.
+
 ## 2026-06-12 - Two-step PSAI publish via thread `publish` command
 
 Changed:
