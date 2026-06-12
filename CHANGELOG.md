@@ -25,7 +25,30 @@ Notes / next step:
 - 
 ```
 
-## 2026-06-12 - Fix empty used_sources.json crash in CI
+## 2026-06-10 - Default search to broad + official (content-first)
+
+Changed:
+- Search default skips PRIORITY/SECONDARY/trade domain-locked Tavily stages; runs `broad_21_day_news` and `official_30_day_general` only.
+- Added `resolve_search_stages()` and `--domain-stages` to restore the full 8-stage local-TV-first plan.
+- Wired `--domain-stages` through `pipeline.py --all` and `run_pipeline_restart()`.
+
+Why:
+- Domain-locked stages burned most of the 100-credit budget and missed trade/PR/industry URLs; content filters still enforce Metro Atlanta + roofing relevance.
+
+Files touched:
+- `src/peachtree_blog/pipeline/search.py`
+- `src/peachtree_blog/pipeline/runner.py`
+- `src/peachtree_blog/pipeline/cli.py`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (no Tavily key in this session).
+
+Notes / next step:
+- Re-run weekly workflow or `python pipeline.py --all --default`; use `--domain-stages` if you want FOX 5 / AJC-first discovery again.
+
+## 2026-06-11 - Fix empty used_sources.json crash in CI
 
 Changed:
 - Restored valid `output/sources/used_sources.json` (accidentally emptied in prior commit).

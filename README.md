@@ -134,14 +134,18 @@ Useful flags:
 # Default: 8 rotating queries (2/cluster), early stop at 10 results (~8–32 credits typical)
 conda run -n blog-automation python -m peachtree_blog.pipeline.search
 
+# Default search mode is broad + official only (content-first; no local-TV domain lock).
+# Re-enable FOX 5 / AJC / county-paper domain stages:
+conda run -n blog-automation python -m peachtree_blog.pipeline.search --domain-stages
+
 # Full 27-query plan (higher credit usage)
 conda run -n blog-automation python -m peachtree_blog.pipeline.search --all-queries
 
 # Keep searching until 25 candidates are found (default is 10)
 conda run -n blog-automation python -m peachtree_blog.pipeline.search --target-results 25
 
-# Run every stage and every query regardless of target (~80–270 credits)
-conda run -n blog-automation python -m peachtree_blog.pipeline.search --all-stages --all-queries
+# Local-TV-first with every query (~96+ credits at 100-credit cap)
+conda run -n blog-automation python -m peachtree_blog.pipeline.search --domain-stages --all-queries
 ```
 
 ### Priority Sources
@@ -206,7 +210,7 @@ Typical weekly run (target hit during stage 1–2, mid-stage exit):
 ~8–32 Tavily API credits
 ```
 
-Use `--all-queries` for maximum coverage (up to ~270 credits if all five stages run every query). Use `--all-stages` only when debugging.
+Use `--all-queries` for maximum coverage. With the default **broad + official** stages and a 100-credit cap, up to ~25 queries run (vs ~6 under `--domain-stages`). Use `--domain-stages` when you want local-TV-first discovery again.
 
 Sources:
 

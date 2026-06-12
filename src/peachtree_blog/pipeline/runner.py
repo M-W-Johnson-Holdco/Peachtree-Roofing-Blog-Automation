@@ -95,6 +95,7 @@ def run_pipeline_restart(
     rotation_offset: int = 1,
     all_queries: bool = False,
     include_used_sources: bool = False,
+    use_domain_stages: bool = False,
 ) -> int:
     """Run incremental search+evaluate → write_serverless. Returns last stage exit code."""
     search_args: list[str] = []
@@ -107,6 +108,8 @@ def run_pipeline_restart(
         search_args.append("--all-queries")
     if include_used_sources:
         search_args.append("--include-used-sources")
+    if use_domain_stages:
+        search_args.append("--domain-stages")
 
     write_args: list[str] = []
     if clear_drafts:

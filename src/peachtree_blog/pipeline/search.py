@@ -765,6 +765,16 @@ SEARCH_STAGES = [
     },
 ]
 
+# Content-first mode: open web + official sources only (skip local-TV / trade domain locks).
+BROAD_FOCUS_STAGE_NAMES = frozenset({"broad_21_day_news", "official_30_day_general"})
+
+
+def resolve_search_stages(*, use_domain_stages: bool = False) -> list[dict]:
+    """Return Tavily stage configs. Default skips PRIORITY/SECONDARY/trade domain locks."""
+    if use_domain_stages:
+        return list(SEARCH_STAGES)
+    return [stage for stage in SEARCH_STAGES if stage["name"] in BROAD_FOCUS_STAGE_NAMES]
+
 
 LOG_PREFIX = "search"
 
@@ -1173,6 +1183,7 @@ def search_roofing_news(
     incremental_evaluate: bool = False,
     min_evaluated_kept: int = MIN_KEPT_SOURCES,
     evaluate_model: str | None = None,
+    use_domain_stages: bool = False,
 ) -> list[dict]:
     load_dotenv(PROJECT_ROOT / ".env")
     client = _load_client()
@@ -1191,6 +1202,14 @@ def search_roofing_news(
         if blocked_urls:
             print(f"[{LOG_PREFIX}] Skipping {len(blocked_urls)} previously used source URL(s)")
 
+    stage_plan = resolve_search_stages(use_domain_stages=use_domain_stages)
+    stage_count = len(stage_plan)
+    stage_mode = (
+        "all stages (domain-restricted + broad + official)"
+        if use_domain_stages
+        else "broad + official only (content-first, no local-TV domain lock)"
+    )
+
     active_plan = build_active_search_plan(
         queries_per_cluster=queries_per_cluster,
         use_all_queries=use_all_queries,
@@ -1201,10 +1220,10 @@ def search_roofing_news(
     active_plan = cap_search_plan_for_credits(
         active_plan,
         max_credits=max_tavily_credits,
-        stage_count=len(SEARCH_STAGES),
+        stage_count=stage_count,
     )
     query_count = len(active_plan)
-    planned_credits = estimate_tavily_credits(planned_query_count, len(SEARCH_STAGES))
+    planned_credits = estimate_tavily_credits(planned_query_count, stage_count)
     max_credits = min(planned_credits, max_tavily_credits)
     week_number = rotation_week or datetime.now(timezone.utc).isocalendar().week
     target_note = target_results if target_results is not None else "all"
@@ -1214,9 +1233,9 @@ def search_roofing_news(
     print(
         f"[{LOG_PREFIX}] Plan: {query_count} active queries "
         f"({queries_per_cluster}/cluster, ISO week {week_number}) "
-        f"from {len(SEARCH_PLAN)} total across {len(SEARCH_STAGES)} stages "
-        f"(target {target_note}, recency cap {max_age_days}d, "
-        f"{len(SEARCH_STAGES)} stages, max ~{max_credits} credits{trim_note})"
+        f"from {len(SEARCH_PLAN)} total across {stage_count} stages "
+        f"({stage_mode}; target {target_note}, recency cap {max_age_days}d, "
+        f"max ~{max_credits} credits{trim_note})"
     )
 
     results_by_url: dict[str, dict] = {}
@@ -1226,7 +1245,7 @@ def search_roofing_news(
             "max_results_per_query": stage.get("max_results_per_query", max_results_per_query),
             "recency_days": min(stage["days"], max_age_days),
         }
-        for stage in SEARCH_STAGES
+        for stage in stage_plan
     ]
     queries_run = 0
     skipped_used_sources = 0
@@ -1388,6 +1407,14 @@ if __name__ == "__main__":
     parser.add_argument("--include-used-sources", action="store_true")
     parser.add_argument("--queries-per-cluster", type=int, default=DEFAULT_QUERIES_PER_CLUSTER)
     parser.add_argument("--all-queries", action="store_true")
+    parser.add_argument(
+        "--domain-stages",
+        action="store_true",
+        help=(
+            "Run PRIORITY/SECONDARY/trade domain-locked stages before broad search "
+            "(default: broad + official only; content filters still apply)."
+        ),
+    )
     parser.add_argument("--rotation-week", type=int)
     parser.add_argument(
         "--preferred-cluster",
@@ -1419,7 +1446,8 @@ if __name__ == "__main__":
     print("Peachtree Blog Pipeline - search.py")
     print(
         f"Target {target or 'all'} results | keep within {args.max_age_days}d | "
-        f"Metro Atlanta / Georgia headline + roofing/storm signals"
+        f"Metro Atlanta / Georgia headline + roofing/storm signals | "
+        f"{'domain-locked stages' if args.domain_stages else 'broad + official (content-first)'}"
     )
     print("=" * 60)
 
@@ -1437,6 +1465,7 @@ if __name__ == "__main__":
             incremental_evaluate=args.incremental_evaluate,
             min_evaluated_kept=args.min_evaluated_kept,
             evaluate_model=args.evaluate_model,
+            use_domain_stages=args.domain_stages,
         )
     except (EnvironmentError, RuntimeError) as exc:
         print(f"\n[{LOG_PREFIX}] Setup needed: {exc}")
@@ -1454,7 +1483,7 @@ if __name__ == "__main__":
             print(
                 f"\n[{LOG_PREFIX}] Incremental search finished with {kept_count} kept source(s) "
                 f"(need {args.min_evaluated_kept} at score >= {KEEP_THRESHOLD}). "
-                "Try again later, --all-queries, or --include-used-sources."
+                "Try again later, --all-queries, --include-used-sources, or --domain-stages."
             )
             raise SystemExit(1)
         print(
@@ -1462,6 +1491,9 @@ if __name__ == "__main__":
             f"({len(results)} search candidate(s) logged)"
         )
     elif not results:
-        print("\n[!] No results kept. Try --include-used-sources or --all-queries.")
+        print(
+            "\n[!] No results kept. Try --include-used-sources, --all-queries, "
+            "or --domain-stages for local-TV-first search."
+        )
     else:
         print(f"\n[{LOG_PREFIX}] Done — {len(results)} results saved")

@@ -85,11 +85,13 @@ def run_full_pipeline(
     send_to_slack: bool,
     all_queries: bool = False,
     include_used_sources: bool = False,
+    use_domain_stages: bool = False,
 ) -> None:
     # run_pipeline_restart uses incremental search+evaluate by default.
     code = run_pipeline_restart(
         all_queries=all_queries,
         include_used_sources=include_used_sources,
+        use_domain_stages=use_domain_stages,
     )
     if code != 0:
         raise SystemExit(code)
@@ -135,6 +137,14 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="With --all: do not skip URLs already listed in used_sources.json.",
     )
+    parser.add_argument(
+        "--domain-stages",
+        action="store_true",
+        help=(
+            "With --all: run local-TV/trade domain-locked Tavily stages before broad search "
+            "(default: broad + official only)."
+        ),
+    )
     args = parser.parse_args(argv)
 
     if args.default:
@@ -146,6 +156,7 @@ def main(argv: list[str] | None = None) -> None:
             send_to_slack=args.send_to_slack,
             all_queries=args.all_queries,
             include_used_sources=args.include_used_sources,
+            use_domain_stages=args.domain_stages,
         )
         return
 
