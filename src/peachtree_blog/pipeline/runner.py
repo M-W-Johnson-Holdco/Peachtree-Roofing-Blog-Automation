@@ -19,6 +19,7 @@ PIPELINE_MODULES: dict[str, str] = {
     "search": "peachtree_blog.pipeline.search",
     "evaluate": "peachtree_blog.pipeline.evaluate",
     "write_serverless": "peachtree_blog.pipeline.write_serverless",
+    "write_multi": "peachtree_blog.pipeline.write_multi",
     "approve_listen": "peachtree_blog.pipeline.approve_listen",
     "post": "peachtree_blog.post",
     "clean_output": "peachtree_blog.tools.clean_output",

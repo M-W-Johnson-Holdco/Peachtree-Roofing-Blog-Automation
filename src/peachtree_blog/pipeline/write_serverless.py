@@ -34,7 +34,6 @@ from peachtree_blog.write_common import (
     DEFAULT_MODEL,
     DEFAULT_OUTPUT_DIR,
     DEFAULT_VALIDATION_MAX_ATTEMPTS,
-    PROMPT_PATH,
     REVISION_MODES,
     STYLE_NOTES_PATH,
     build_generation_report,
@@ -53,6 +52,13 @@ from peachtree_blog.write_common import (
     select_sources_for_draft,
     tag_generation_report,
     write_log_prefix,
+)
+from peachtree_blog.writing_prompts import (
+    describe_writing_prompt_rotation,
+    get_writing_prompt_variant,
+    load_writing_prompt_text,
+    select_writing_prompt_variant,
+    writing_prompt_variant_ids,
 )
 
 WRITE_RUNNER = "peachtree_blog.pipeline.write_serverless"
@@ -261,6 +267,18 @@ def main() -> None:
         action="store_true",
         help="With --dedicated-endpoint: do not clear output/drafts before writing.",
     )
+    parser.add_argument(
+        "--writing-prompt",
+        choices=("auto", *writing_prompt_variant_ids()),
+        default="auto",
+        help="Writing template: auto rotates geo/scenario/explainer by ISO week (default: auto).",
+    )
+    parser.add_argument(
+        "--rotation-week",
+        type=int,
+        default=0,
+        help="ISO week number for --writing-prompt auto (0 = current UTC week).",
+    )
     args = parser.parse_args()
 
     os.environ["WRITE_RUNNER"] = WRITE_RUNNER
@@ -297,6 +315,23 @@ def main() -> None:
     replace_draft_path = rewrite_context.get("replace_draft_path")
     revision_mode = args.revision_mode or rewrite_context.get("revision_mode") or None
     revision_mode_reason = rewrite_context.get("revision_mode_reason") or ""
+
+    rotation_week = args.rotation_week or None
+    if args.feedback_json and args.writing_prompt == "auto":
+        writing_prompt_id = rewrite_context.get("writing_prompt_id") or "geo"
+        prompt_variant = get_writing_prompt_variant(writing_prompt_id)
+    else:
+        prompt_variant = select_writing_prompt_variant(
+            rotation_week=rotation_week,
+            variant_id=args.writing_prompt,
+        )
+        writing_prompt_id = prompt_variant.id
+    if args.writing_prompt == "auto":
+        print(f"{log} Writing prompt rotation: {describe_writing_prompt_rotation(rotation_week=rotation_week)}")
+    print(
+        f"{log} Writing prompt: {prompt_variant.label} "
+        f"({prompt_variant.path.relative_to(PROJECT_ROOT)})"
+    )
     if args.feedback_json:
         if approval_feedback:
             print(f"{log} Loaded Slack approval feedback from {args.feedback_json}")
@@ -342,7 +377,7 @@ def main() -> None:
     author_credentials = os.getenv("AUTHOR_CREDENTIALS", DEFAULT_AUTHOR_CREDENTIALS)
 
     prompt = build_draft_prompt(
-        read_text(PROMPT_PATH),
+        load_writing_prompt_text(prompt_variant),
         selected_sources,
         read_text(STYLE_NOTES_PATH),
         author_name,
@@ -350,6 +385,7 @@ def main() -> None:
         approval_feedback,
         previous_draft,
         revision_mode,
+        writing_prompt_id=writing_prompt_id,
     )
 
     if use_dedicated_endpoint:
@@ -377,6 +413,8 @@ def main() -> None:
                     max_attempts=args.max_validation_attempts,
                     author_name=author_name,
                     author_credentials=author_credentials,
+                    writing_prompt_id=writing_prompt_id,
+                    selected_sources=selected_sources,
                 )
         generation_report["endpoint_management_used"] = True
         generation_report["endpoint_session_seconds"] = round(
@@ -418,6 +456,8 @@ def main() -> None:
                 max_attempts=args.max_validation_attempts,
                 author_name=author_name,
                 author_credentials=author_credentials,
+                writing_prompt_id=writing_prompt_id,
+                selected_sources=selected_sources,
             )
         generation_report["endpoint_management_used"] = False
         if revision_mode:
@@ -433,6 +473,7 @@ def main() -> None:
         model_used=model_used,
         generation_report=generation_report,
         skip_pdf=args.no_pdf,
+        writing_prompt_id=writing_prompt_id,
     )
 
 

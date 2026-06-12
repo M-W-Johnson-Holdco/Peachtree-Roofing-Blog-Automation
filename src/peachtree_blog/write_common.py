@@ -11,13 +11,22 @@ import time
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
 from peachtree_blog.cli_progress import run_with_progress
-from peachtree_blog.pipeline_costs import load_pipeline_costs
+from peachtree_blog.pipeline_costs import consume_tavily_search_ran, load_pipeline_costs
 from peachtree_blog.used_sources import normalize_source_url, sources_used_payload, used_source_urls
 from peachtree_blog.draft_pdf import save_draft_pdf
+from peachtree_blog.writing_prompts import (
+    DEFAULT_WRITING_PROMPT_ID,
+    SUMMARY_HEADING_WHO,
+    SUMMARY_HEADING_WHAT,
+    SUMMARY_HEADING_WHEN,
+    get_writing_prompt_variant,
+    writing_prompt_metadata,
+)
 
 
 
@@ -30,7 +39,13 @@ DRAFTS_PDF_DIRNAME = "drafts_pdf"
 DRAFTS_JSON_DIRNAME = "drafts_json"
 
 DEFAULT_MODEL = "Qwen/Qwen2.5-7B-Instruct-Turbo"
-SERVERLESS_FALLBACK_MODEL = "Qwen/Qwen2.5-7B-Instruct-Turbo"
+SERVERLESS_MODEL_FALLBACK_CHAIN: tuple[str, ...] = (
+    "Qwen/Qwen3.5-397B-A17B",
+    "Qwen/Qwen3-235B-A22B-Instruct-2507-tput",
+    "openai/gpt-oss-120b",
+)
+# First fallback after 397B; kept for backward-compatible imports.
+SERVERLESS_FALLBACK_MODEL = SERVERLESS_MODEL_FALLBACK_CHAIN[1]
 DEFAULT_AUTHOR_NAME = "Jonathan Gil"
 DEFAULT_AUTHOR_CREDENTIALS = "Licensed Roofing Contractor, Metro Atlanta"
 
@@ -91,6 +106,9 @@ GENERIC_OPENERS = [
     "When it comes to",
     "Storm season is here",
 ]
+
+MIN_CITATION_COUNT = 3
+MAX_CITATION_COUNT = 6
 
 SOURCE_STRATEGIES = ("auto", "best", "combine")
 WRITE_RUNNER_ENV = "WRITE_RUNNER"
@@ -284,6 +302,7 @@ def load_approval_rewrite_context(path: Path | None) -> dict[str, Any]:
             "replace_draft_path": None,
             "revision_mode": "",
             "revision_mode_reason": "",
+            "writing_prompt_id": DEFAULT_WRITING_PROMPT_ID,
         }
     if not path.exists():
         raise FileNotFoundError(f"Feedback JSON not found: {path}")
@@ -313,7 +332,18 @@ def load_approval_rewrite_context(path: Path | None) -> dict[str, Any]:
         "replace_draft_path": replace_draft_path,
         "revision_mode": revision_mode if approval_feedback else "",
         "revision_mode_reason": revision_mode_reason if approval_feedback else "",
+        "writing_prompt_id": _writing_prompt_id_from_record(data),
     }
+
+
+def _writing_prompt_id_from_record(record: dict[str, Any]) -> str:
+    writing_prompt = record.get("writing_prompt")
+    if isinstance(writing_prompt, dict):
+        prompt_id = str(writing_prompt.get("id") or "").strip()
+        if prompt_id:
+            return prompt_id
+    legacy = str(record.get("writing_prompt_id") or "").strip()
+    return legacy or DEFAULT_WRITING_PROMPT_ID
 
 
 def resolve_replace_draft_path(record: dict[str, Any]) -> Path | None:
@@ -516,14 +546,22 @@ def select_sources_for_draft(
     return selected, decision
 
 
-def validation_checklist_block(author_name: str, author_credentials: str) -> str:
+def validation_checklist_block(
+    author_name: str,
+    author_credentials: str,
+    *,
+    writing_prompt_id: str = DEFAULT_WRITING_PROMPT_ID,
+) -> str:
+    variant = get_writing_prompt_variant(writing_prompt_id)
     return (
         "- One H1 title at the top.\n"
-        "- Opening paragraph before the Quick Answer block is 50-120 words, answer-first, news-anchored.\n"
-        "- Quick Answer block after opening with **The short answer:**, **Who this affects:**, **What to do:**, **Timeline:**.\n"
+        f"- Opening paragraph before the summary block is 50-120 words, {variant.opening_style}, news-anchored.\n"
+        f"- Summary block after opening with {variant.summary_heading_markdown}, "
+        f"**{SUMMARY_HEADING_WHO}:**, **{SUMMARY_HEADING_WHAT}:**, **{SUMMARY_HEADING_WHEN}:**.\n"
         "- Every ## heading is a question ending with ?, except the exact heading `## FAQ`.\n"
         "- At least one markdown comparison table.\n"
-        "- 2–6 linked inline citations formatted `(Source: [Outlet Name](URL), Month Year)` using URLs from SOURCES — cite every citable fact, never invent one to hit a count.\n"
+        "- 3–6 linked inline citations formatted `(Source: [Outlet Name](URL), Month Year)` using URLs from SOURCES — cite every citable fact, never invent one to hit a count.\n"
+        "- When 2+ sources are provided, cite at least one fact from each outlet/domain.\n"
         f"- At least 6 different location names from this allowlist woven into the prose: {format_metro_locations_list()}.\n"
         "- Insurance/policy posts must bridge exclusions to roof inspection, flashing, maintenance, or replacement.\n"
         "- Exactly 8 FAQ questions as ### H3 headings under `## FAQ` (answers 3-5 sentences each).\n"
@@ -541,6 +579,8 @@ def build_first_draft_prompt(
     author_name: str,
     author_credentials: str,
     approval_feedback: str = "",
+    *,
+    writing_prompt_id: str = DEFAULT_WRITING_PROMPT_ID,
 ) -> str:
     sources_block = format_sources_block(sources)
     feedback_parts = [style_notes.strip()]
@@ -556,7 +596,11 @@ def build_first_draft_prompt(
         metro_locations_list=format_metro_locations_list(),
     )
 
-    checklist = validation_checklist_block(author_name, author_credentials)
+    checklist = validation_checklist_block(
+        author_name,
+        author_credentials,
+        writing_prompt_id=writing_prompt_id,
+    )
     indented_checklist = "\n".join(f"  {line}" for line in checklist.splitlines())
     return (
         f"{base_prompt}\n\n---\n\n"
@@ -568,10 +612,11 @@ def build_first_draft_prompt(
         "- Do not name court cases, legislation, or policy exclusions unless they appear explicitly in SOURCES.\n"
         "- Do not introduce unrelated regulatory topics (e.g., firearms exclusions in a roof-insurance post).\n"
         "- Before outputting, silently re-read the draft against SOURCES and fix fabrications, uncited numbers, and story-type mismatches.\n"
-        "- Cite every citable fact from SOURCES; aim for 2–6 linked citations — never add or remove one to hit a number.\n"
+        "- Cite every citable fact from SOURCES; include 3–6 linked citations — never add or remove one to hit a count.\n"
+        "- When 2+ sources are provided, include at least one citation linked to each source URL/outlet.\n"
         "- Keep all headings and FAQ questions in question format.\n"
         "- Use the exact FAQ format: ## FAQ, then exactly eight H3 question headings and 3-5 sentence answers.\n"
-        "- After the opening paragraph, include the Quick Answer block with all four labeled lines.\n"
+        "- After the opening paragraph, include the summary block with all four labeled lines.\n"
         "- Do not format the author byline as a heading.\n"
         "- Pass every automated validation check:\n"
         f"{indented_checklist}\n"
@@ -653,6 +698,8 @@ def build_draft_prompt(
     approval_feedback: str = "",
     previous_draft: str = "",
     revision_mode: str | None = None,
+    *,
+    writing_prompt_id: str = DEFAULT_WRITING_PROMPT_ID,
 ) -> str:
     is_rewrite = bool(previous_draft.strip() and approval_feedback.strip())
     if not is_rewrite:
@@ -663,6 +710,7 @@ def build_draft_prompt(
             author_name,
             author_credentials,
             approval_feedback,
+            writing_prompt_id=writing_prompt_id,
         )
 
     mode = revision_mode or REVISION_MODE_EDITORIAL
@@ -693,6 +741,8 @@ def build_prompt(
     approval_feedback: str = "",
     previous_draft: str = "",
     revision_mode: str | None = None,
+    *,
+    writing_prompt_id: str = DEFAULT_WRITING_PROMPT_ID,
 ) -> str:
     return build_draft_prompt(
         prompt_template,
@@ -703,6 +753,7 @@ def build_prompt(
         approval_feedback,
         previous_draft,
         revision_mode,
+        writing_prompt_id=writing_prompt_id,
     )
 
 
@@ -887,6 +938,25 @@ def extract_assistant_draft(message: Any) -> str:
     return extract_markdown_draft(content)
 
 
+def is_together_model_not_available_error(exc: BaseException) -> bool:
+    return "model_not_available" in str(exc)
+
+
+def serverless_fallback_models(model: str) -> list[str]:
+    """Models to try after ``model`` when Together reports ``model_not_available``."""
+    if model in SERVERLESS_MODEL_FALLBACK_CHAIN:
+        index = SERVERLESS_MODEL_FALLBACK_CHAIN.index(model)
+        return list(SERVERLESS_MODEL_FALLBACK_CHAIN[index + 1 :])
+    return []
+
+
+def serverless_model_attempt_sequence(model: str, *, allow_serverless_fallback: bool) -> list[str]:
+    models = [model]
+    if allow_serverless_fallback:
+        models.extend(serverless_fallback_models(model))
+    return models
+
+
 def generate_with_together(
     prompt: str,
     model: str,
@@ -925,31 +995,43 @@ def generate_with_together(
     started_at = time.monotonic()
     model_requested = model
     model_used = model
+    models_to_try = serverless_model_attempt_sequence(
+        model,
+        allow_serverless_fallback=allow_serverless_fallback,
+    )
 
-    try:
-        response = run_with_progress(
-            f"{write_log_prefix()} Generating draft",
-            lambda: call_model(model),
-            estimated_seconds=estimated_seconds,
-        )
-    except Exception as exc:
-        if (
-            "model_not_available" not in str(exc)
-            or model == SERVERLESS_FALLBACK_MODEL
-            or not allow_serverless_fallback
-        ):
-            raise
+    response = None
+    last_exc: Exception | None = None
+    for attempt_index, active_model in enumerate(models_to_try):
+        try:
+            if attempt_index > 0:
+                print(
+                    f"{write_log_prefix()} Model unavailable on Together serverless. "
+                    f"Retrying with {active_model}."
+                )
+            progress_label = (
+                f"{write_log_prefix()} Generating draft"
+                if attempt_index == 0
+                else f"{write_log_prefix()} Generating draft ({active_model})"
+            )
+            response = run_with_progress(
+                progress_label,
+                lambda active_model=active_model: call_model(active_model),
+                estimated_seconds=estimated_seconds,
+            )
+            model_used = active_model
+            break
+        except Exception as exc:
+            last_exc = exc
+            if not allow_serverless_fallback or not is_together_model_not_available_error(exc):
+                raise
+            if attempt_index >= len(models_to_try) - 1:
+                raise
 
-        print(
-            f"{write_log_prefix()} Model unavailable on Together serverless. "
-            f"Retrying with {SERVERLESS_FALLBACK_MODEL}."
-        )
-        model_used = SERVERLESS_FALLBACK_MODEL
-        response = run_with_progress(
-            f"{write_log_prefix()} Generating draft ({SERVERLESS_FALLBACK_MODEL})",
-            lambda: call_model(SERVERLESS_FALLBACK_MODEL),
-            estimated_seconds=estimated_seconds,
-        )
+    if response is None:
+        if last_exc is not None:
+            raise last_exc
+        raise RuntimeError("Together generation failed without a response.")
 
     elapsed_seconds = time.monotonic() - started_at
     usage = extract_usage(response)
@@ -1085,27 +1167,93 @@ def count_faq_pairs(markdown: str) -> int:
     return len(re.findall(r"^#{3,6}\s+\S.*\?", faq_section, flags=re.MULTILINE))
 
 
-def extract_opening_paragraph(markdown: str) -> str:
-    """First paragraph only — excludes Quick Answer block and body H2s."""
+def _summary_block_split_markers(writing_prompt_id: str = DEFAULT_WRITING_PROMPT_ID) -> tuple[str, ...]:
+    variant = get_writing_prompt_variant(writing_prompt_id)
+    return (
+        variant.summary_heading_markdown,
+        f"**{SUMMARY_HEADING_WHO}:**",
+        f"**{SUMMARY_HEADING_WHAT}:**",
+        f"**{SUMMARY_HEADING_WHEN}:**",
+    )
+
+
+def extract_opening_paragraph(
+    markdown: str,
+    *,
+    writing_prompt_id: str = DEFAULT_WRITING_PROMPT_ID,
+) -> str:
+    """First paragraph only — excludes summary block and body H2s."""
     body_without_title = re.sub(r"^# .+\n+", "", markdown).strip()
     before_first_h2 = re.split(r"\n^##\s+", body_without_title, maxsplit=1, flags=re.MULTILINE)[0]
-    if "**The short answer:**" in before_first_h2:
-        return before_first_h2.split("**The short answer:**", maxsplit=1)[0].strip()
+    primary_marker = _summary_block_split_markers(writing_prompt_id)[0]
+    if primary_marker in before_first_h2:
+        return before_first_h2.split(primary_marker, maxsplit=1)[0].strip()
+    for legacy_marker in (
+        "**The short answer:**",
+        "**Key takeaway:**",
+        "**Bottom line:**",
+    ):
+        if legacy_marker in before_first_h2:
+            return before_first_h2.split(legacy_marker, maxsplit=1)[0].strip()
     return before_first_h2.split("\n\n", maxsplit=1)[0].strip()
 
 
-def has_quick_answer_block(markdown: str) -> bool:
-    labels = (
-        r"\*\*The short answer:\*\*",
-        r"\*\*Who this affects:\*\*",
-        r"\*\*What to do:\*\*",
-        r"\*\*Timeline:\*\*",
-    )
-    return all(re.search(label, markdown, flags=re.IGNORECASE) for label in labels)
+def has_summary_block(
+    markdown: str,
+    *,
+    writing_prompt_id: str = DEFAULT_WRITING_PROMPT_ID,
+) -> bool:
+    labels = _summary_block_split_markers(writing_prompt_id)
+    return all(re.search(re.escape(label), markdown, flags=re.IGNORECASE) for label in labels)
+
+
+def has_quick_answer_block(markdown: str, *, writing_prompt_id: str = DEFAULT_WRITING_PROMPT_ID) -> bool:
+    """Backward-compatible alias for summary-block validation."""
+    return has_summary_block(markdown, writing_prompt_id=writing_prompt_id)
 
 
 def extract_citations(markdown: str) -> list[str]:
     return re.findall(r"\(Source:\s*[^)]+\)", markdown)
+
+
+def extract_citation_domains(citations: list[str]) -> set[str]:
+    domains: set[str] = set()
+    for citation in citations:
+        url_match = re.search(r"\]\((https?://[^)]+)\)", citation)
+        if not url_match:
+            continue
+        normalized = normalize_source_url(url_match.group(1))
+        if not normalized:
+            continue
+        domain = urlparse(normalized).netloc.lower()
+        if domain:
+            domains.add(domain)
+    return domains
+
+
+def source_item_domains(sources: list[dict[str, Any]]) -> set[str]:
+    domains: set[str] = set()
+    for item in sources:
+        url = str(item.get("url") or item.get("source", {}).get("url") or "").strip()
+        normalized = normalize_source_url(url)
+        if not normalized:
+            continue
+        domain = urlparse(normalized).netloc.lower()
+        if domain:
+            domains.add(domain)
+    return domains
+
+
+def citations_span_multiple_outlets(
+    citations: list[str],
+    selected_sources: list[dict[str, Any]],
+) -> bool:
+    """When multiple sources were used, citations must reference at least two outlet domains."""
+    required_domains = source_item_domains(selected_sources)
+    if len(required_domains) < 2:
+        return True
+    cited_domains = extract_citation_domains(citations)
+    return len(cited_domains & required_domains) >= 2
 
 
 def citations_include_links(citations: list[str]) -> bool:
@@ -1131,12 +1279,20 @@ def count_roof_service_bridge_signals(markdown: str) -> int:
     )
 
 
-def validate_draft(markdown: str) -> dict[str, Any]:
+def validate_draft(
+    markdown: str,
+    *,
+    writing_prompt_id: str = DEFAULT_WRITING_PROMPT_ID,
+    selected_sources: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    selected_sources = selected_sources or []
     h2s = re.findall(r"^##\s+(.+)$", markdown, flags=re.MULTILINE)
     citations = extract_citations(markdown)
+    citation_domains = sorted(extract_citation_domains(citations))
+    required_domains = sorted(source_item_domains(selected_sources))
     tables = bool(re.search(r"^\|.+\|\s*$", markdown, flags=re.MULTILINE))
     locations = sorted({loc for loc in METRO_LOCATIONS if re.search(rf"\b{re.escape(loc)}\b", markdown)})
-    opening_text = extract_opening_paragraph(markdown)
+    opening_text = extract_opening_paragraph(markdown, writing_prompt_id=writing_prompt_id)
     opening_words = len(opening_text.split())
     generic_openers = [phrase for phrase in GENERIC_OPENERS if phrase.lower() in markdown[:250].lower()]
     cta_count = count_cta_occurrences(markdown)
@@ -1146,11 +1302,14 @@ def validate_draft(markdown: str) -> dict[str, Any]:
     checks = {
         "has_h1": bool(re.search(r"^#\s+\S", markdown, flags=re.MULTILINE)),
         "answer_first_opening_roughly_50_to_120_words": 50 <= opening_words <= 120,
-        "has_quick_answer_block": has_quick_answer_block(markdown),
+        "has_quick_answer_block": has_summary_block(markdown, writing_prompt_id=writing_prompt_id),
         "all_h2_headings_are_questions": bool(h2s) and all(h2.strip().endswith("?") or h2.strip().lower() == "faq" for h2 in h2s),
         "has_comparison_table": tables,
-        "citation_count_2_to_6": 2 <= len(citations) <= 6,
+        "citation_count_3_to_6": MIN_CITATION_COUNT <= len(citations) <= MAX_CITATION_COUNT,
         "citations_include_links": citations_include_links(citations),
+        "citations_span_multiple_outlets": citations_span_multiple_outlets(
+            citations, selected_sources
+        ),
         "location_count_at_least_6": len(locations) >= 6,
         "bridges_to_roof_service": roof_bridge_count >= 2,
         "faq_exactly_8": count_faq_pairs(markdown) == 8,
@@ -1165,6 +1324,8 @@ def validate_draft(markdown: str) -> dict[str, Any]:
         "checks": checks,
         "h2_headings": h2s,
         "citation_count": len(citations),
+        "citation_domains_found": citation_domains,
+        "required_source_domains": required_domains,
         "cta_count": cta_count,
         "roof_bridge_signal_count": roof_bridge_count,
         "competitor_brands_found": competitor_hits,
@@ -1172,30 +1333,44 @@ def validate_draft(markdown: str) -> dict[str, Any]:
         "locations_found": locations,
         "faq_count": count_faq_pairs(markdown),
         "generic_openers_found": generic_openers,
+        "writing_prompt": writing_prompt_metadata(get_writing_prompt_variant(writing_prompt_id)),
     }
 
 
 DEFAULT_VALIDATION_MAX_ATTEMPTS = 3
 
+
+def summary_block_validation_hint(writing_prompt_id: str = DEFAULT_WRITING_PROMPT_ID) -> str:
+    variant = get_writing_prompt_variant(writing_prompt_id)
+    return (
+        "Immediately after the opening paragraph, include "
+        f"{variant.summary_heading_markdown}, "
+        f"**{SUMMARY_HEADING_WHO}:**, **{SUMMARY_HEADING_WHAT}:**, and **{SUMMARY_HEADING_WHEN}:** "
+        "on separate lines."
+    )
+
+
 VALIDATION_CHECK_HINTS: dict[str, str] = {
     "has_h1": "Start with one H1 title line: `# Your Title Here`.",
     "answer_first_opening_roughly_50_to_120_words": (
-        "The opening paragraph before the Quick Answer block must be 50-120 words, news-anchored, answer-first."
+        "The opening paragraph before the summary block must be 50-120 words, news-anchored, answer-first."
     ),
-    "has_quick_answer_block": (
-        "Immediately after the opening paragraph, include **The short answer:**, **Who this affects:**, "
-        "**What to do:**, and **Timeline:** on separate lines."
-    ),
+    "has_quick_answer_block": summary_block_validation_hint(),
     "all_h2_headings_are_questions": (
         "Every ## H2 heading must be a question ending with ?, except the exact heading `## FAQ`."
     ),
     "has_comparison_table": "Include at least one markdown comparison table using | pipe | syntax.",
-    "citation_count_2_to_6": (
-        "Include 2–6 linked inline citations formatted `(Source: [Outlet Name](URL), Month Year)` — cite every fact worth citing, never invent one to hit a count."
+    "citation_count_3_to_6": (
+        "Include 3–6 linked inline citations formatted `(Source: [Outlet Name](URL), Month Year)` — "
+        "three citations is valid; cite every fact worth citing, never invent one to hit a count."
     ),
     "citations_include_links": (
         "Every citation must include a markdown link to the source URL from SOURCES — "
         "e.g. `(Source: [Insurance Journal](https://...), June 2026)`."
+    ),
+    "citations_span_multiple_outlets": (
+        "When 2+ sources were provided, include at least one linked citation for each outlet/domain — "
+        "do not cite the same outlet for every fact."
     ),
     "bridges_to_roof_service": (
         "Connect insurance or policy content to roof condition — mention at least two of: "
@@ -1225,6 +1400,7 @@ def format_failed_validation_feedback(
     *,
     author_name: str,
     author_credentials: str,
+    writing_prompt_id: str = DEFAULT_WRITING_PROMPT_ID,
 ) -> str:
     failed = [name for name, passed in report["checks"].items() if not passed]
     lines = [
@@ -1239,14 +1415,26 @@ def format_failed_validation_feedback(
                 f'Include this exact sentence as normal paragraph text, not as a heading: '
                 f'"Written by {author_name}, {author_credentials}. Peachtree Roofing & Exteriors serves homeowners across Metro Atlanta."'
             )
+        elif name == "has_quick_answer_block":
+            hint = summary_block_validation_hint(writing_prompt_id)
         else:
             hint = VALIDATION_CHECK_HINTS.get(name, name.replace("_", " "))
         lines.append(f"- {hint}")
 
     if report.get("generic_openers_found"):
         lines.append(f"- Remove these generic openers: {', '.join(report['generic_openers_found'])}")
-    if report.get("citation_count") is not None and not report["checks"].get("citation_count_2_to_6"):
-        lines.append(f"- Current citation count: {report['citation_count']} (need 2–6 — cite every citable fact, never invent one to hit a count).")
+    if report.get("citation_count") is not None and not report["checks"].get("citation_count_3_to_6"):
+        lines.append(
+            f"- Current citation count: {report['citation_count']} "
+            f"(need {MIN_CITATION_COUNT}–{MAX_CITATION_COUNT} — cite every citable fact, never invent one to hit a count)."
+        )
+    if not report["checks"].get("citations_span_multiple_outlets"):
+        found = ", ".join(report.get("citation_domains_found") or []) or "none"
+        required = ", ".join(report.get("required_source_domains") or []) or "unknown"
+        lines.append(
+            f"- Citation outlets cited: {found}. Required source domains: {required}. "
+            "Include at least one linked citation per source when multiple sources were provided."
+        )
     if report.get("cta_count") is not None and not report["checks"].get("has_min_cta_count_3"):
         lines.append(f"- Current CTA count: {report['cta_count']} (need at least 3).")
     if report.get("competitor_brands_found"):
@@ -1375,6 +1563,45 @@ def print_generation_cost_summary(
         print(f"{log} Estimated combined cost: ${combined:.4f} USD")
 
 
+def format_multi_run_slack_lines(multi: dict[str, Any]) -> list[str]:
+    """Slack lines for parallel template scoring (write_multi)."""
+    if not isinstance(multi, dict):
+        return []
+
+    winner = str(multi.get("winner") or "").strip()
+    scores = multi.get("scores") or {}
+    lines: list[str] = []
+    if scores:
+        lines.append("• Template scores:")
+        for template_id in ("geo", "scenario", "explainer"):
+            entry = scores.get(template_id)
+            if not isinstance(entry, dict):
+                continue
+            marker = " ✓ sent" if template_id == winner else ""
+            lines.append(f"  – {template_id}: {entry.get('total', '?')}/62{marker}")
+    if multi.get("reason"):
+        lines.append(f"• Scorer: {multi['reason']}")
+    if multi.get("tiebreaker_applied"):
+        lines.append("• Tiebreaker applied (scores were tied)")
+    if multi.get("scoring_skipped"):
+        lines.append("• Scoring skipped (no templates passed validation)")
+
+    template_costs = multi.get("template_generation_costs_usd") or {}
+    if template_costs:
+        parts = [
+            f"{template_id} ${float(template_costs[template_id]):.4f}"
+            for template_id in ("geo", "scenario", "explainer")
+            if template_id in template_costs
+        ]
+        scorer = multi.get("scorer_estimated_cost_usd")
+        if scorer is not None:
+            parts.append(f"scorer ${float(scorer):.4f}")
+        if parts:
+            lines.append(f"  – write costs: {', '.join(parts)}")
+
+    return lines
+
+
 def format_generation_slack_lines(
     validation_report: dict[str, Any],
     *,
@@ -1409,15 +1636,21 @@ def format_generation_slack_lines(
             f"{_format_token_count(usage.get('total_tokens'))} total"
         )
 
-    token_cost = (generation.get("estimated_cost_usd") or {}).get("tokens") or {}
-    total_usd = token_cost.get("total")
-    if total_usd is not None:
-        input_usd = float(token_cost.get("input") or 0)
-        output_usd = float(token_cost.get("output") or 0)
-        lines.append(
-            f"• Est. inference cost: ${float(total_usd):.4f} USD "
-            f"(input ${input_usd:.4f}, output ${output_usd:.4f})"
-        )
+    from peachtree_blog.pipeline_costs import format_inference_cost_slack_line
+
+    inference_line = format_inference_cost_slack_line(validation_report)
+    if inference_line:
+        lines.append(inference_line)
+    else:
+        token_cost = (generation.get("estimated_cost_usd") or {}).get("tokens") or {}
+        total_usd = token_cost.get("total")
+        if total_usd is not None:
+            input_usd = float(token_cost.get("input") or 0)
+            output_usd = float(token_cost.get("output") or 0)
+            lines.append(
+                f"• Est. inference cost: ${float(total_usd):.4f} USD "
+                f"(input ${input_usd:.4f}, output ${output_usd:.4f})"
+            )
 
     if generation.get("validation_passed") is True:
         attempt = generation.get("validation_attempt")
@@ -1436,6 +1669,10 @@ def format_generation_slack_lines(
     if source_count is not None:
         lines.append(f"• Sources used: {source_count}")
 
+    multi = validation_report.get("multi_run")
+    if isinstance(multi, dict):
+        lines.extend(format_multi_run_slack_lines(multi))
+
     return lines
 
 
@@ -1447,6 +1684,8 @@ def generate_validated_draft(
     max_attempts: int = DEFAULT_VALIDATION_MAX_ATTEMPTS,
     author_name: str = DEFAULT_AUTHOR_NAME,
     author_credentials: str = DEFAULT_AUTHOR_CREDENTIALS,
+    writing_prompt_id: str = DEFAULT_WRITING_PROMPT_ID,
+    selected_sources: list[dict[str, Any]] | None = None,
 ) -> tuple[str, dict[str, Any], dict[str, Any]]:
     """Generate a draft and retry with validation feedback until checks pass or attempts run out."""
     log = write_log_prefix()
@@ -1475,7 +1714,11 @@ def generate_validated_draft(
         generation_report["validation_attempt"] = attempt
         generation_reports.append(generation_report)
 
-        validation_report = validate_draft(draft)
+        validation_report = validate_draft(
+            draft,
+            writing_prompt_id=writing_prompt_id,
+            selected_sources=selected_sources,
+        )
         if validation_report["passed"]:
             print(f"{log} Validation passed on attempt {attempt}.")
             break
@@ -1487,6 +1730,7 @@ def generate_validated_draft(
                 validation_report,
                 author_name=author_name,
                 author_credentials=author_credentials,
+                writing_prompt_id=writing_prompt_id,
             )
         else:
             print(f"{log} Warning: Draft still failing validation after {max_attempts} attempt(s).")
@@ -1578,11 +1822,17 @@ def save_draft_outputs(
     model_used: str,
     generation_report: dict[str, Any],
     skip_pdf: bool = False,
+    writing_prompt_id: str = DEFAULT_WRITING_PROMPT_ID,
+    report_extras: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Validate, save Markdown/PDF/JSON outputs, and print summary lines."""
     log = write_log_prefix()
     draft_path, pdf_path, report_path = output_paths(draft, output_dir)
-    report = validate_draft(draft)
+    report = validate_draft(
+        draft,
+        writing_prompt_id=writing_prompt_id,
+        selected_sources=selected_sources,
+    )
     report["generated_at"] = datetime.now().isoformat()
     report["source_count"] = len(selected_sources)
     report["available_source_count"] = len(sources)
@@ -1591,13 +1841,20 @@ def save_draft_outputs(
     report["generation"] = generation_report
     report["draft_path"] = str(draft_path)
     report["sources_used"] = sources_used_payload(selected_sources)
+    search_ran = consume_tavily_search_ran() is not None
+    report["tavily_search_ran"] = search_ran
     pipeline_costs = load_pipeline_costs()
     if pipeline_costs:
-        report["pipeline_costs"] = pipeline_costs
+        embedded_costs = dict(pipeline_costs)
+        if not search_ran:
+            embedded_costs.pop("search", None)
+        report["pipeline_costs"] = embedded_costs
     if generation_report.get("validation_attempts") is not None:
         report["validation_attempts"] = generation_report["validation_attempts"]
     if generation_report.get("validation_passed") is not None:
         report["validation_passed_on_generation"] = generation_report["validation_passed"]
+    if report_extras:
+        report.update(report_extras)
 
     save_text(draft, draft_path, log_prefix=log)
     if skip_pdf:

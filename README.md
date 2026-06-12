@@ -303,7 +303,7 @@ TOGETHER_EVALUATION_MODEL=Qwen/Qwen2.5-7B-Instruct-Turbo
 5. Preserves the strategy metadata from search, including `strategy_cluster`, `pillar_topic`, and `trigger_window_hours`.
 6. Adds a `recommended_angle` for the future blog-writing stage.
 7. Writes all scored sources to `output/sources/evaluated_sources.json`.
-8. Writes sources with `weighted_score >= 5.0` to `output/sources/kept_sources.json`.
+8. Writes sources with `weighted_score >= 7.0` to `output/sources/kept_sources.json`.
 
 Run evaluation with:
 
@@ -399,7 +399,10 @@ bash scripts/write_with_endpoint.sh
 `write_serverless.py`:
 
 1. Reads kept sources from `output/sources/kept_sources.json`.
-2. Loads the blog-writing prompt from `prompts/blog.txt`.
+2. Loads one of three writing prompts — **`--writing-prompt auto` (default) rotates by ISO calendar week** so consecutive weeks cycle `geo` → `scenario` → `explainer`:
+   - `geo` — `prompts/blog.txt` (news hook + **The short answer**)
+   - `scenario` — `prompts/blog_scenario.txt` (homeowner vignette + **Key takeaway**)
+   - `explainer` — `prompts/blog_explainer.txt` (definition-first + **Bottom line**)
 3. Loads editor feedback from `feedback/style_notes.txt`.
 4. Formats source excerpts, evaluation reasons, strategy clusters, and recommended angles into a source block.
 5. Calls Together AI to generate a Markdown draft.
@@ -433,6 +436,12 @@ conda run -n blog-automation python -m peachtree_blog.pipeline.write_serverless 
 conda run -n blog-automation python -m peachtree_blog.pipeline.write_serverless --source-strategy combine
 ```
 
+Force a template (default is `--writing-prompt auto`):
+
+```bash
+conda run -n blog-automation python -m peachtree_blog.pipeline.write_serverless --writing-prompt scenario
+```
+
 ### Draft Validation
 
 After generation, the writer checks the draft for core GEO requirements:
@@ -441,7 +450,7 @@ After generation, the writer checks the draft for core GEO requirements:
 - Opening paragraph is roughly 50-120 words.
 - H2 headings are questions, except the exact `## FAQ` heading.
 - A comparison table exists.
-- Citation count is 3-5.
+- Citation count is 3–6 linked inline citations.
 - At least 6 Metro Atlanta locations appear.
 - FAQ has exactly 8 H3 question headings.
 - Author byline exists.
@@ -655,7 +664,7 @@ The GitHub **Publish to Website** workflow (`publish.yml`) calls the same module
 
 | Workflow | When | What |
 |----------|------|------|
-| **Weekly Blog Pipeline** | Monday 8 AM ET + manual | Search → evaluate → write → post draft to Slack |
+| **Weekly Blog Pipeline** | Mon + Wed 8 AM ET + manual | Search → evaluate → write → post draft to Slack; Wed retry only if Mon produced no archived draft |
 | **Publish to Website** | Manual | PSAI `POST /v1/blogs` for an approved draft |
 
 Slack **reactions** (✅ approve, 🌐 publish) still require `approve_listen listen` on your machine — GitHub Actions cannot run the Socket Mode listener.

@@ -6,7 +6,7 @@ This repo uses GitHub Actions for **scheduled draft generation** and **manual we
 
 | Workflow | Trigger | What it does |
 |----------|---------|--------------|
-| **Weekly Blog Pipeline** (`weekly.yml`) | Mon 8 AM ET (cron) or manual | `search → evaluate → write`, then posts the latest draft to Slack |
+| **Weekly Blog Pipeline** (`weekly.yml`) | Mon + Wed 8 AM ET (cron) or manual | Mon: search → evaluate → write → Slack. Writing template auto-rotates by ISO week (`geo` → `scenario` → `explainer`). Wed retry if no draft (widened search); Slack on Mon failure and final alert if Wed also fails |
 | **Slack Approval Handler** (`slack_approve.yml`) | Dispatched by Cloudflare Worker | Processes Slack ✅/🌐/feedback via Python; commits `generated/` |
 | **Publish to Website** (`publish.yml`) | Manual only | `POST /v1/blogs` to PSAI for an approved draft |
 | **Approval Webhook** (`approve.yml`) | Manual only | Legacy alias of `publish.yml` with `decision: approve \| revise` |
@@ -20,9 +20,11 @@ search → evaluate → write
         ↓
 Post draft + PDF to Slack (#blog-approvals)
         ↓
-YOU: run approve_listen listen locally (or hosted Socket Mode)
+If Mon fails → Slack notice + Wed 8 AM retry (--all-queries)
         ↓
-React ✅ approve · 🌐 publish (when PSAI platform is ready)
+If Wed retry also fails → one Slack “no draft this week” message
+        ↓
+React ✅ approve · reply publish (when PSAI platform is ready)
         ↓
 Optional: Actions → Publish to Website (manual backup)
 ```

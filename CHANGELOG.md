@@ -28,7 +28,268 @@ Notes / next step:
 Notes / next step:
 - Push `.github/workflows/slack_approve.yml` so ✅ approvals persist on GitHub before 🌐 publish works.
 
-## 2026-06-12 - Omit View post link from PSAI Slack success message
+## 2026-06-12 - Default draft scorer to 235B tput
+
+Changed:
+- `draft_scorer.py`: `SCORER_MODEL` default is now `Qwen/Qwen3-235B-A22B-Instruct-2507-tput` (was 397B). `write_multi --scorer-model` still overrides.
+
+Why:
+- Scoring uses small draft summaries; 235B is enough for rubric JSON and costs less than 397B on every `write_multi` run.
+
+Files touched:
+- `src/peachtree_blog/draft_scorer.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run.
+
+Notes / next step:
+- If 235B is unavailable on Together, scorer falls back to GPT-OSS 120B via the existing serverless chain.
+
+## 2026-06-12 - Slack Tavily cost only when search ran
+
+Changed:
+- `pipeline_costs.py`: search stage writes `.tavily_search_ran.json`; write consumes it and sets `tavily_search_ran` on validation JSON; Slack shows `$0.0000` Tavily for revisions/write-only, actual cost after search or pipeline rerun.
+- `write_common.save_draft_outputs()`: strips stale `pipeline_costs.search` when no search ran in the current process.
+- `search.py`: calls `mark_tavily_search_ran()` after recording search credits.
+- `approve_listen.build_approval_intro()`: passes `rewritten_from` / `recycled_from` into cost formatting.
+
+Why:
+- Revisions and write-only posts were showing ~$0.008+ Tavily from a previous search because `pipeline_costs.json` persisted stale search data.
+
+Files touched:
+- `src/peachtree_blog/pipeline_costs.py`
+- `src/peachtree_blog/write_common.py`
+- `src/peachtree_blog/pipeline/search.py`
+- `src/peachtree_blog/pipeline/approve_listen.py`
+
+Tested:
+- `tavily_cost_usd_for_slack()` unit smoke test (no Tavily API calls).
+
+Notes / next step:
+- Existing validation JSONs without `tavily_search_ran` still use legacy fallback (revision intro line forces `$0` when `rewritten_from` is set).
+
+## 2026-06-12 - Serverless model fallback chain 397B → 235B → 120B
+
+Changed:
+- `write_common.py`: replaced single 7B fallback with ordered chain `397B → 235B tput → GPT-OSS 120B` on Together `model_not_available`; added `serverless_model_attempt_sequence()` helpers.
+- `draft_scorer.py`: scorer uses the same fallback chain when 397B is unavailable.
+
+Why:
+- Automatic fallback should step down to the next largest configured writer models, not jump to 7B.
+
+Files touched:
+- `src/peachtree_blog/write_common.py`
+- `src/peachtree_blog/draft_scorer.py`
+
+Tested:
+- `serverless_model_attempt_sequence()` smoke test passed.
+
+Notes / next step:
+- Validation retries still use the model that succeeded on the first API call in that attempt.
+
+## 2026-06-12 - Slack shows total multi-template inference cost
+
+Changed:
+- `pipeline_costs.py`: added `summarize_multi_run_inference_costs()` and `format_inference_cost_slack_line()`; `inference_cost_usd()` now sums all compared template writes + scorer when `multi_run.total_inference_cost_usd` is present (plus evaluate when available).
+- `write_multi.py`: stores per-template and total write+scorer costs in `multi_run` and `score_result.json`; logs cost breakdown after scoring.
+- `write_common.py` / `pipeline_costs.py`: Slack approval summary shows combined inference cost with `(all templates + scorer + evaluate)` and a per-template write-cost sub-line under template scores.
+
+Why:
+- Approval Slack posts previously showed only the winner draft’s token cost, hiding the cost of generating and scoring the other compared templates.
+
+Files touched:
+- `src/peachtree_blog/pipeline_costs.py`
+- `src/peachtree_blog/pipeline/write_multi.py`
+- `src/peachtree_blog/write_common.py`
+
+Tested:
+- `summarize_multi_run_inference_costs()` + `format_inference_cost_slack_line()` unit smoke test passed.
+
+Notes / next step:
+- Re-run `write_multi` and post to Slack to see the updated cost line on a fresh draft.
+
+## 2026-06-12 - Multi-template draft generation with Qwen rubric scoring
+
+Changed:
+- Added `src/peachtree_blog/draft_scorer.py`: builds draft summaries, scores geo/scenario/explainer with Qwen3.5-397B on a 6-dimension rubric, applies tiebreaker, returns winner.
+- Added `src/peachtree_blog/pipeline/write_multi.py`: parallel generation of all three templates, hard validation, scorer selection, winner saved to `output/drafts`, all runs archived under `output/multi_run/<timestamp>/`.
+- `runner.py`: registered `write_multi` pipeline module.
+- `write_common.py`: `report_extras` on `save_draft_outputs`; `format_multi_run_slack_lines()` + multi-run block in `format_generation_slack_lines()`.
+- `pipeline_costs.py`: Slack approval summary includes template scores when `multi_run` is present on validation JSON.
+
+Why:
+- Compare all three writing templates on the same sources and send the highest-scoring draft to Slack approval instead of rotating a single template blindly.
+
+Files touched:
+- `src/peachtree_blog/draft_scorer.py`
+- `src/peachtree_blog/pipeline/write_multi.py`
+- `src/peachtree_blog/pipeline/runner.py`
+- `src/peachtree_blog/write_common.py`
+- `src/peachtree_blog/pipeline_costs.py`
+
+Tested:
+- `python3 -c "from peachtree_blog.draft_scorer import run_scoring; from peachtree_blog.pipeline.write_multi import main"` imports OK.
+
+Notes / next step:
+- Wire `write_multi` into weekly pipeline / GitHub workflow when ready to replace single-template `write_serverless`.
+
+## 2026-06-12 - Align writing prompt validation with unified Quick Answer label
+
+Changed:
+- `writing_prompts.py`: scenario and explainer variants now use `summary_heading="The short answer"` to match the prompt LABEL RULE (was "Key takeaway" / "Bottom line").
+
+Why:
+- Regenerated comparison drafts failed `has_quick_answer_block` because prompts require `**The short answer:**` but validation still looked for variant-specific labels.
+
+Files touched:
+- `src/peachtree_blog/writing_prompts.py`
+
+Tested:
+- Regenerated geo/scenario/explainer comparison drafts after fix.
+
+Notes / next step:
+- Update README rotation table if it still lists Key takeaway / Bottom line labels.
+
+## 2026-06-12 - Lock Quick Answer label + prohibit neighborhood bullet lists across all three templates
+
+Changed:
+- All three prompt files (`blog.txt`, `blog_explainer.txt`, `blog_scenario.txt`): added LABEL RULE block after the Summary/Quick Answer block definition — model must use `**The short answer:**` verbatim; "Bottom line:", "Key takeaway:", "TL;DR:", and all other substitutes are explicitly prohibited.
+- Updated opening descriptor line in `blog_explainer.txt` ("Bottom line block" → "The short answer block") and `blog_scenario.txt` ("Key takeaway block" → "The short answer block").
+- All three prompt files: neighborhood/location body section now explicitly requires prose paragraphs — bullet points and numbered lists are prohibited in that section.
+
+Why:
+- Draft comparison (geo/explainer/scenario, 2026-06-12) showed explainer used "Bottom line:" and scenario used "Key takeaway:" instead of the required "The short answer:" — inconsistency breaks AI citation parsing.
+- Geo draft neighborhood section used bullet points instead of prose — bullets fragment context that AI engines need to quote a single coherent sentence.
+
+Files touched:
+- `prompts/blog.txt`
+- `prompts/blog_explainer.txt`
+- `prompts/blog_scenario.txt`
+
+Tested:
+-
+
+Notes / next step:
+- Re-run all three draft styles on the same source to verify label and prose fixes hold.
+
+## 2026-06-10 - Min 3 citations, outlet diversity validation, template prompt tuning
+
+Changed:
+- Citation validation: minimum **3** (max 6); check renamed `citation_count_3_to_6`. Three citations passes — no penalty for hitting only the floor.
+- New validator `citations_span_multiple_outlets` when 2+ sources: at least one linked citation per source domain.
+- **geo** (`blog.txt`): outlet+date in sentence one; 4-column table preference; stricter multi-outlet cites.
+- **scenario** (`blog_scenario.txt`): stronger vignette/summary block; body H2s require county or roofing term; richer FAQ/table guidance.
+- **explainer** (`blog_explainer.txt`): active-voice H2 examples; FAQ must extend body; 4-column table with action.
+
+Why:
+- Geo drafts were passing with single-outlet citations; min 3 without punishing exactly-3; each template gets targeted quality guidance from draft comparison review.
+
+Files touched:
+- `src/peachtree_blog/write_common.py`
+- `src/peachtree_blog/pipeline/write_serverless.py`
+- `prompts/blog.txt`
+- `prompts/blog_scenario.txt`
+- `prompts/blog_explainer.txt`
+- `README.md`
+
+Tested:
+- Not run (validation logic + prompt edits).
+
+Notes / next step:
+- Re-run write on 2-source kept set to confirm outlet diversity retry works.
+
+## 2026-06-10 - Three rotating writing prompt templates
+
+Changed:
+- Added `geo` (`prompts/blog.txt`), `scenario` (`prompts/blog_scenario.txt`), and `explainer` (`prompts/blog_explainer.txt`) writing variants with different openings and summary labels (**The short answer** / **Key takeaway** / **Bottom line**).
+- New `src/peachtree_blog/writing_prompts.py` selects variant by ISO week when `--writing-prompt auto` (default).
+- `write_serverless.py`: `--writing-prompt` and `--rotation-week`; Slack rewrites reuse the original draft's template from validation JSON.
+- Validation in `write_common.py` is variant-aware for opening extraction and summary-block checks.
+
+Why:
+- Weekly posts should not all read identically while keeping shared GEO quality gates (FAQ, citations, table, CTAs).
+
+Files touched:
+- `src/peachtree_blog/writing_prompts.py`
+- `src/peachtree_blog/write_common.py`
+- `src/peachtree_blog/pipeline/write_serverless.py`
+- `prompts/blog.txt`
+- `prompts/blog_scenario.txt`
+- `prompts/blog_explainer.txt`
+- `README.md`
+
+Tested:
+- `python -c` import/rotation smoke test for `select_writing_prompt_variant`.
+
+Notes / next step:
+- Weekly CI uses `--writing-prompt auto` by default; ISO week picks the template (cycles every 3 weeks).
+
+## 2026-06-10 - Raise evaluate keep threshold to 7.0
+
+Changed:
+- `KEEP_THRESHOLD` in `evaluate.py` from 5.0 to 7.0 (incremental search early-stop and `kept_sources.json` filter).
+- `MIN_FALLBACK_WEIGHTED_SCORE` aligned to 7.0; evaluate prompt and README updated.
+
+Why:
+- Tighter source quality bar before drafting.
+
+Files touched:
+- `src/peachtree_blog/pipeline/evaluate.py`
+- `prompts/evaluate.txt`
+- `README.md`
+
+Tested:
+- Not run (constant + prompt change).
+
+Notes / next step:
+- Quiet weeks may search longer before two sources score >= 7.0; Wed retry still widens queries.
+
+## 2026-06-10 - Slack alert on Monday pipeline failure
+
+Changed:
+- Monday scheduled failure now posts to `#blog-approvals` with a retry notice (Wednesday 8:00 AM ET, widened search).
+- `monday_failure_notified_at` in `generated/weekly_pipeline.json` dedupes the Monday message; Wednesday final-failure message unchanged.
+
+Why:
+- Operators should know Monday failed without checking GitHub Actions, while still getting one final alert if Wed retry also fails.
+
+Files touched:
+- `src/peachtree_blog/weekly_pipeline.py`
+- `scripts/notify_slack_no_draft.py`
+
+Tested:
+- Logic review; existing failure workflow step already calls `notify_slack_no_draft.py` for scheduled runs.
+
+Notes / next step:
+- Push workflow/state changes if not already on `main`.
+
+## 2026-06-10 - Conditional Wed retry and no-draft Slack alert
+
+Changed:
+- **Weekly Blog Pipeline** (`weekly.yml`): added Wednesday 12:00 UTC cron; plan step gates Wed run on no draft archived this ISO week; Wed uses `--all-queries`.
+- New `src/peachtree_blog/weekly_pipeline.py` tracks state in `generated/weekly_pipeline.json` (draft run ID, Mon/Wed attempts, one-time no-draft flag).
+- New scripts: `weekly_pipeline_plan.py`, `weekly_pipeline_record.py`, `notify_slack_no_draft.py`.
+- After Mon retry fails search/evaluate, posts to Slack that it will retry Wed 8 AM ET; after Wed retry also fails, posts one final “no draft this week” message; manual dispatch does not notify or record weekly state.
+
+Why:
+- Quiet news weeks should retry once with widened search without duplicate drafts or alert fatigue.
+
+Files touched:
+- `.github/workflows/weekly.yml`
+- `src/peachtree_blog/weekly_pipeline.py`
+- `src/peachtree_blog/paths.py`
+- `scripts/weekly_pipeline_plan.py`
+- `scripts/weekly_pipeline_record.py`
+- `scripts/notify_slack_no_draft.py`
+- `docs/github-actions.md`
+
+Tested:
+- `python scripts/weekly_pipeline_plan.py` (manual + simulated schedule paths)
+
+Notes / next step:
+- Push workflow file with `workflow`-scoped token; first Wed skip needs Mon success recorded in `generated/weekly_pipeline.json`.
+
 
 Changed:
 - `psai_publish_success_text()` no longer appends the PSAI preview URL link in Slack replies.

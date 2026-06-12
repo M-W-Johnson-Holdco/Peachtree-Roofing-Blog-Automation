@@ -401,6 +401,8 @@ def build_approval_intro(
     summary_lines = format_approval_summary_slack_lines(
         validation_report or {},
         model_display=model_display,
+        rewritten_from=rewritten_from,
+        recycled_from=recycled_from,
     )
     if summary_lines:
         intro.extend(summary_lines)

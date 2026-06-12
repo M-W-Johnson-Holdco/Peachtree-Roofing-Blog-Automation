@@ -39,7 +39,7 @@ from peachtree_blog.pipeline.evaluate import (
     TARGET_EVALUATED_KEPT,
 )
 from peachtree_blog.used_sources import normalize_source_url, used_source_urls
-from peachtree_blog.pipeline_costs import record_evaluate_cost, record_search_cost, reset_pipeline_costs
+from peachtree_blog.pipeline_costs import record_evaluate_cost, record_search_cost, reset_pipeline_costs, mark_tavily_search_ran
 
 
 DEFAULT_MAX_AGE_DAYS = 21
@@ -1366,6 +1366,7 @@ def search_roofing_news(
 
     credits_used = queries_run * TAVILY_ADVANCED_SEARCH_CREDITS
     record_search_cost(queries_run=queries_run, credits_used=credits_used)
+    mark_tavily_search_ran(credits_used=credits_used, queries_run=queries_run)
     skipped_note = f", skipped {skipped_used_sources} previously used" if skipped_used_sources else ""
     reject_note = ""
     if pipeline_rejects:

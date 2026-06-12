@@ -16,8 +16,9 @@ on:
         type: boolean
         default: false
   schedule:
-    # Monday 8:00 AM America/New_York ≈ 12:00 UTC (EDT). Use 13:00 UTC during EST.
+    # Monday / Wednesday 8:00 AM America/New_York ≈ 12:00 UTC (EDT). Use 13:00 UTC during EST.
     - cron: "0 12 * * 1"
+    - cron: "0 12 * * 3"
 
 concurrency:
   group: weekly-blog-pipeline
@@ -45,7 +46,25 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
 
+      - name: Pull latest generated state
+        if: github.event_name == 'schedule'
+        run: git pull --rebase origin "${GITHUB_REF_NAME:-main}" || git pull --rebase
+
+      - name: Plan weekly run
+        id: plan
+        env:
+          PYTHONPATH: src
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          WIDEN_SEARCH_INPUT: ${{ inputs.widen_search }}
+        run: python scripts/weekly_pipeline_plan.py
+
+      - name: Skip pipeline (draft already posted this week)
+        if: steps.plan.outputs.run_pipeline != 'true'
+        run: |
+          echo "Skipping pipeline — ${{ steps.plan.outputs.skip_reason || 'plan said do not run' }}"
+
       - name: Run search → evaluate → write
+        if: steps.plan.outputs.run_pipeline == 'true'
         env:
           PYTHONPATH: src
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
@@ -56,7 +75,7 @@ jobs:
         run: |
           set -euo pipefail
           EXTRA=()
-          if [ "${{ github.event_name == 'workflow_dispatch' && inputs.widen_search == true }}" = "true" ]; then
+          if [ "${{ steps.plan.outputs.widen_search }}" = "true" ]; then
             EXTRA+=(--all-queries)
           fi
           if [ "${{ github.event_name == 'workflow_dispatch' && inputs.include_used_sources == true }}" = "true" ]; then
@@ -65,7 +84,7 @@ jobs:
           python pipeline.py --all --default "${EXTRA[@]}"
 
       - name: Post draft to Slack
-        if: github.event_name == 'schedule' || inputs.send_to_slack == true
+        if: steps.plan.outputs.run_pipeline == 'true' && (github.event_name == 'schedule' || inputs.send_to_slack == true)
         env:
           PYTHONPATH: src
           SLACK_APPROVAL_BOT_TOKEN: ${{ secrets.SLACK_APPROVAL_BOT_TOKEN }}
@@ -74,14 +93,20 @@ jobs:
         run: python pipeline.py --stage approve_post
 
       - name: Archive draft for Slack webhook
-        if: github.event_name == 'schedule' || inputs.send_to_slack == true
+        if: steps.plan.outputs.run_pipeline == 'true' && (github.event_name == 'schedule' || inputs.send_to_slack == true)
         env:
           PYTHONPATH: src
         run: python scripts/archive_ci_draft.py --run-id "${{ github.run_id }}"
 
-      - name: Commit generated draft archive
-        if: github.event_name == 'schedule' || inputs.send_to_slack == true
+      - name: Record weekly success and commit archive
+        if: steps.plan.outputs.run_pipeline == 'true' && (github.event_name == 'schedule' || inputs.send_to_slack == true)
+        env:
+          PYTHONPATH: src
         run: |
+          python scripts/weekly_pipeline_record.py \
+            --status success \
+            --day "${{ steps.plan.outputs.scheduled_day }}" \
+            --run-id "${{ github.run_id }}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add generated/
@@ -90,7 +115,7 @@ jobs:
           git push
 
       - name: Upload draft artifacts
-        if: success()
+        if: success() && steps.plan.outputs.run_pipeline == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: blog-draft-${{ github.run_id }}
@@ -102,3 +127,23 @@ jobs:
             output/sources/evaluated_sources.json
           if-no-files-found: warn
           retention-days: 30
+
+      - name: Record failure and notify if final
+        if: failure() && steps.plan.outputs.run_pipeline == 'true' && github.event_name == 'schedule'
+        env:
+          PYTHONPATH: src
+          SLACK_APPROVAL_BOT_TOKEN: ${{ secrets.SLACK_APPROVAL_BOT_TOKEN }}
+          SLACK_APPROVAL_CHANNEL: ${{ secrets.SLACK_APPROVAL_CHANNEL }}
+        run: |
+          python scripts/weekly_pipeline_record.py \
+            --status failed \
+            --day "${{ steps.plan.outputs.scheduled_day }}" \
+            --run-id "${{ github.run_id }}"
+          python scripts/notify_slack_no_draft.py --day "${{ steps.plan.outputs.scheduled_day }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin "${GITHUB_REF_NAME:-main}" || true
+          git add generated/weekly_pipeline.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Record weekly pipeline failure (${{ steps.plan.outputs.scheduled_day }}) run ${{ github.run_id }}"
+          git push

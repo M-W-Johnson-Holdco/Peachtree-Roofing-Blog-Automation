@@ -1,4 +1,4 @@
-You are writing a blog post for Peachtree Roofing & Exteriors (GEO template: news hook + Quick Answer block). The post will be published on their website and must be optimized for Generative Engine Optimization (GEO) — written to be cited by AI search engines like ChatGPT, Perplexity, and Google AI Overviews.
+You are writing a blog post for Peachtree Roofing & Exteriors (scenario-led template: homeowner vignette + The short answer block). The post will be published on their website and must be optimized for Generative Engine Optimization (GEO) — written to be cited by AI search engines like ChatGPT, Perplexity, and Google AI Overviews.
 
 SOURCES TO DRAW FROM:
 {sources_block}
@@ -51,32 +51,34 @@ STRUCTURE REQUIREMENTS (follow exactly):
    GOOD: "Atlanta Roof Insurance: How the 2026 Court Ruling Affects Your Claim"
    BAD: "Ultimate Guide to Atlanta Roofing and Storm Season Preparation"
 
-2. ANSWER-FIRST OPENING — 50–120 words. Sentence one must name the news outlet (or event source), the date, and Metro Atlanta relevance. Then answer the reader's most likely question directly. No setup sentences. No generic openers.
+2. SCENARIO OPENING — 50–120 words. Open with a composite homeowner vignette in Metro Atlanta tied to the news event (first name only — e.g., "When Denise in Decatur…" — not a real person). Within the first two sentences, anchor to the dated news from SOURCES and a concrete homeowner consequence (ceiling stain, missing shingle, gutter overflow, etc.). Show local stakes before the summary block. No generic openers.
 
-   GOOD opening sentence:
-   "On June 4, 2026, the Georgia Supreme Court upheld a ruling that expands broker liability, which may lead insurers to tighten roof-claim documentation in Metro Atlanta."
+   GOOD opening pattern:
+   "When heavy rains hit Metro Atlanta on May 26, 2026, a homeowner in Decatur noticed a new ceiling stain — the same storm NBC News warned could drop 1–3 inches per hour across the South."
 
-   BAD opening sentence:
-   "Storm season is here, and Atlanta homeowners need to understand the complex world of insurance."
+   BAD opening:
+   A press-release recap with no human scene, or invented dollar amounts not in SOURCES.
 
-   Immediately after the opening paragraph include a Quick Answer block:
-   **The short answer:** [1–2 sentence direct answer]
-   **Who this affects:** [specific neighborhoods or homeowner type]
-   **What to do:** [single most important action]
-   **Timeline:** [how soon to act]
+   Immediately after the opening paragraph include a Summary block:
+   **The short answer:** [1–2 sentence direct answer — name specific counties or homeowner types]
+   **Who this affects:** [specific neighborhoods or homeowner type with county names]
+   **What to do:** [single most important action — inspection, documentation, or drainage step]
+   **Timeline:** [specific timeframe — hours or days, not vague "soon"]
 
-   LABEL RULE: Use the exact labels above verbatim — do not substitute "Bottom line:", "Key takeaway:", "TL;DR:", or any other phrasing. The label **The short answer:** must appear exactly as written.
+   LABEL RULE: Use the exact labels above verbatim — do not substitute "Key takeaway:", "Bottom line:", "TL;DR:", or any other phrasing. The label **The short answer:** must appear exactly as written.
 
 3. BODY — write as long as the content requires; do not pad to hit a word count.
 
-   H2 headings must be questions a homeowner would type into an AI search engine. Every H2 ends with ?, except "## FAQ". Write the question so it is standalone and answerable — a location or roofing term belongs in the heading only when it makes the question more precise, not as a keyword rule.
+   H2 headings must be questions a homeowner would type into an AI search engine. Every body H2 ends with ?, except "## FAQ". **Each body H2 must include either a Metro Atlanta county/neighborhood name or a specific roofing term** (flashing, wind uplift, hail, gutters, RCV, etc.) — not generic risk labels alone.
 
-   CORRECT H2: "Which Gwinnett County Neighborhoods Face the Highest Flash Flood Risk?"
+   CORRECT H2: "Which Gwinnett County Neighborhoods Face the Highest Flash Flood and Roof Leak Risk?"
+   CORRECT H2: "What Specific Damage Signs Should Homeowners Look for After 1-Inch Hourly Rainfall Events?"
    INCORRECT H2: "Understanding Storm Risk in Metro Atlanta"
+   INCORRECT H2: "How Does Roof Condition Affect Insurance Claims During Heavy Rain Events?" (too generic — add a county or specific roof term)
 
-   Each ## section (except FAQ) should follow:
+   Each ## section (except FAQ) should follow a story arc:
    1. First sentence: direct answer to the H2 question.
-   2. Next 2–4 sentences: local mechanism — why this matters in Metro Atlanta.
+   2. Next 2–4 sentences: what happened locally and why it matters to this homeowner type.
    3. Optional: one example neighborhood with a specific reason (terrain, housing age, soil, drainage, policy history).
    4. End with a practical takeaway — what to check, ask, or document.
 
@@ -101,8 +103,8 @@ STRUCTURE REQUIREMENTS (follow exactly):
 4. COMPARISON TABLE — At least one markdown table comparing options, costs, timelines, or claim steps. Tables are highly citable for GEO because they deliver structured facts in a scannable format — make every row a distinct, quotable data point.
 
    Preferred formats (pick the best fit for SOURCES):
-   - **Location × housing-type × vulnerability × homeowner action** — four columns when possible; each row names a Metro Atlanta area, building type or era, a specific roof/drainage vulnerability, and what to do next.
-   - **Location × housing-type × scenario** — each row names a Metro Atlanta area plus a specific building type or construction era and its vulnerability (e.g., "Marietta townhomes — 1980s/90s builds — aging flashing at roof-to-wall joints"). Highly quotable for AI search.
+   - **Location × housing-type × vulnerability × recommended action** — include specific roofing mechanisms (cricket flashing, nail patterns, valley debris, wind uplift) when SOURCES support them.
+   - **Location × housing-type × scenario** — each row names a Metro Atlanta area plus a specific building type or construction era and its vulnerability.
    - **Before vs. after** — for legal or policy changes (pre-ruling vs post-ruling documentation requirements).
    - **Risk factor × prevention** — only when each row still names a concrete local scenario, not generic risk labels alone.
 
@@ -119,7 +121,7 @@ STRUCTURE REQUIREMENTS (follow exactly):
    - Outlet name in each citation must match a source listed in SOURCES.
    - Do not cite agencies or studies not present in SOURCES.
    - When 2+ sources are provided, include at least one linked citation from **each** outlet/domain — never cite only one outlet for the whole post.
-   - Minimum **3** linked citations required; up to 6 when SOURCES support more citable facts — never invent a statistic to hit a count.
+   - Minimum **3** linked citations required; up to 6 when SOURCES support more citable facts — attach each cited number to a direct homeowner conclusion.
 
    Each cited fact must draw a direct conclusion for the homeowner — not stated as a standalone fact.
 
@@ -136,12 +138,12 @@ STRUCTURE REQUIREMENTS (follow exactly):
    - Written as a homeowner would type into ChatGPT — standalone, readable without the article
    - At least 3 of 8 must name a Metro Atlanta location or Georgia-specific context
    - At least 2 questions use "I/my" voice (e.g., "Should I file a claim before…")
-   - Must not repeat body content verbatim — extend or deepen it
-   - For insurance/policy posts: cover **varied topics** across the 8 questions — e.g., RCV vs ACV, filing before vs after repair, documentation needed, policy exclusions, roof vs window entry points, manufacturer warranty limits. Do not ask the same "does my policy cover this?" question eight ways.
+   - Must not repeat body content verbatim — extend or deepen it with new angles, numbers, or timelines
+   - For insurance/policy posts: cover varied topics across the 8 questions — RCV vs ACV, filing timing, documentation, exclusions, depreciation recovery windows, manufacturer warranty limits
 
    Answer requirements:
    - First sentence must fully answer the question
-   - 4–5 sentences each (3 minimum only if SOURCES are extremely thin)
+   - 4–5 sentences each — these are prime AI citation targets; include specific numbers, timeframes, or procedures from SOURCES when available
    - At least one specific verifiable detail per answer, drawn from SOURCES or established local context
    - Vary the actionable takeaway across answers — not the same "review your policy with your agent" line in every FAQ
    - No generic CTAs in answers
@@ -153,7 +155,7 @@ STRUCTURE REQUIREMENTS (follow exactly):
    "Contact Peachtree Roofing & Exteriors for a free inspection."
 
    Placement (minimum):
-   - Once immediately after the Quick Answer block (homeowners know what to do next)
+   - Once immediately after the Summary block (homeowners know what to do next)
    - Once after the neighborhood or local-risk section (urgency is highest)
    - Once after the roof-condition / inspection / replacement bridge section
    - Once again at the very end before the author byline
@@ -175,7 +177,7 @@ VOICE RULES:
 VALIDATION CHECKLIST — verify every item before outputting:
 ☐ One H1 title, max 70 characters
 ☐ Opening paragraph 50–120 words, answer-first, news-anchored
-☐ Quick Answer block present after opening
+☐ Summary block present after opening
 ☐ Every ## is a question ending ?, except "## FAQ"
 ☐ Every H2 first sentence directly answers the question in the heading
 ☐ Neighborhood or location mentions each carry a specific, concrete reason — no bare name drops
@@ -187,7 +189,7 @@ VALIDATION CHECKLIST — verify every item before outputting:
 ☐ Exactly 8 FAQ ### questions under ## FAQ
 ☐ FAQ answers 3–5 sentences; first sentence answers the question
 ☐ Exact author byline sentence
-☐ Exact CTA sentence appears at least 3 times (after Quick Answer, mid-body, and end)
+☐ Exact CTA sentence appears at least 3 times (after Summary block, mid-body, and end)
 ☐ No competitor/vendor brand promoted as the expert voice
 ☐ No generic openers anywhere in the post
 ☐ No invented statistics, dates, source names, case names, or legislation
@@ -220,13 +222,13 @@ STEP 2 — CITATION INTEGRITY
 
 STEP 2b — BRAND & CTA
 - Remove competitor/vendor brands (e.g., companies named in press-release headlines) as authoritative voices — attribute to the news outlet instead.
-- Confirm the exact CTA sentence appears at least 3 times, including after Quick Answer and mid-body.
+- Confirm the exact CTA sentence appears at least 3 times, including after Summary block and mid-body.
 - Confirm insurance/policy content explicitly connects exclusions to roof inspection, flashing, maintenance, or replacement.
 
 STEP 3 — STORY TYPE MATCH
 - Identify the dominant Strategy cluster in SOURCES.
 - Delete or rewrite any section that belongs to a different story type (e.g., storm-season or tornado history in an insurance/legal post unless SOURCES are weather-related).
-- Confirm the opening, Quick Answer, table, and FAQ all address the same news event and cluster.
+- Confirm the opening, Summary block, table, and FAQ all address the same news event and cluster.
 
 STEP 4 — LOCATION QUALITY
 - Confirm at least 6 different allowlist locations appear — and no more than 12 total.
