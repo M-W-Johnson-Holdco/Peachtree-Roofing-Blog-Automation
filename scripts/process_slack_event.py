@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import sys
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -27,6 +28,12 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="Do not auto-rewrite from thread feedback (not recommended in Actions)",
     )
+    parser.add_argument(
+        "--result-json",
+        type=Path,
+        default=None,
+        help="Write machine-readable result JSON here (CI uses this instead of parsing stdout).",
+    )
     args = parser.parse_args(argv)
 
     if args.event_b64:
@@ -39,22 +46,29 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit("Provide --event-b64, --event-json, or stdin JSON.")
 
     if not should_process_slack_event(event):
-        print(json.dumps({"changed": False, "skipped": True}))
+        payload = {"changed": False, "skipped": True}
+        _emit_result(payload, args.result_json)
         return
 
     changed = process_slack_event(event, auto_rewrite=not args.no_auto_rewrite)
-    print(
-        json.dumps(
-            {
-                "changed": changed,
-                "skipped": False,
-                "commit_paths": [
-                    str(GENERATED_DIR.relative_to(PROJECT_ROOT)),
-                    str((SOURCES_DIR / "used_sources.json").relative_to(PROJECT_ROOT)),
-                ],
-            }
-        )
-    )
+    payload = {
+        "changed": changed,
+        "skipped": False,
+        "commit_paths": [
+            str(GENERATED_DIR.relative_to(PROJECT_ROOT)),
+            str((SOURCES_DIR / "used_sources.json").relative_to(PROJECT_ROOT)),
+        ],
+    }
+    _emit_result(payload, args.result_json)
+
+
+def _emit_result(payload: dict, result_json: Path | None) -> None:
+    if result_json is not None:
+        result_json.parent.mkdir(parents=True, exist_ok=True)
+        result_json.write_text(json.dumps(payload), encoding="utf-8")
+        print(f"[process_slack_event] Wrote result to {result_json}")
+    else:
+        print(json.dumps(payload))
 
 
 if __name__ == "__main__":

@@ -58,7 +58,9 @@ jobs:
           GITHUB_REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          python scripts/process_slack_event.py --event-b64 "${SLACK_EVENT_B64}" | tee slack_result.json
+          python scripts/process_slack_event.py \
+            --event-b64 "${SLACK_EVENT_B64}" \
+            --result-json slack_result.json
           changed="$(python -c "import json; print(json.load(open('slack_result.json'))['changed'])")"
           echo "changed=${changed}" >> "$GITHUB_OUTPUT"
 

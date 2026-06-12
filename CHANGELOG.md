@@ -25,6 +25,26 @@ Notes / next step:
 - 
 ```
 
+## 2026-06-12 - Fix Slack Approval Handler JSON parse failure
+
+Changed:
+- `process_slack_event.py` writes CI result JSON via `--result-json` (approve logs no longer corrupt stdout parsing).
+- `slack_approve.yml` reads `slack_result.json` from that file instead of `tee` on mixed stdout.
+
+Why:
+- Worker → Actions posted Slack replies but the job failed parsing `[approve]` log lines as JSON, so approval state was not committed to git.
+
+Files touched:
+- `scripts/process_slack_event.py`
+- `.github/workflows/slack_approve.yml`
+- `CHANGELOG.md`
+
+Tested:
+- Reproduced failure on run 27424609800 (Slack reply sent, workflow exit 1 on JSONDecodeError).
+
+Notes / next step:
+- Push and re-react ✅ if `generated/approved/` was not updated on the last approval.
+
 ## 2026-06-11 - Relax search content filters for Georgia-wide and trade stories
 
 Changed:
