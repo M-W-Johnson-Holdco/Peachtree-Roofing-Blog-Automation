@@ -16,10 +16,9 @@ The bot posts a thread reply when the listener stops that way.
 Posting uploads the existing PDF from `output/drafts/drafts_pdf/`. Run write first.
 
 Slack reactions on the approval message:
-- :white_check_mark: — approve (records sources in used_sources.json)
+- :white_check_mark: — approve (records sources in used_sources.json; sends draft to PSAI when configured)
 - :x: — request revisions (reply in thread with feedback)
 - :repeat: — discard and rerun search → evaluate → write → post new draft
-- :globe_with_meridians: — after approval, publish to the company website (when PSAI is configured)
 
 Required: SLACK_APPROVAL_BOT_TOKEN, SLACK_APPROVAL_CHANNEL, SLACK_APPROVAL_TOKEN (listen).
 Optional PSAI: PSAI_API_KEY in `.env` / GitHub Secrets; `api_url` and `author` in `config/psai.json`.
@@ -82,11 +81,12 @@ from peachtree_blog.post import (
     publish_from_validation_path,
 )
 from peachtree_blog.used_sources import record_used_sources_from_validation_report
+from peachtree_blog.pipeline_costs import format_approval_summary_slack_lines
 from peachtree_blog.write_common import (
     DEFAULT_OUTPUT_DIR,
     draft_pdf_path,
+    draft_run_id_from_path,
     draft_validation_json_path,
-    format_generation_slack_lines,
     latest_markdown_draft,
     resolve_drafts_root,
     update_record_revision_mode,
@@ -229,6 +229,15 @@ def _handle_website_publish_reaction(
 ) -> None:
     if approval_status(report) != APPROVAL_STATUS_APPROVED:
         print("[approve] Ignoring website publish reaction; draft is not approved yet")
+        client.chat_postMessage(
+            channel=channel,
+            thread_ts=ts,
+            text=(
+                "This draft is not approved in GitHub yet. React with :white_check_mark: first "
+                "(on the intro message above), wait for the approval reply, then click "
+                ":globe_with_meridians: again."
+            ),
+        )
         return
 
     if psai_already_published(report):
@@ -269,67 +278,38 @@ def _handle_website_publish_reaction(
 
 def build_approval_intro(
     title: str,
-    relative_path: Path,
-    pdf_relative_path: Path,
+    draft_path: Path,
     rewritten_from: str | None,
     *,
     recycled_from: str | None = None,
     validation_report: dict[str, Any] | None = None,
-    rewrite_model: str | None = None,
-    auto_rewrite: bool = True,
+    model_display: str | None = None,
 ) -> str:
+    run_id = draft_run_id_from_path(draft_path)
     intro = [
         f"*Blog draft ready for approval:* {title}",
-        f"`{relative_path}`",
-        f"PDF: `{pdf_relative_path}`",
+        f"Draft: `{run_id}`",
         "",
     ]
     if recycled_from:
-        intro.insert(
-            1,
-            f"Full pipeline restart from `{recycled_from}` (search → evaluate → write).",
-        )
+        prior = draft_run_id_from_path(recycled_from)
+        intro.insert(1, f"Full pipeline restart from draft `{prior}`.")
     elif rewritten_from:
-        intro.insert(1, f"Revision generated from `{rewritten_from}`.")
+        prior = draft_run_id_from_path(rewritten_from)
+        intro.insert(1, f"Revision of draft `{prior}`.")
 
-    report = validation_report or {}
-    generation = report.get("generation") if isinstance(report.get("generation"), dict) else {}
-    model_id = str(generation.get("model_used") or report.get("model") or "").strip()
-    model_display = model_label(model_id) if model_id else None
-    generation_heading = "*Rewrite*" if rewritten_from else "*Generation*"
-    model_line_label = "Rewrite model" if rewritten_from else "Model"
-    generation_lines = format_generation_slack_lines(
-        report,
+    summary_lines = format_approval_summary_slack_lines(
+        validation_report or {},
         model_display=model_display,
-        model_line_label=model_line_label,
     )
-    if generation_lines:
-        intro.extend([generation_heading, *generation_lines, ""])
-
-    if rewrite_model and not rewritten_from:
-        intro.append("*Slack feedback rewrites*")
-        intro.append(f"• Rewrite model: {model_label(rewrite_model)}")
-        if auto_rewrite:
-            intro.append("• Auto-rewrite: enabled (thread feedback reruns write_serverless)")
-        else:
-            intro.append("• Auto-rewrite: disabled (feedback saved only)")
+    if summary_lines:
+        intro.extend(summary_lines)
         intro.append("")
 
-    intro.append("The draft PDF is attached in this thread.")
-    intro.append("")
-    reaction_help = (
+    intro.append(
         "React to this message with :white_check_mark: to approve, :x: to request revisions, "
-        "or :repeat: to discard and rerun search → evaluate → write."
+        ":repeat: to discard and rerun."
     )
-    if psai_configured():
-        config = load_psai_config()
-        if config and not config.auto_publish:
-            reaction_help = (
-                "React to this message with :white_check_mark: to approve, :x: to request revisions, "
-                ":repeat: to discard and rerun search → evaluate → write, or :globe_with_meridians: "
-                f"(after approval) to publish to the website as `{config.default_status}`."
-            )
-    intro.append(reaction_help)
     return "\n".join(intro)
 
 
@@ -668,15 +648,16 @@ def post_draft(
     pdf_relative_path = pdf_path.relative_to(PROJECT_ROOT)
     validation_path = draft_validation_json_path(draft_path)
     report = load_validation_report(validation_path)
+    generation = report.get("generation") if isinstance(report.get("generation"), dict) else {}
+    model_id = str(generation.get("model_used") or report.get("model") or "").strip()
+    model_display = model_label(model_id) if model_id else None
     text = build_approval_intro(
         title,
-        relative_path,
-        pdf_relative_path,
+        draft_path,
         rewritten_from,
         recycled_from=recycled_from,
         validation_report=report,
-        rewrite_model=rewrite_model,
-        auto_rewrite=auto_rewrite,
+        model_display=model_display,
     )
 
     response = client.chat_postMessage(channel=channel, text=text)
@@ -764,6 +745,15 @@ def handle_reaction(
 
     found = find_validation_for_slack_message(channel, ts)
     if not found:
+        print(f"[approve] No draft validation found for Slack message {channel}:{ts}")
+        client.chat_postMessage(
+            channel=channel,
+            thread_ts=ts,
+            text=(
+                "I could not match this message to a draft in GitHub. "
+                "React on the *intro* post (with the pre-added emoji prompts), not the PDF attachment."
+            ),
+        )
         return
 
     validation_path, report = found

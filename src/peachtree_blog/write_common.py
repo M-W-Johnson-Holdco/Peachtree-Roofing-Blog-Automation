@@ -15,6 +15,7 @@ from typing import Any
 from dotenv import load_dotenv
 
 from peachtree_blog.cli_progress import run_with_progress
+from peachtree_blog.pipeline_costs import load_pipeline_costs
 from peachtree_blog.used_sources import normalize_source_url, sources_used_payload, used_source_urls
 from peachtree_blog.draft_pdf import save_draft_pdf
 
@@ -1001,6 +1002,15 @@ def draft_stem_from_path(draft_path: Path) -> str:
     return draft_path.stem
 
 
+def draft_run_id_from_path(draft_path: Path | str) -> str:
+    """Return the six-digit HHMMSS run id from a draft filename (e.g. ``021058``)."""
+    stem = draft_stem_from_path(Path(draft_path))
+    match = re.match(r"^\d{4}-\d{2}-\d{2}-(\d{6})-", stem)
+    if match:
+        return match.group(1)
+    return stem
+
+
 def draft_pdf_path(markdown_path: Path) -> Path:
     stem = draft_stem_from_path(markdown_path)
     _, pdf_dir, _ = draft_subdirs(resolve_drafts_root(markdown_path))
@@ -1581,6 +1591,9 @@ def save_draft_outputs(
     report["generation"] = generation_report
     report["draft_path"] = str(draft_path)
     report["sources_used"] = sources_used_payload(selected_sources)
+    pipeline_costs = load_pipeline_costs()
+    if pipeline_costs:
+        report["pipeline_costs"] = pipeline_costs
     if generation_report.get("validation_attempts") is not None:
         report["validation_attempts"] = generation_report["validation_attempts"]
     if generation_report.get("validation_passed") is not None:

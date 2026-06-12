@@ -39,6 +39,7 @@ from peachtree_blog.pipeline.evaluate import (
     TARGET_EVALUATED_KEPT,
 )
 from peachtree_blog.used_sources import normalize_source_url, used_source_urls
+from peachtree_blog.pipeline_costs import record_evaluate_cost, record_search_cost, reset_pipeline_costs
 
 
 DEFAULT_MAX_AGE_DAYS = 21
@@ -1200,6 +1201,7 @@ def search_roofing_news(
     use_domain_stages: bool = False,
 ) -> list[dict]:
     load_dotenv(PROJECT_ROOT / ".env")
+    reset_pipeline_costs()
     client = _load_client()
     evaluator: IncrementalEvaluator | None = None
     if target_evaluated_kept < min_evaluated_kept:
@@ -1356,12 +1358,14 @@ def search_roofing_news(
     if evaluator:
         evaluator.save_outputs()
         evaluator.print_summary()
+        record_evaluate_cost(evaluator.build_run_report())
 
     results = _sort_results(list(results_by_url.values()))
     if target_results is not None:
         results = results[:target_results]
 
     credits_used = queries_run * TAVILY_ADVANCED_SEARCH_CREDITS
+    record_search_cost(queries_run=queries_run, credits_used=credits_used)
     skipped_note = f", skipped {skipped_used_sources} previously used" if skipped_used_sources else ""
     reject_note = ""
     if pipeline_rejects:

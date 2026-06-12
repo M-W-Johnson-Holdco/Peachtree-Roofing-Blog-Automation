@@ -4,6 +4,6 @@
   "default_status": "draft",
   "site_brand": "Peachtree Roofing & Exteriors",
   "notify_subscribers": false,
-  "auto_publish": false,
+  "auto_publish": true,
   "display_author_details": true
 }

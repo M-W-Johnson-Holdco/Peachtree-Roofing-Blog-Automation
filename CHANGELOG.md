@@ -25,6 +25,119 @@ Notes / next step:
 - 
 ```
 
+Notes / next step:
+- Push `.github/workflows/slack_approve.yml` so ✅ approvals persist on GitHub before 🌐 publish works.
+
+## 2026-06-12 - Fix Tavily USD per credit default
+
+Changed:
+- `DEFAULT_TAVILY_USD_PER_CREDIT` set to **$0.008** (was $0.001).
+
+Why:
+- Match actual Tavily billing so Slack Tavily cost lines are accurate.
+
+Files touched:
+- `src/peachtree_blog/pipeline_costs.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run.
+
+## 2026-06-12 - Add model and cost summary to Slack approval intro
+
+Changed:
+- Slack approval intro includes model, combined inference cost (write + evaluate), Tavily cost, and source count.
+- `pipeline_costs.py` records search/evaluate spend to `output/sources/pipeline_costs.json`; write embeds it in validation JSON.
+- Search resets cost tracking each run; Tavily USD defaults to $0.008/credit (`TAVILY_USD_PER_CREDIT` override).
+
+Why:
+- Approval posts should stay short but still show which model ran and what the run cost.
+
+Files touched:
+- `src/peachtree_blog/pipeline_costs.py`
+- `src/peachtree_blog/pipeline/search.py`
+- `src/peachtree_blog/pipeline/evaluate.py`
+- `src/peachtree_blog/write_common.py`
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run.
+
+## 2026-06-12 - Shorten Slack approval intro message
+
+Changed:
+- `build_approval_intro()` shows draft run id only (e.g. `021058`) — no file paths, generation stats, PDF reminder, or globe reaction help.
+- `draft_run_id_from_path()` extracts the six-digit HHMMSS stamp from draft filenames.
+
+Why:
+- Approval Slack posts should be scannable; paths and metadata belong in validation JSON, not the intro.
+
+Files touched:
+- `src/peachtree_blog/write_common.py`
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run.
+
+## 2026-06-12 - Auto-send approved drafts to PSAI as draft
+
+Changed:
+- `config/psai.json`: `auto_publish: true` (with `default_status: "draft"`) — ✅ approval sends to PSAI immediately; no 🌐 reaction.
+- `psai_publish_success_text()` clarifies PSAI *draft* vs live publish.
+- README and `approve_listen` docs updated for the new default flow.
+
+Why:
+- Skip the extra globe reaction; approved blogs should land in PSAI drafts, not on the live site.
+
+Files touched:
+- `config/psai.json`
+- `src/peachtree_blog/post.py`
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (requires Slack approval + PSAI in CI).
+
+Notes / next step:
+- Push; ensure `PSAI_API_KEY` is set in GitHub Actions secrets.
+
+## 2026-06-12 - Reply in Slack when globe or reaction target is invalid
+
+Changed:
+- Globe reaction posts a thread reply when the draft is not approved yet (was silent).
+- Unknown approval messages get a thread reply instead of failing silently.
+
+Why:
+- Users clicked 🌐 after ✅ but GitHub still had `approval.status: pending` (commit step failed), so publish was skipped with no bot response.
+
+Files touched:
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `CHANGELOG.md`
+
+Tested:
+- Not run.
+
+## 2026-06-12 - Fix slack_approve git add for used_sources.json
+
+Changed:
+- `slack_approve.yml` uses `git add -f output/sources/used_sources.json` so the commit step does not fail on gitignored `output/`.
+
+Why:
+- Approval handler processed ✅ and posted to Slack but the commit step exited 1, leaving GitHub out of sync.
+
+Files touched:
+- `.github/workflows/slack_approve.yml`
+- `CHANGELOG.md`
+
+Tested:
+- Manual approve run 27425321416 (process step OK; commit failed before this fix).
+
+Notes / next step:
+- Wire Slack Event Subscriptions Request URL to the Cloudflare Worker so reactions dispatch Actions automatically.
+
 ## 2026-06-12 - Fix Slack Approval Handler JSON parse failure
 
 Changed:

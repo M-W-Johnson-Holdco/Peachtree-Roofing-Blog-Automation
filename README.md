@@ -516,12 +516,11 @@ conda run -n blog-automation python -m peachtree_blog.pipeline.approve_listen po
 
 The message asks reviewers to react on the **intro message** (not the PDF thread reply):
 
-- `:white_check_mark:` — approve (records sources in `used_sources.json`)
+- `:white_check_mark:` — approve (records sources in `used_sources.json`; sends to PSAI as a draft when configured)
 - `:x:` — request revisions (reply in thread with feedback)
 - `:repeat:` (🔁) — discard the draft and rerun **search → evaluate → write**, then post a new draft for approval
-- `:globe_with_meridians:` — after approval, publish to the company website (when PSAI env vars are set)
 
-The bot pre-adds those reaction prompts on the intro message.
+The bot pre-adds ✅ ❌ 🔁 on the intro message (no 🌐 step when `auto_publish` is enabled in `config/psai.json`).
 
 Posting updates the draft validation JSON with an `approval` block (Slack channel, message timestamp, status, feedback, etc.):
 
@@ -553,7 +552,7 @@ Run the Socket Mode listener:
 conda run -n blog-automation python -m peachtree_blog.pipeline.approve_listen listen
 ```
 
-When a reviewer reacts with `:white_check_mark:` on the **intro message** (not the PDF thread reply), the validation JSON `approval.status` changes to `approved`, the draft moves to `output/approved/`, and the bot replies in the thread. If Predictive Sales AI is configured, the bot also offers a `:globe_with_meridians:` reaction to publish the post to the website (or publishes immediately when `PSAI_AUTO_PUBLISH=true`).
+When a reviewer reacts with `:white_check_mark:` on the **intro message** (not the PDF thread reply), the validation JSON `approval.status` changes to `approved`, the draft moves to `output/approved/`, and the bot replies in the thread. If PSAI is configured (`PSAI_API_KEY` + `config/psai.json`), the approved draft is sent to PSAI automatically as a **draft** (not live on the site).
 
 When a reviewer reacts with `:x:`, the bot asks for feedback in the Slack thread. The next human thread reply is saved into the validation JSON and `write_serverless.py` is rerun with:
 
@@ -607,9 +606,11 @@ After a draft is approved, you can publish it to the Peachtree website through S
   "api_url": "https://developers.predictivesalesai.com",
   "author": "j.gil@peachtreerestorations.com",
   "default_status": "draft",
-  "auto_publish": false
+  "auto_publish": true
 }
 ```
+
+`auto_publish: true` sends each approved draft to PSAI immediately. `default_status: "draft"` keeps posts out of the live site until you publish them in PSAI.
 
 Local `.env`:
 
@@ -621,11 +622,11 @@ PSAI_API_KEY=your-bearer-key-with-blogs-write-scope
 
 ### Slack flow
 
-1. Approve with `:white_check_mark:` as usual.
-2. If `PSAI_AUTO_PUBLISH=false` (default), the bot replies with instructions to react `:globe_with_meridians:` on the approval message.
-3. On publish success, the thread shows the blog ID and public URL. The validation JSON stores `approval.psai` metadata.
+1. Approve with `:white_check_mark:` on the intro message.
+2. The bot approves the draft, records used sources, and posts it to PSAI as **`draft`** (see success reply with blog ID / link).
+3. The validation JSON stores `approval.psai` metadata.
 
-Set `auto_publish` to `true` in `config/psai.json` to skip the extra reaction and publish immediately after approval.
+Set `auto_publish` to `false` in `config/psai.json` if you want the old 🌐 reaction step instead.
 
 ### CLI
 

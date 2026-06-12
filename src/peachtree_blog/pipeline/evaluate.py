@@ -27,6 +27,7 @@ from typing import Any
 from dotenv import load_dotenv
 
 from peachtree_blog.used_sources import normalize_source_url, source_url, used_source_urls
+from peachtree_blog.pipeline_costs import record_evaluate_cost
 from peachtree_blog.write_common import (
     build_generation_report,
     extract_usage,
@@ -372,6 +373,10 @@ class IncrementalEvaluator:
             f"[evaluate] Incremental summary: kept {len(self.kept)}/{len(self.evaluated)} "
             f"(threshold {KEEP_THRESHOLD})"
         )
+        report = self.build_run_report()
+        print_generation_cost_summary(report, model_used=self.model, log_prefix="[evaluate]")
+
+    def build_run_report(self) -> dict[str, Any]:
         report = build_generation_report(
             model_requested=self.model,
             model_used=self.model,
@@ -381,7 +386,7 @@ class IncrementalEvaluator:
         )
         report["mode"] = "evaluate_incremental"
         report["api_calls"] = len(self.evaluated)
-        print_generation_cost_summary(report, model_used=self.model, log_prefix="[evaluate]")
+        return report
 
 
 def evaluate_sources(
@@ -519,6 +524,7 @@ def main() -> None:
         model_used=model_used,
         log_prefix="[evaluate]",
     )
+    record_evaluate_cost(run_report, api_calls=len(sources))
 
 
 if __name__ == "__main__":

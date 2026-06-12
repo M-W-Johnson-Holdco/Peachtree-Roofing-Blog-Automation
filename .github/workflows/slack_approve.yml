@@ -69,7 +69,10 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add generated/ output/sources/used_sources.json
+          git add generated/
+          if [ -f output/sources/used_sources.json ]; then
+            git add -f output/sources/used_sources.json
+          fi
           git diff --cached --quiet && exit 0
           git commit -m "Sync Slack approval from event ${{ inputs.event_id }}"
           git push

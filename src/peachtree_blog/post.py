@@ -526,7 +526,11 @@ def psai_publish_offer_text() -> str:
 def psai_publish_success_text(response: dict[str, Any], *, status: str) -> str:
     url = publish_result_url(response)
     blog_id = _get_blog_id(response)
-    parts = [f"Posted to the website as *{status}*."]
+    if status == "draft":
+        lead = "Sent to PSAI as a *draft* (not live on the site yet)."
+    else:
+        lead = f"Posted to the website as *{status}*."
+    parts = [lead]
     if blog_id:
         parts.append(f"Blog ID: `{blog_id}`.")
     if url:
