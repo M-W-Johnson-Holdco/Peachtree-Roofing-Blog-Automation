@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from peachtree_blog.paths import OUTPUT_DIR, PROJECT_ROOT
+from peachtree_blog.paths import GENERATED_APPROVED_DIR, GENERATED_RUNS_DIR, OUTPUT_DIR, PROJECT_ROOT
 from peachtree_blog.write_common import (
     DRAFTS_JSON_DIRNAME,
     DRAFTS_MD_DIRNAME,
@@ -224,13 +224,25 @@ def _relative_project_path(path: Path) -> str:
 
 def approval_destination_root(draft_path: Path) -> Path:
     """Use generated/approved for CI drafts archived under generated/runs/."""
-    from peachtree_blog.paths import GENERATED_APPROVED_DIR, GENERATED_RUNS_DIR
-
     try:
         draft_path.resolve().relative_to(GENERATED_RUNS_DIR.resolve())
         return GENERATED_APPROVED_DIR
     except ValueError:
         return APPROVED_OUTPUT_DIR
+
+
+def draft_in_approved_storage(draft_path: Path) -> bool:
+    return resolve_drafts_root(draft_path) in {APPROVED_OUTPUT_DIR, GENERATED_APPROVED_DIR}
+
+
+def unapprove_destination_root(report: dict[str, Any]) -> Path:
+    """Move un-approved CI drafts back under generated/runs/<run_id>/."""
+    run_id = str(report.get("ci_run_id") or "").strip()
+    if run_id:
+        destination = GENERATED_RUNS_DIR / run_id
+        ensure_draft_subdirs(destination)
+        return destination
+    return DEFAULT_OUTPUT_DIR
 
 
 def relocate_draft_artifacts(draft_path: Path, *, destination_root: Path | None = None) -> Path:

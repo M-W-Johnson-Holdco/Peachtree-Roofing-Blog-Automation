@@ -83,15 +83,13 @@ def process_slack_event(event: dict[str, Any], *, auto_rewrite: bool = True) -> 
         )
         changed = True
     elif event_type == "reaction_removed":
-        handle_reaction_removed(event, client, bot_user_id=bot_user_id)
-        changed = True
+        changed = handle_reaction_removed(event, client, bot_user_id=bot_user_id)
     elif event_type == "message":
-        handle_message(
+        changed = handle_message(
             event,
             client,
             auto_rewrite=auto_rewrite,
             bot_user_id=bot_user_id,
         )
-        changed = True
 
     return changed

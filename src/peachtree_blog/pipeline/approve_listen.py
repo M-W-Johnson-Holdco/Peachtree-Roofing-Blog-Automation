@@ -16,7 +16,8 @@ The bot posts a thread reply when the listener stops that way.
 Posting uploads the existing PDF from `output/drafts/drafts_pdf/`. Run write first.
 
 Slack reactions on the approval message:
-- :white_check_mark: — approve (records sources in used_sources.json; sends draft to PSAI when configured)
+- :white_check_mark: — approve (records sources; moves draft to approved)
+- Reply `publish` in thread — send to PSAI when ✅ is still on the intro message
 - :x: — request revisions (reply in thread with feedback)
 - :repeat: — discard and rerun search → evaluate → write → post new draft
 
@@ -61,6 +62,7 @@ from peachtree_blog.draft_approval import (
     approval_status,
     clear_approval_status as clear_validation_approval_status,
     clear_rejection_status as clear_validation_rejection_status,
+    draft_in_approved_storage,
     find_validation_for_slack_message,
     get_approval_block,
     iter_validation_json_paths,
@@ -70,17 +72,22 @@ from peachtree_blog.draft_approval import (
     relocate_draft_artifacts,
     resolve_draft_path_from_report,
     save_validation_report,
+    unapprove_destination_root,
 )
 from peachtree_blog.post import (
     PSAI_PUBLISH_REACTIONS,
     load_psai_config,
     psai_already_published,
     psai_configured,
-    psai_publish_offer_text,
+    psai_publish_command_prompt_text,
     psai_publish_success_text,
     publish_from_validation_path,
+    undo_psai_publish_from_validation,
 )
-from peachtree_blog.used_sources import record_used_sources_from_validation_report
+from peachtree_blog.used_sources import (
+    record_used_sources_from_validation_report,
+    remove_used_sources_from_validation_report,
+)
 from peachtree_blog.pipeline_costs import format_approval_summary_slack_lines
 from peachtree_blog.write_common import (
     DEFAULT_OUTPUT_DIR,
@@ -99,6 +106,7 @@ REWRITE_MODULE_KEY = DEFAULT_REWRITE_MODULE_KEY
 APPROVE_REACTIONS = {"white_check_mark", "heavy_check_mark"}
 REJECT_REACTIONS = {"x", "negative_squared_cross_mark"}
 RESTART_REACTIONS = {"repeat"}
+PSAI_PUBLISH_COMMAND = "publish"
 PIPELINE_RESTART_BLOCK_STATUSES = {
     APPROVAL_STATUS_PIPELINE_RESTART_IN_PROGRESS,
     APPROVAL_STATUS_APPROVED,
@@ -175,47 +183,139 @@ def record_approved_draft_sources(report: dict[str, Any]) -> int:
     return len(recorded)
 
 
-def _maybe_auto_publish_to_website(
+def _send_psai_publish_prompt(
     client: Any,
     *,
     channel: str,
     thread_ts: str,
-    validation_path: Path,
-    report: dict[str, Any],
-    user: str,
 ) -> None:
     if not psai_configured():
         return
-
-    config = load_psai_config()
-    if config is None:
-        return
-
-    if config.auto_publish:
-        try:
-            response = publish_from_validation_path(
-                validation_path,
-                published_by=user,
-            )
-            client.chat_postMessage(
-                channel=channel,
-                thread_ts=thread_ts,
-                text=psai_publish_success_text(response, status=config.default_status),
-            )
-        except Exception as exc:
-            print(f"[approve] PSAI auto-publish failed: {exc}")
-            client.chat_postMessage(
-                channel=channel,
-                thread_ts=thread_ts,
-                text=f"Website publish failed: {exc}",
-            )
-        return
-
     client.chat_postMessage(
         channel=channel,
         thread_ts=thread_ts,
-        text=psai_publish_offer_text(),
+        text=psai_publish_command_prompt_text(),
     )
+
+
+def user_has_reaction_on_message(
+    client: Any,
+    *,
+    channel: str,
+    message_ts: str,
+    user_id: str,
+    reaction_names: set[str] | frozenset[str],
+) -> bool:
+    try:
+        response = client.reactions_get(channel=channel, timestamp=message_ts)
+    except Exception as exc:
+        print(f"[approve] Warning: reactions_get failed: {exc}")
+        return False
+    if not response.get("ok"):
+        print(f"[approve] Warning: reactions_get not ok: {response}")
+        return False
+    message = response.get("message") or {}
+    for reaction in message.get("reactions") or []:
+        if reaction.get("name") not in reaction_names:
+            continue
+        if user_id in (reaction.get("users") or []):
+            return True
+    return False
+
+
+def _is_psai_publish_command(text: str) -> bool:
+    return text.strip().lower() == PSAI_PUBLISH_COMMAND
+
+
+def _handle_psai_publish_command(
+    client: Any,
+    *,
+    channel: str,
+    thread_ts: str,
+    user: str,
+    validation_path: Path,
+    report: dict[str, Any],
+) -> bool:
+    status = approval_status(report)
+    approval = get_approval_block(report)
+
+    if status != APPROVAL_STATUS_APPROVED:
+        client.chat_postMessage(
+            channel=channel,
+            thread_ts=thread_ts,
+            text=(
+                "This draft is not approved yet. React with :white_check_mark: "
+                "on the intro message above first."
+            ),
+        )
+        return False
+
+    approver = str(approval.get("approved_by") or "").strip()
+    if approver and user != approver:
+        client.chat_postMessage(
+            channel=channel,
+            thread_ts=thread_ts,
+            text=f"Only <@{approver}> can publish this draft.",
+        )
+        return False
+
+    if not user_has_reaction_on_message(
+        client,
+        channel=channel,
+        message_ts=thread_ts,
+        user_id=user,
+        reaction_names=APPROVE_REACTIONS,
+    ):
+        client.chat_postMessage(
+            channel=channel,
+            thread_ts=thread_ts,
+            text=(
+                "Your :white_check_mark: must still be on the intro message above. "
+                "React :white_check_mark: to approve again, then reply `publish`."
+            ),
+        )
+        return False
+
+    if psai_already_published(report):
+        client.chat_postMessage(
+            channel=channel,
+            thread_ts=thread_ts,
+            text="This draft was already sent to PSAI.",
+        )
+        return False
+
+    if not psai_configured():
+        client.chat_postMessage(
+            channel=channel,
+            thread_ts=thread_ts,
+            text="Website publishing is not configured (set PSAI_API_KEY; see config/psai.json).",
+        )
+        return False
+
+    config = load_psai_config()
+    if config is None:
+        return False
+
+    try:
+        response = publish_from_validation_path(
+            validation_path,
+            published_by=user,
+        )
+        client.chat_postMessage(
+            channel=channel,
+            thread_ts=thread_ts,
+            text=psai_publish_success_text(response, status=config.default_status),
+        )
+        print(f"[approve] Published draft to PSAI for {validation_path}")
+        return True
+    except Exception as exc:
+        print(f"[approve] PSAI publish failed: {exc}")
+        client.chat_postMessage(
+            channel=channel,
+            thread_ts=thread_ts,
+            text=f"Website publish failed: {exc}",
+        )
+        return False
 
 
 def _handle_website_publish_reaction(
@@ -307,8 +407,8 @@ def build_approval_intro(
         intro.append("")
 
     intro.append(
-        "React to this message with :white_check_mark: to approve, :x: to request revisions, "
-        ":repeat: to discard and rerun."
+        "React to this message with :white_check_mark: to approve (remove yours to undo), "
+        ":x: to request revisions, :repeat: to discard and rerun."
     )
     return "\n".join(intro)
 
@@ -461,12 +561,7 @@ def clear_bot_messages_from_channel(
 
 
 def approval_prompt_reaction_names() -> tuple[str, ...]:
-    names = ["white_check_mark", "x", "repeat"]
-    if psai_configured():
-        config = load_psai_config()
-        if config and not config.auto_publish:
-            names.append("globe_with_meridians")
-    return tuple(names)
+    return ("white_check_mark", "x", "repeat")
 
 
 def add_approval_prompt_reactions(client: Any, channel: str, message_ts: str) -> None:
@@ -776,14 +871,7 @@ def handle_reaction(
                 report = load_validation_report(validation_path)
             record_approved_draft_sources(report)
             client.chat_postMessage(channel=channel, thread_ts=ts, text=f"Approved by <@{user}>.")
-            _maybe_auto_publish_to_website(
-                client,
-                channel=channel,
-                thread_ts=ts,
-                validation_path=validation_path,
-                report=report,
-                user=user,
-            )
+            _send_psai_publish_prompt(client, channel=channel, thread_ts=ts)
     elif reaction in PSAI_PUBLISH_REACTIONS:
         _handle_website_publish_reaction(
             client,
@@ -827,24 +915,24 @@ def handle_reaction(
         )
 
 
-def handle_reaction_removed(event: dict[str, Any], client: Any, bot_user_id: str | None = None) -> None:
+def handle_reaction_removed(event: dict[str, Any], client: Any, bot_user_id: str | None = None) -> bool:
     item = event.get("item", {})
     if item.get("type") != "message":
-        return
+        return False
 
     channel = item.get("channel")
     ts = item.get("ts")
     reaction = event.get("reaction")
     user = event.get("user", "unknown")
     if not channel or not ts or not reaction:
-        return
+        return False
 
     if bot_user_id and user == bot_user_id:
-        return
+        return False
 
     found = find_validation_for_slack_message(channel, ts)
     if not found:
-        return
+        return False
 
     validation_path, report = found
     approval = get_approval_block(report)
@@ -852,34 +940,52 @@ def handle_reaction_removed(event: dict[str, Any], client: Any, bot_user_id: str
 
     if reaction in APPROVE_REACTIONS:
         if status != APPROVAL_STATUS_APPROVED:
-            return
+            return False
         if approval.get("approved_by") != user:
             print(
                 f"[approve] Ignoring approval removal from {user}; "
                 f"approver is {approval.get('approved_by')}"
             )
-            return
+            return False
+
         draft_path = resolve_draft_path_from_report(report)
+        draft_ref = str(draft_path.relative_to(PROJECT_ROOT)) if draft_path else str(report.get("draft_path") or "")
+
+        psai_note = undo_psai_publish_from_validation(validation_path, report)[1]
+        report = load_validation_report(validation_path)
+        removed_sources = remove_used_sources_from_validation_report(report, draft_path=draft_ref)
+        if removed_sources:
+            print(f"[approve] Removed {len(removed_sources)} used source URL(s) from registry")
+
         clear_validation_approval_status(validation_path, report)
-        if draft_path and draft_path.is_file() and resolve_drafts_root(draft_path) == APPROVED_OUTPUT_DIR:
-            relocated = relocate_draft_artifacts(draft_path, destination_root=DEFAULT_OUTPUT_DIR)
+        report = load_validation_report(validation_path)
+        if draft_path and draft_path.is_file() and draft_in_approved_storage(draft_path):
+            relocated = relocate_draft_artifacts(
+                draft_path,
+                destination_root=unapprove_destination_root(report),
+            )
             validation_path = draft_validation_json_path(relocated)
             report = load_validation_report(validation_path)
+
         print(f"[approve] Approval removed by {user}; status reset to pending")
+        reply_parts = [f"Approval removed by <@{user}>. Status reset to pending."]
+        if psai_note:
+            reply_parts.append(psai_note)
         client.chat_postMessage(
             channel=channel,
             thread_ts=ts,
-            text=f"Approval removed by <@{user}>. Status reset to pending.",
+            text=" ".join(reply_parts),
         )
+        return True
     elif reaction in REJECT_REACTIONS:
         if status != APPROVAL_STATUS_NEEDS_FEEDBACK:
-            return
+            return False
         if approval.get("rejected_by") != user:
             print(
                 f"[approve] Ignoring revision removal from {user}; "
                 f"rejector is {approval.get('rejected_by')}"
             )
-            return
+            return False
         clear_validation_rejection_status(validation_path, report)
         print(f"[approve] Revision request removed by {user}; status reset to pending")
         client.chat_postMessage(
@@ -887,6 +993,9 @@ def handle_reaction_removed(event: dict[str, Any], client: Any, bot_user_id: str
             thread_ts=ts,
             text=f"Revision request removed by <@{user}>. Status reset to pending.",
         )
+        return True
+
+    return False
 
 
 def is_human_thread_reply(event: dict[str, Any], bot_user_id: str | None) -> bool:
@@ -913,24 +1022,34 @@ def handle_message(
     *,
     rewrite_module_key: str = REWRITE_MODULE_KEY,
     rewrite_model: str | None = None,
-) -> None:
+) -> bool:
     if not is_human_thread_reply(event, bot_user_id):
-        return
+        return False
 
     channel = event.get("channel")
     thread_ts = event.get("thread_ts")
     text = str(event.get("text", "")).strip()
     user = event.get("user", "unknown")
     if not channel or not thread_ts:
-        return
+        return False
 
     found = find_validation_for_slack_message(channel, thread_ts)
     if not found:
-        return
+        return False
 
     validation_path, report = found
+    if _is_psai_publish_command(text):
+        return _handle_psai_publish_command(
+            client,
+            channel=channel,
+            thread_ts=thread_ts,
+            user=user,
+            validation_path=validation_path,
+            report=report,
+        )
+
     if approval_status(report) != APPROVAL_STATUS_NEEDS_FEEDBACK:
-        return
+        return False
 
     append_validation_feedback(
         validation_path,
@@ -968,6 +1087,8 @@ def handle_message(
                 f"`{new_validation_path.relative_to(PROJECT_ROOT)}`"
             ),
         )
+
+    return True
 
 
 LISTEN_EXIT_COMMAND = "e"

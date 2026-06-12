@@ -12,7 +12,7 @@ on:
         default: manual
 
 concurrency:
-  group: slack-approve-${{ inputs.event_id }}
+  group: slack-approve-main
   cancel-in-progress: false
 
 permissions:
@@ -75,4 +75,5 @@ jobs:
           fi
           git diff --cached --quiet && exit 0
           git commit -m "Sync Slack approval from event ${{ inputs.event_id }}"
+          git pull --rebase origin "${GITHUB_REF_NAME:-main}"
           git push

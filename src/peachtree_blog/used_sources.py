@@ -196,6 +196,52 @@ def record_used_sources_from_validation_report(
     )
 
 
+def remove_used_sources_from_validation_report(
+    validation_report: dict[str, Any],
+    *,
+    draft_path: str | Path,
+    path: Path = DEFAULT_USED_SOURCES_PATH,
+) -> list[str]:
+    """Undo used-source registry entries tied to one un-approved draft."""
+    sources = validation_report.get("sources_used")
+    if not isinstance(sources, list) or not sources:
+        return []
+
+    draft_path_str = str(draft_path)
+    target_urls = {
+        str(item.get("normalized_url") or normalize_source_url(str(item.get("url", ""))))
+        for item in sources
+        if isinstance(item, dict)
+    }
+    target_urls.discard("")
+
+    records = load_used_sources(path)
+    kept: list[dict[str, Any]] = []
+    removed: list[str] = []
+    changed = False
+
+    for entry in records:
+        normalized = str(
+            entry.get("normalized_url") or normalize_source_url(str(entry.get("url", "")))
+        ).strip()
+        if normalized not in target_urls or entry.get("last_draft_path") != draft_path_str:
+            kept.append(entry)
+            continue
+
+        use_count = int(entry.get("use_count") or 1) - 1
+        changed = True
+        if use_count <= 0:
+            removed.append(normalized)
+            continue
+
+        entry["use_count"] = use_count
+        kept.append(entry)
+
+    if changed:
+        save_used_sources(kept, path)
+    return removed
+
+
 def sources_used_payload(selected_sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
     payload: list[dict[str, Any]] = []
     for item in selected_sources:

@@ -28,6 +28,73 @@ Notes / next step:
 Notes / next step:
 - Push `.github/workflows/slack_approve.yml` so ✅ approvals persist on GitHub before 🌐 publish works.
 
+## 2026-06-12 - Two-step PSAI publish via thread `publish` command
+
+Changed:
+- ✅ approval records GitHub approval + used sources only (no immediate PSAI send).
+- After ✅, bot prompts: reply `publish` in thread to send to PSAI while your ✅ remains on the intro message.
+- `config/psai.json`: `auto_publish: false`; removed 🌐 pre-added reaction from intro prompts.
+- `handle_message()` handles exact `publish` command with `reactions.get` check; only the approver can publish.
+
+Why:
+- Prevent accidental PSAI posts from a mis-click ✅; explicit `publish` confirms intent.
+
+Files touched:
+- `config/psai.json`
+- `src/peachtree_blog/post.py`
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `src/peachtree_blog/slack_actions/processor.py`
+- `README.md`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (requires Slack + PSAI in CI).
+
+## 2026-06-12 - Cloud un-approve removes PSAI draft and used sources
+
+Changed:
+- Removing your own ✅ runs full undo: reset approval to pending, move CI drafts back to `generated/runs/<id>/`, delete PSAI blog when `approval.psai.blog_id` exists, remove matching `used_sources.json` entries.
+- `post.py`: `delete_blog_post()`, `undo_psai_publish_from_validation()`, `clear_psai_publish_metadata()`.
+- `used_sources.py`: `remove_used_sources_from_validation_report()`.
+- Worker forwards `reaction_removed` again (serialized by `slack-approve-main` queue + rebase-before-push).
+- Slack intro mentions “remove yours to undo”.
+
+Why:
+- Accidental ✅ should be reversible in cloud mode without manual PSAI/git cleanup.
+
+Files touched:
+- `src/peachtree_blog/post.py`
+- `src/peachtree_blog/used_sources.py`
+- `src/peachtree_blog/draft_approval.py`
+- `src/peachtree_blog/pipeline/approve_listen.py`
+- `src/peachtree_blog/slack_actions/processor.py`
+- `workers/slack-events/src/index.js`
+- `CHANGELOG.md`
+
+Tested:
+- Not run (PSAI delete requires live API).
+
+Notes / next step:
+- Redeploy Worker; remove ✅ once (not toggle) to undo. If PSAI delete API rejects the call, bot replies with manual cleanup instructions.
+
+## 2026-06-12 - Serialize Slack approval commits on concurrent Slack events
+
+Changed:
+- `slack_approve.yml`: single concurrency group `slack-approve-main` (queue all approval runs); `git pull --rebase` before push to avoid race failures.
+
+Why:
+- Parallel Slack events (e.g. rapid reactions) could both commit and one push was rejected.
+
+Files touched:
+- `.github/workflows/slack_approve.yml`
+- `CHANGELOG.md`
+
+Tested:
+- Not run.
+
+Notes / next step:
+- Superseded for un-approve by re-enabling `reaction_removed` dispatch with the same queue.
+
 ## 2026-06-12 - Fix Tavily USD per credit default
 
 Changed:

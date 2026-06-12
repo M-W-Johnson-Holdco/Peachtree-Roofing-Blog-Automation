@@ -180,6 +180,10 @@ def blogs_endpoint(config: PsaiConfig) -> str:
     return f"{config.api_url}/v1/blogs"
 
 
+def blog_endpoint(config: PsaiConfig, blog_id: str) -> str:
+    return f"{blogs_endpoint(config)}/{blog_id}"
+
+
 def _get_blog_id(response: dict[str, Any]) -> str | None:
     value = response.get("blogId") or response.get("blog_id")
     if value is None:
@@ -401,6 +405,90 @@ def create_blog_post(
     raise PsaiError(f"PSAI request failed with HTTP {response.status_code}: {message}")
 
 
+def delete_blog_post(
+    blog_id: str,
+    config: PsaiConfig | None = None,
+    *,
+    timeout: float = DEFAULT_REQUEST_TIMEOUT,
+) -> bool:
+    """Delete a PSAI blog by ID. Returns True when deleted or already absent."""
+    resolved_config = config or load_psai_config()
+    if resolved_config is None:
+        raise EnvironmentError("PSAI posting is not configured.")
+
+    endpoint = blog_endpoint(resolved_config, blog_id)
+    logger.info("Deleting PSAI blog %s at %s", blog_id, endpoint)
+    response = requests.delete(
+        endpoint,
+        headers={
+            "Authorization": f"Bearer {resolved_config.api_key}",
+            "Accept": "application/json",
+        },
+        timeout=timeout,
+    )
+    if response.status_code in {200, 204}:
+        logger.info("Deleted PSAI blog %s", blog_id)
+        return True
+    if response.status_code == 404:
+        logger.info("PSAI blog %s was already absent", blog_id)
+        return True
+
+    message = _parse_api_error(response)
+    logger.error("PSAI delete failed with HTTP %s: %s", response.status_code, message)
+    raise PsaiError(f"PSAI delete failed with HTTP {response.status_code}: {message}")
+
+
+def psai_blog_id_from_report(report: dict[str, Any]) -> str | None:
+    approval = report.get("approval")
+    if not isinstance(approval, dict):
+        return None
+    psai = approval.get("psai")
+    if not isinstance(psai, dict):
+        return None
+    blog_id = psai.get("blog_id")
+    if blog_id is None:
+        return None
+    return str(blog_id).strip() or None
+
+
+def clear_psai_publish_metadata(validation_path: Path, report: dict[str, Any]) -> None:
+    approval = report.setdefault("approval", {})
+    psai = approval.pop("psai", None)
+    if isinstance(psai, dict):
+        approval["psai_revoked"] = {
+            "revoked_at": datetime.now(timezone.utc).isoformat(),
+            "blog_id": psai.get("blog_id"),
+            "url": psai.get("url"),
+            "status": psai.get("status"),
+        }
+    save_validation_report(validation_path, report)
+
+
+def undo_psai_publish_from_validation(
+    validation_path: Path,
+    report: dict[str, Any],
+) -> tuple[bool, str]:
+    """Delete PSAI blog for an approved draft and clear local publish metadata."""
+    blog_id = psai_blog_id_from_report(report)
+    if not blog_id:
+        return False, ""
+
+    if not psai_configured():
+        clear_psai_publish_metadata(validation_path, report)
+        return False, f"Cleared local PSAI metadata for `{blog_id}` (PSAI not configured here)."
+
+    try:
+        delete_blog_post(blog_id)
+    except PsaiError as exc:
+        return False, (
+            f"Could not delete PSAI draft `{blog_id}` automatically ({exc}). "
+            "Remove it manually in PSAI if needed."
+        )
+
+    clear_psai_publish_metadata(validation_path, report)
+    return True, f"Removed PSAI draft `{blog_id}`."
+
+
 def publish_markdown(
     markdown: str,
     report: dict[str, Any] | None = None,
@@ -504,6 +592,14 @@ def record_publish_result(
     if published_by:
         psai["published_by"] = published_by
     save_validation_report(validation_path, report)
+
+
+def psai_publish_command_prompt_text() -> str:
+    return (
+        "Reply `publish` in this thread to send the approved draft to PSAI "
+        "(only while your :white_check_mark: is still on the intro message above). "
+        "Remove your :white_check_mark: to cancel before publishing."
+    )
 
 
 def psai_publish_offer_text() -> str:
